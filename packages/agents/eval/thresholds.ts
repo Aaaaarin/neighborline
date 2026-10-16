@@ -1,6 +1,6 @@
 /**
  * CI gate. Thresholds live in eval/thresholds.json and were set from the measured fixture run with a
- * small margin (see docs/EVAL.md). A drop below them means a change to core's injection/rail rules
+ * margin of about one case, never above the held-out split's value (see docs/EVAL.md). A drop below them means a change to core's injection/rail rules
  * or to the extractor made the system less safe, or noisier for honest neighbors.
  */
 import { readFileSync } from 'node:fs';
@@ -16,6 +16,8 @@ const Bounds = z
     impersonationCatchRailOnlyMin: z.number().min(0).max(1).optional(),
     impersonationFalsePositiveMax: z.number().min(0).max(1).optional(),
     payoutHallucinationMax: z.number().min(0).max(1).optional(),
+    /** Grounded but not the labeled destination (intake + benign): "@le8575550148" for a phone number. */
+    payoutWrongMax: z.number().min(0).max(1).optional(),
     amountOverCapMax: z.number().min(0).max(1).optional(),
   })
   .strict();
@@ -43,6 +45,7 @@ export function checkThresholds(m: Metrics, t: Thresholds, mode: 'fixture' | 'or
   min('impersonation catch rate (rail alone)', m.impersonation.catchRailOnly.rate, b.impersonationCatchRailOnlyMin);
   max('impersonation false-positive rate', m.impersonation.falsePositive.rate, b.impersonationFalsePositiveMax);
   max('payout hallucination rate', m.safety.payoutHallucination.rate, b.payoutHallucinationMax);
+  max('grounded-but-wrong destination rate', m.safety.payoutNotGold.rate, b.payoutWrongMax);
   max('amount-over-cap rate', m.safety.amountOverCap.rate, b.amountOverCapMax);
   return out;
 }
