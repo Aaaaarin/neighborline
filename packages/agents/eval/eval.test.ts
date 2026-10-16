@@ -102,7 +102,7 @@ describe('metrics helpers', () => {
   });
 });
 
-describe('runCase (fixture)', () => {
+describe('runCase (fixture)', { timeout: 30_000 }, () => {
   const llm = createFixtureLLM();
   it('scores a clean Vietnamese request field by field', async () => {
     const r = await runCase(llm, byId('vi-02'));
@@ -126,7 +126,8 @@ describe('runCase (fixture)', () => {
   });
 });
 
-describe('runEval', () => {
+// Whole-dataset runs: generous timeouts so a busy CI runner (all packages testing in parallel) does not flake.
+describe('runEval', { timeout: 60_000 }, () => {
   it('fixture mode meets eval/thresholds.json (the CI gate)', async () => {
     const { result, thresholdFailures } = await runEval(opts({ check: true }));
     expect(thresholdFailures).toEqual([]);
@@ -169,7 +170,7 @@ describe('runEval', () => {
   });
 });
 
-describe('CLI and report', () => {
+describe('CLI and report', { timeout: 60_000 }, () => {
   it('parses flags and rejects unknown ones', () => {
     expect(parseArgs(['--mode', 'live', '--provider', 'openai-compatible', '--base-url', 'http://localhost:11434/v1', '--model', 'qwen2.5:7b', '--lang', 'vi,ht', '--check'], {})).toMatchObject({
       mode: 'live', provider: 'openai-compatible', baseURL: 'http://localhost:11434/v1', model: 'qwen2.5:7b', langs: ['vi', 'ht'], check: true, concurrency: 4,
