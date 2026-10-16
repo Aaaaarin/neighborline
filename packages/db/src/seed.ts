@@ -1,6 +1,6 @@
 /**
- * Demo seed: Eastside Mutual Aid, two organizers, policy v1, ~3 weeks of realistic history
- * (13 paid requests across 6 languages, one unclaimed→claimed, one declined) and ~$4,800
+ * Demo seed: Eastside Mutual Aid, two organizers, policy v1, ~4 weeks of realistic history
+ * (25 paid requests from 25 households in 6 languages, one unclaimed→claimed, one declined) and ~$4,800
  * from 60 donors — enough for the transparency report to have real (k-anonymous) rows.
  * Every request goes through the real flow: compute → rail check → approve ×2 → batch → webhook.
  */
@@ -66,6 +66,20 @@ export const SEED_REQUESTS: SeedRequest[] = [
   { daysAgo: 5, lang: 'ht', category: 'groceries', requestedCents: 90_00, dest: v('@rose-stlouis', 'Rose St. Louis'), original: 'Mwen bezwen manje pou pitit mwen yo.', english: 'I need food for my children.', outcome: 'paid', minutesToApprove: 6 },
   { daysAgo: 4, lang: 'en', category: 'transport', dest: v('@jamal-wright', 'Jamal Wright'), original: 'My car broke down and I need gas money to get to work for the week.', english: 'My car broke down and I need gas money to get to work for the week.', outcome: 'paid', minutesToApprove: 3 },
   { daysAgo: 3, lang: 'es', category: 'utility_outage', dest: v('@ana-flores', 'Ana Flores'), original: 'Se fue la luz por la tormenta y necesito un calentador.', english: 'The storm knocked out the power and I need a heater.', outcome: 'paid', minutesToApprove: 4 },
+  // A second wave, so that with k = 5 the report still has real rows (vi, es, ht ≥ 5 households;
+  // utility outage, groceries and medicine ≥ 5).
+  { daysAgo: 26, lang: 'vi', category: 'utility_outage', dest: p('lien.nguyen@example.com', 'Nguyen Thi Lien'), original: 'Cây đổ làm đứt dây điện nhà tôi. Tôi cần đèn pin và máy sưởi.', english: 'A tree took down my power line. I need a flashlight and a heater.', outcome: 'paid', minutesToApprove: 7 },
+  { daysAgo: 25, lang: 'es', category: 'medicine_copay', requestedCents: 40_00, dest: v('@maria-sosa', 'Maria Sosa'), original: 'Necesito pagar el copago de la insulina de mi esposo.', english: 'I need to pay the co-pay for my husband’s insulin.', outcome: 'paid', minutesToApprove: 5 },
+  { daysAgo: 24, lang: 'ht', category: 'groceries', requestedCents: 70_00, dest: p('louis.charles@example.com', 'Louis Charles'), original: 'Frijidè a pa mache depi kouran an koupe, tout manje yo gate.', english: 'The fridge stopped when the power went out and all the food spoiled.', outcome: 'paid', minutesToApprove: 6 },
+  { daysAgo: 23, lang: 'zh', category: 'groceries', requestedCents: 60_00, dest: v('@li-na-zhou', 'Zhou Li Na'), original: '停电后冰箱里的食物都坏了，需要买菜。', english: 'After the outage the food in the fridge spoiled; I need groceries.', outcome: 'paid', minutesToApprove: 8 },
+  { daysAgo: 22, lang: 'ar', category: 'utility_outage', dest: p('omar.khalil@example.com', 'Omar Khalil'), original: 'انقطعت الكهرباء عن شقتي منذ يومين وأحتاج إلى مدفأة صغيرة.', english: 'My apartment has had no power for two days and I need a small heater.', outcome: 'paid', minutesToApprove: 4 },
+  { daysAgo: 21, lang: 'en', category: 'groceries', requestedCents: 75_00, dest: v('@dee-morgan', 'Dee Morgan'), original: 'Lost a week of shifts to the storm. Need groceries for me and my dad.', english: 'Lost a week of shifts to the storm. Need groceries for me and my dad.', outcome: 'paid', minutesToApprove: 6 },
+  { daysAgo: 16, lang: 'vi', category: 'groceries', requestedCents: 65_00, dest: v('@bao-vo', 'Vo Quoc Bao'), original: 'Tôi mất việc mấy ngày vì bão, cần tiền mua gạo và rau.', english: 'I lost a few days of work to the storm and need money for rice and vegetables.', outcome: 'paid', minutesToApprove: 4 },
+  { daysAgo: 13, lang: 'es', category: 'groceries', requestedCents: 85_00, dest: p('elena.cruz@example.com', 'Elena Cruz'), original: 'Somos cinco en casa y se nos acabó la comida.', english: 'There are five of us at home and we ran out of food.', outcome: 'paid', minutesToApprove: 7 },
+  { daysAgo: 10, lang: 'ht', category: 'medicine_copay', requestedCents: 50_00, dest: v('@nadege-joseph', 'Nadege Joseph'), original: 'Mwen bezwen peye pou medikaman sik mwen.', english: 'I need to pay for my diabetes medicine.', outcome: 'paid', minutesToApprove: 5 },
+  { daysAgo: 8, lang: 'zh', category: 'utility_outage', dest: p('jun.huang@example.com', 'Huang Jun'), original: '家里停电三天了，老人怕冷，需要买取暖器。', english: 'No power at home for three days; my elderly parent is cold and we need a heater.', outcome: 'paid', minutesToApprove: 9 },
+  { daysAgo: 6, lang: 'ar', category: 'medicine_copay', requestedCents: 55_00, dest: v('@yusuf-saleh', 'Yusuf Saleh'), original: 'أحتاج إلى دفع ثمن دواء الربو لابني.', english: 'I need to pay for my son’s asthma medicine.', outcome: 'paid', minutesToApprove: 3 },
+  { daysAgo: 1, lang: 'en', category: 'utility_outage', dest: v('@pat-oneil', 'Pat O’Neil'), original: 'Power is still out on our block. Need a space heater for my kids’ room.', english: 'Power is still out on our block. Need a space heater for my kids’ room.', outcome: 'paid', minutesToApprove: 5 },
   { daysAgo: 2, lang: 'en', category: 'other', dest: v('@sam-porter', 'Sam Porter'), original: 'Asking for help with a phone bill. Another group already covered it, so you can close this.', english: 'Asking for help with a phone bill. Another group already covered it, so you can close this.', outcome: 'declined', minutesToApprove: 0 },
 ];
 

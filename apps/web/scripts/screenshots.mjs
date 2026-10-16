@@ -16,7 +16,7 @@ const PHONE = { width: 390, height: 844 };
 
 /** Wait until the stage stopwatch stops (paid or blocked), up to `ms`. */
 const untilStopped = (ms) => async (page) => {
-  await page.waitForFunction(() => /Stopped/.test(document.body.innerText), null, { timeout: ms });
+  await page.waitForFunction(() => /Stopped/.test(document.body.textContent ?? ''), null, { timeout: ms });
   await page.waitForTimeout(1200);
 };
 
@@ -84,7 +84,7 @@ const shots = [
       await p.getByRole('radio', { name: /Marcus/ }).check();
       await p.getByRole('button', { name: /Create passkey for Marcus/ }).click();
       await p.getByText('Signed in as').waitFor({ timeout: 15_000 });
-      await p.getByRole('article').filter({ hasText: 'Ana' }).getByRole('button', { name: /^Approve \$/ }).click();
+      await p.getByRole('article', { name: /^Ana/ }).getByRole('button', { name: /^Approve \$/ }).click();
       await p.getByText(/Signed with passkey/).first().waitFor({ timeout: 20_000 });
       await p.waitForTimeout(1500);
     },

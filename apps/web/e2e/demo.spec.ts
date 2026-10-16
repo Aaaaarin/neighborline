@@ -51,7 +51,7 @@ test.describe('/demo stage (real engine, fake PayPal)', () => {
 
     await expect(page.getByRole('list', { name: 'PayPal rail events' }).getByText('Item SUCCESS · money landed')).toBeVisible();
     await expect(marcus.getByText('$150 landed')).toBeVisible();
-    await expect(marcus.getByText(/Signed with passkey · Marcus’s .* \(you\)/)).toBeVisible();
+    await expect(marcus.getByText(/Signed with passkey · Visitor’s .* \(as Marcus\)/)).toBeVisible();
     await expect(marcus.getByText('Dana: signed with demo key')).toBeVisible();
   });
 
@@ -107,7 +107,7 @@ test('an organizer enrolls a passkey on /organizer and signs an approval with it
   await page.getByRole('button', { name: /Create passkey for Marcus/ }).click();
   await expect(page.getByText('Signed in as')).toBeVisible();
   // Ana has no approvals yet, so her card stays in the queue with Marcus's signature on it.
-  const ana = page.getByRole('article').filter({ hasText: 'Ana' });
+  const ana = page.getByRole('article', { name: /^Ana/ });
   await ana.getByRole('button', { name: /^Approve \$/ }).click();
   await expect(ana.getByText(/Signed with passkey · Marcus’s/)).toBeVisible();
   await expect(ana.getByText('You approved. Waiting for one more organizer.')).toBeVisible();

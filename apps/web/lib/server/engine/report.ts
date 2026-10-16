@@ -51,7 +51,8 @@ export function segment(text: string, trace: WriteReportResult['numberTrace']): 
 export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
   const g = ctx.gen.group;
   const to = new Date();
-  const from = new Date(to.getTime() - 28 * 86_400_000);
+  // 30 days: the whole seeded month (28 days) plus slack, so the report and the seed agree.
+  const from = new Date(to.getTime() - 30 * 86_400_000);
   const period = { from: from.toISOString(), to: new Date(to.getTime() + 60_000).toISOString() };
   const [input, policy, sigs, confirmed] = await Promise.all([listForReport(ctx.db, g.id, period), getActivePolicy(ctx.db, g.id), signaturesByRequest(ctx.db, g.id), confirmedAtByRequest(ctx.db)]);
   const report: TransparencyReport = buildReport({ ...input, period });

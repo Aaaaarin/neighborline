@@ -70,7 +70,7 @@ export default async function ReportPage() {
           {[
             ['Sent to neighbors', money(t.paidCents)],
             ['Households helped', String(t.households)],
-            ['Median, voice note to cash', duration(t.medianSecondsToCash)],
+            ['Median, request to cash (incl. approvals)', duration(t.medianSecondsToCash)],
             ['Unclaimed, then rescued', t.unclaimedMasked ? `Fewer than ${r.kAnonymity.k}` : `${t.unclaimedRescued} of ${t.unclaimedTotal}`],
           ].map(([k, v]) => (
             <div key={k}>

@@ -72,7 +72,7 @@ describe('ReportWriter', () => {
   it('masked (k-anonymous) groups never surface as numbers', () => {
     const facts = buildFacts(report, { categoryLabels: labels });
     const transport = facts.find((f) => f.key === 'category.transport');
-    expect(transport?.value).toBe('not shown (fewer than 5 people) in fewer than 5 payouts');
+    expect(transport?.value).toBe('fewer than 5 payouts (amount not shown)');
   });
 });
 

@@ -36,7 +36,11 @@ export function buildFacts(report: TransparencyReport, opts: { groupName?: strin
   if (isNum(t.inFlightCents) && t.inFlightCents > 0) add('in_flight', 'Sent but not yet claimed or settled', formatUsd(t.inFlightCents));
   add('balance', 'Balance on hand', formatUsd(t.balanceCents));
   for (const row of report.byCategory) {
-    add(`category.${row.key}`, `Category: ${opts.categoryLabels?.[row.key] ?? human(row.key)}`, `${money(row.amountCents)} in ${count(row.payouts, 'payouts')}`);
+    add(
+      `category.${row.key}`,
+      `Category: ${opts.categoryLabels?.[row.key] ?? human(row.key)}`,
+      isNum(row.amountCents) ? `${money(row.amountCents)} in ${count(row.payouts, 'payouts')}` : `fewer than ${report.k} payouts (amount not shown)`,
+    );
   }
   const langs = report.byLanguage.map((r) => langName(r.key));
   if (langs.length) {

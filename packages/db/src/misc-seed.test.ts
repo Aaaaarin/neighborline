@@ -94,7 +94,7 @@ describe('seedDemo', () => {
   it('pushed every seed request through the real pipeline', async () => {
     const all = await listRequests(h.db, { groupId: DEMO_GROUP.id });
     expect(all).toHaveLength(SEED_REQUESTS.length);
-    expect(all.filter((r) => r.status === 'paid')).toHaveLength(13);
+    expect(all.filter((r) => r.status === 'paid')).toHaveLength(25);
     expect(all.filter((r) => r.status === 'declined')).toHaveLength(1);
     for (const r of all) {
       expect(r.computed?.ruleCitation).toMatch(/^Policy v1 · /);
@@ -109,12 +109,15 @@ describe('seedDemo', () => {
     const report = buildReport(await listForReport(h.db, DEMO_GROUP.id));
     expect(report.totals.inCents).toBe(4_800_00);
     expect(report.totals.donors).toBe(60);
-    expect(report.totals.peopleHelped).toBe(13);
+    expect(report.k).toBe(5);
+    expect(report.totals.peopleHelped).toBe(25);
     expect(report.totals.outCents).toBe(report.byWallet.reduce((a, g) => a + (g.amountCents === MASK ? 0 : g.amountCents), 0));
     const lang = Object.fromEntries(report.byLanguage.map((g) => [g.key, g.people]));
-    expect(lang).toMatchObject({ vi: 3, es: 4, ht: 3, zh: MASK, ar: MASK, en: MASK });
-    expect(report.unclaimed.items).toBe(13);
-    expect(report.timeToCash.samples).toBe(13);
+    expect(lang).toMatchObject({ vi: 5, es: 6, ht: 5, zh: MASK, ar: MASK, en: MASK });
+    const cat = Object.fromEntries(report.byCategory.map((g) => [g.key, g.people]));
+    expect(cat).toMatchObject({ utility_outage: 7, groceries: 9, medicine_copay: 6, transport: MASK, rent_gap: MASK });
+    expect(report.unclaimed.items).toBe(25);
+    expect(report.timeToCash.samples).toBe(25);
     expect(report.timeToCash.p50Seconds).toBeGreaterThan(60);
     expect(report.approvalParity.rows.find((r) => r.lang === 'vi')?.approvalRate).toBe(1);
     const tx = report.byCategory.find((g) => g.key === 'groceries')?.transactionIds;

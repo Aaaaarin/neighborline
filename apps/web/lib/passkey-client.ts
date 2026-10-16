@@ -43,6 +43,9 @@ export function guessDeviceLabel(name: string): string {
   return `${name}’s ${device}`;
 }
 
+/** A judge's own device enrolled as a demo organizer: "Visitor’s Mac (as Marcus)". */
+const visitorLabel = (name: string): string => `Visitor’s ${guessDeviceLabel(name).replace(/^.*?’s /, '')} (as ${name})`;
+
 /** Human-readable reason for a failed ceremony, never vague. */
 export function passkeyErrorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
@@ -110,7 +113,7 @@ export async function approveAsVisitor(input: { requestIds: string[]; organizerI
   try {
     let cred = readVisitorCred(input.organizerId);
     if (!cred) {
-      const s = await enrollPasskey({ organizerId: input.organizerId, deviceLabel: `${guessDeviceLabel(input.name)} (you)` });
+      const s = await enrollPasskey({ organizerId: input.organizerId, deviceLabel: visitorLabel(input.name) });
       cred = s.credentialId;
       writeVisitorCred(input.organizerId, cred);
     }
@@ -120,7 +123,7 @@ export async function approveAsVisitor(input: { requestIds: string[]; organizerI
       // The demo was reset (fresh database) and forgot this device's passkey: enroll once more.
       if (err instanceof ApiError && err.status === 401) {
         writeVisitorCred(input.organizerId, null);
-        const s = await enrollPasskey({ organizerId: input.organizerId, deviceLabel: `${guessDeviceLabel(input.name)} (you)` });
+        const s = await enrollPasskey({ organizerId: input.organizerId, deviceLabel: visitorLabel(input.name) });
         writeVisitorCred(input.organizerId, s.credentialId);
         return { signedWith: 'passkey', result: await approveWithPasskey({ requestIds: input.requestIds, organizerId: input.organizerId, credentialIds: [s.credentialId] }) };
       }
