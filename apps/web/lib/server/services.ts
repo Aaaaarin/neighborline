@@ -2,9 +2,9 @@
  * The ONE seam between the web app and the domain packages.
  *
  * Route handlers under app/api/** are thin adapters over this interface, and server components
- * call it directly. Today it is backed by the in-memory mock engine (lib/server/mock-engine.ts).
- * The integrator swaps in an implementation built on @neighborline/core, /db, /paypal and /agents
- * by changing `createServices()` below — no page or route needs to change. See apps/web/INTEGRATION.md.
+ * call it directly. It is backed by the real engine (lib/server/engine/engine.ts: @neighborline/core,
+ * /db, /paypal, /agents); ENGINE=mock switches back to the in-memory mock (lib/server/mock-engine.ts)
+ * as a fallback. See apps/web/INTEGRATION.md.
  */
 import 'server-only';
 import type { Channel, HelpRequest, Lang, RequestStatus } from '@neighborline/core';
@@ -30,6 +30,7 @@ import type {
   ThreadView,
   TrustView,
 } from '../types';
+import { Engine } from './engine/engine';
 import { MockEngine } from './mock-engine';
 
 export interface AudioInput {
@@ -107,8 +108,8 @@ declare global {
 }
 
 function createServices(): Services {
-  // Integrator: return `createRealServices()` here when PAYPAL_MODE/AI_MODE and DATABASE_URL are wired.
-  return new MockEngine();
+  if (process.env.ENGINE === 'mock') return new MockEngine();
+  return new Engine();
 }
 
 /** Process-wide singleton (globalThis survives Next dev hot reloads and is shared across route bundles). */

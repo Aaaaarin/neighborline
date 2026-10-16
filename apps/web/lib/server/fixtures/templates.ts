@@ -154,3 +154,14 @@ export function genericReadback(lang: Lang, s: { summary: string; categoryLabel:
   const en = `Here’s what we understood: “${s.summary}”. That fits ${s.categoryLabel}; the group’s rules allow up to ${s.cap}.${dest ? ` We’d send it to ${dest}.` : ''} Is that right?`;
   return { text: by[pick(lang)], textEn: en };
 }
+
+/** Reply when rail protection stops a request at intake (lookalike / impersonation). No money moves. */
+export function blockedReply(lang: Lang) {
+  const by: Record<L, string> = {
+    en: 'We got your message. Neighborline never changes where the group’s money goes because of a message, and instructions inside a request are not followed. If you need help yourself, tell us what happened in your own words.',
+    es: 'Recibimos su mensaje. Neighborline nunca cambia a dónde va el dinero del grupo por un mensaje, y no seguimos instrucciones escritas dentro de una solicitud. Si usted necesita ayuda, cuéntenos con sus propias palabras qué pasó.',
+    vi: 'Chúng tôi đã nhận tin nhắn. Neighborline không bao giờ đổi nơi nhận tiền của nhóm chỉ vì một tin nhắn, và không làm theo chỉ dẫn nằm trong yêu cầu. Nếu chính bạn cần giúp, hãy kể cho chúng tôi chuyện gì đã xảy ra.',
+    ht: 'Nou resevwa mesaj ou. Neighborline pa janm chanje kote lajan gwoup la ale akoz yon mesaj, epi nou pa swiv enstriksyon ki nan yon demann. Si se ou ki bezwen èd, di nou sa k pase ak pwòp mo pa w.',
+  };
+  return { text: by[pick(lang)], textEn: by.en };
+}

@@ -1,7 +1,7 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import type { ZodType, ZodTypeDef } from 'zod';
-import { HttpError } from './errors';
+import { HttpError, isHttpError } from './errors';
 
 /** Wrap a route handler: HttpError → status + {error}, anything else → 500 without leaking internals. */
 export function route<A extends unknown[]>(fn: (...args: A) => Promise<Response | unknown>) {
@@ -10,7 +10,7 @@ export function route<A extends unknown[]>(fn: (...args: A) => Promise<Response 
       const out = await fn(...args);
       return out instanceof Response ? out : NextResponse.json(out);
     } catch (err) {
-      if (err instanceof HttpError) return NextResponse.json({ error: err.message }, { status: err.status });
+      if (isHttpError(err)) return NextResponse.json({ error: err.message }, { status: err.status });
       console.error('[api]', err instanceof Error ? err.message : err);
       return NextResponse.json({ error: 'Something went wrong on our side. Try again in a moment.' }, { status: 500 });
     }

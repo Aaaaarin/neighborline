@@ -198,6 +198,8 @@ export interface ReportView {
     languages: number;
     unclaimedTotal: number;
     unclaimedRescued: number;
+    /** true when fewer than k people were ever unclaimed, so the counts are withheld (k-anonymity) */
+    unclaimedMasked?: boolean;
     donationsCents: number;
     donors: number;
   };
@@ -211,7 +213,8 @@ export interface ReportView {
 
 /* ---------- ledger ---------- */
 
-export type ReconcileState = 'matched' | 'pending' | 'mismatch';
+/** 'seeded' = demo history created by the seed script; it never went through this PayPal environment. */
+export type ReconcileState = 'matched' | 'pending' | 'mismatch' | 'seeded';
 
 export interface LedgerRow {
   itemId: string;
