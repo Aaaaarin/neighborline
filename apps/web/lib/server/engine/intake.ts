@@ -4,6 +4,7 @@
  * (core.checkRail) → awaiting_approval. The intake agent has no tools: nothing here can pay.
  */
 import {
+  redactPII,
   checkRail,
   computeAmount,
   hasBlockingFlag,
@@ -19,6 +20,7 @@ import {
 } from '@neighborline/core';
 import { composeReadBack, fixtureAudioBytes, getScenario, questionText, type IntakeResult as AgentIntake } from '@neighborline/agents';
 import {
+  appendAudit,
   createRequest,
   getGroupBySlug,
   getHistoryForDestination,
@@ -30,6 +32,7 @@ import {
 } from '@neighborline/db';
 import type { AmountBreakdown, IntakeResult, ThreadMessage, ThreadView } from '../../types';
 import type { AudioInput } from '../services';
+import { disposeAudio, type AudioOutcome } from '../audio-retention';
 import { HttpError } from '../errors';
 import * as tpl from '../fixtures/templates';
 import { activePolicy, asLang, categoriesFor, fixtureForLang, isDemoId, FIXTURE_FOR, type BaseCtx as Ctx } from './context';
@@ -77,16 +80,31 @@ export async function submitAudio(ctx: Ctx, requestId: string, input: AudioInput
       result = await ctx.agents.intake.fromAudio({ audio: fixtureAudioBytes(fixtureId), mimeType: 'audio/webm', categories, speakReadBack: true, fixtureHint: { fixtureId } });
     }
   } else if (input.audio) {
-    const audio = new Uint8Array(await input.audio.arrayBuffer()); // never stored: deleted with this request scope
+    const audio = new Uint8Array(await input.audio.arrayBuffer());
     const name = (input.audio as Blob & { name?: string }).name;
-    result = await ctx.agents.intake.fromAudio({
-      audio,
-      mimeType: input.audio.type || 'audio/webm',
-      categories,
-      ...(input.lang ? { langHint: input.lang } : {}),
-      speakReadBack: true,
-      fixtureHint: live(ctx) ? { ...(name ? { filename: name } : {}) } : { fixtureId: fixtureForLang(input.lang) },
+    const mimeType = input.audio.type || 'audio/webm';
+    let kept: AudioOutcome;
+    try {
+      result = await ctx.agents.intake.fromAudio({
+        audio,
+        mimeType,
+        categories,
+        ...(input.lang ? { langHint: input.lang } : {}),
+        speakReadBack: true,
+        fixtureHint: live(ctx) ? { ...(name ? { filename: name } : {}) } : { fixtureId: fixtureForLang(input.lang) },
+      });
+    } finally {
+      // Only the transcript is kept: AUDIO_RETENTION=none (default) wipes the recording now.
+      kept = disposeAudio(ctx.cfg.audio, { requestId, audio, mimeType });
+    }
+    await appendAudit(ctx.db, {
+      actor: 'intake',
+      action: kept.retention === 'none' ? 'audio.deleted' : 'audio.retained',
+      entityType: 'request',
+      entityId: requestId,
+      data: { bytes: kept.bytes, retention: kept.retention, ...(kept.expiresAt ? { deleteAfter: kept.expiresAt } : {}) },
     });
+    if (kept.ref) await updateRequest(ctx.db, requestId, { audioRef: kept.ref }, { actor: 'intake' });
   } else {
     throw new HttpError(400, 'Send a recording or pick a sample voice note.');
   }
@@ -127,7 +145,8 @@ function englishReadBack(x: IntakeExtraction | null, fallback: string): string {
 async function applyIntake(ctx: Ctx, req: HelpRequest, policy: Policy, result: AgentIntake, simulated: boolean): Promise<IntakeResult> {
   const lang = asLang(result.lang, req.lang);
   const meta = ctx.meta.ensure(req.id);
-  meta.aiTrace = { status: result.trace.status, summary: result.trace.summary };
+  // Traces are diagnostics: they never need a handle, email or phone number (shown on organizer cards and /demo).
+  meta.aiTrace = { status: result.trace.status, summary: redactPII(result.trace.summary) };
   const x = result.extraction;
   const dest = destinationFrom(x, meta.nameOnFile);
   const status = result.status === 'needs_clarification' ? 'needs_clarification' : 'intake';

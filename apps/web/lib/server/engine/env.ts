@@ -2,6 +2,8 @@
  * Runtime configuration for the real engine, read once from env (see root .env.example).
  * Everything defaults to zero-credential local mode: fake PayPal + fixture AI + in-memory PGlite.
  */
+import { audioPolicy, type AudioPolicy } from '../audio-retention';
+
 export type Env = Record<string, string | undefined>;
 
 export interface EngineConfig {
@@ -17,6 +19,8 @@ export interface EngineConfig {
   groupSlug: string;
   /** Multiplier for scripted demo beats in tests (1 = real pacing). */
   beatScale: number;
+  /** What happens to raw voice recordings after transcription (AUDIO_RETENTION, default none). */
+  audio: AudioPolicy;
 }
 
 export function readConfig(env: Env = process.env): EngineConfig {
@@ -31,6 +35,7 @@ export function readConfig(env: Env = process.env): EngineConfig {
     pgliteDir: env.PGLITE_DIR || undefined,
     groupSlug: env.NEIGHBORLINE_GROUP_SLUG || 'eastside',
     beatScale: Number(env.NEIGHBORLINE_BEAT_SCALE) > 0 ? Number(env.NEIGHBORLINE_BEAT_SCALE) : 1,
+    audio: audioPolicy(env),
   };
 }
 

@@ -20,6 +20,7 @@ import type {
   StreamMessage,
 } from '../../types';
 import { ApprovalService, type SentBatch } from '../approval-service';
+import { sweepAudio } from '../audio-retention';
 import { HttpError } from '../errors';
 import { errorText, log } from '../log';
 import * as tpl from '../fixtures/templates';
@@ -78,6 +79,9 @@ export class Engine implements Services {
     this.approvals = new ApprovalService(this.env);
     this.modes = { paypalMode: this.cfg.paypalMode, aiMode: this.agents.providers.mode, engine: 'real' };
     this.state = openGeneration(this.cfg, 1).then((g) => this.makeState(g));
+    // Retained recordings (AUDIO_RETENTION=24h) expire even across restarts.
+    sweepAudio(this.cfg.audio);
+    setInterval(() => sweepAudio(this.cfg.audio), 3_600_000).unref?.();
     this.state.catch((err) => log.error('engine.db_boot_failed', { error: errorText(err) }));
   }
 
