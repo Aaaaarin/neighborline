@@ -16,6 +16,8 @@ import {
 } from './repo/payouts.js';
 import { createGroup, createOrganizer } from './repo/groups.js';
 import { createRequest, getRequest, updateRequest } from './repo/requests.js';
+import { eq } from 'drizzle-orm';
+import { requests as requestsTable } from './schema.js';
 import { GROUP_ID, freshDb, readyRequest, venmo, withGroup } from './test-db.js';
 
 let h: DbHandle;
@@ -143,6 +145,26 @@ describe('addApproverTx', () => {
     const last = await addApproverTx(h3.db, { approvalId: approval.id, organizerId: 'org_c', deviceLabel: 'p' });
     expect(last).toMatchObject({ ok: true, complete: true });
     await h3.close();
+  });
+});
+
+describe('identical content approved again later', () => {
+  it('gets a new approval id and a new sender_batch_id; double taps still share one', async () => {
+    const first = await approvedBatch(9000);
+    // e.g. the first payout came back RETURNED and the organizers decide to pay again, unchanged
+    await h.db.update(requestsTable).set({ status: 'awaiting_approval' }).where(eq(requestsTable.id, first.request.id));
+    const again = await createOrGetApproval(h.db, { requestIds: [first.request.id] });
+    expect(again.created).toBe(true);
+    expect(again.approval.hash).toBe(first.approval.hash);
+    expect(again.approval.id).not.toBe(first.approval.id);
+    // a double tap on the open approval lands on the same record
+    expect((await createOrGetApproval(h.db, { requestIds: [first.request.id] })).approval.id).toBe(again.approval.id);
+    await sign(again.approval.id, 'org_a');
+    await sign(again.approval.id, 'org_b');
+    const second = await createBatch(h.db, { approvalId: again.approval.id });
+    expect(second.batch.senderBatchId).toBe(senderBatchIdFor(again.approval));
+    expect(second.batch.senderBatchId).not.toBe(first.batch.senderBatchId);
+    expect(second.items[0]!.senderItemId).not.toBe(first.items[0]!.senderItemId);
   });
 });
 

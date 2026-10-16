@@ -22,6 +22,13 @@
       "when": 1792156951097,
       "tag": "0002_organizer_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792178021468,
+      "tag": "0003_security_hardening",
+      "breakpoints": true
     }
   ]
 }

@@ -119,8 +119,10 @@ export const approvals = pgTable(
     createdAt: createdAt(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
-  // one live approval per content hash (a voided one may be re-created)
-  (t) => [uniqueIndex('approvals_live_hash_uq').on(t.hash).where(sql`${t.status} <> 'void'`)],
+  // One OPEN approval per content hash. A voided one may be re-created, and so may an executed one: a
+  // legitimate later payout of identical content gets its own approval id (and therefore its own
+  // PayPal sender_batch_id, core senderBatchIdFor), while double taps keep hitting the open record.
+  (t) => [uniqueIndex('approvals_open_hash_uq').on(t.hash).where(sql`${t.status} in ('pending', 'complete')`)],
 );
 
 /** One row per organizer signature; the PK makes "two distinct organizers" a database guarantee. */
@@ -152,6 +154,12 @@ export const organizerCredentials = pgTable(
     deviceLabel: text('device_label').notNull(),
     kind: text('kind').$type<'passkey' | 'demo_key'>().notNull().default('passkey'),
     backedUp: boolean('backed_up').notNull().default(false),
+    /**
+     * Set for a passkey a /demo visitor enrolled without an invite code ('demo-visitor:<tag>'). Such a
+     * credential signs as the demo seat (Marcus) ONLY for that visitor's own demo runs
+     * (request ids 'req_demo_<tag>_…'), only while DEMO_MODE is on, never signs in, never signs a policy.
+     */
+    boundTo: text('bound_to'),
     createdAt: createdAt(),
     lastUsedAt: ts('last_used_at'),
     revokedAt: ts('revoked_at'),
@@ -179,6 +187,8 @@ export const approvalAssertions = pgTable(
     origin: text('origin').notNull(),
     deviceLabel: text('device_label').notNull(),
     verifiedAt: ts('verified_at').notNull(),
+    /** Server nonce mixed into the WebAuthn challenge (passkeys challengeFor); null = legacy hash-only challenge. */
+    serverNonce: text('server_nonce'),
   },
   (t) => [primaryKey({ columns: [t.approvalHash, t.organizerId] })],
 );
@@ -259,6 +269,17 @@ export const notifications = pgTable(
   (t) => [index('notifications_request_idx').on(t.requestId)],
 );
 
+/** Each Transaction Search reconcile run, with per-item outcomes (shown on /ledger, survives restarts). */
+export const reconcileRuns = pgTable('reconcile_runs', {
+  id: text('id').primaryKey(),
+  at: ts('at').notNull(),
+  simulated: boolean('simulated').notNull().default(false),
+  /** {checked, matched, mismatched, drift, missingLocally, pending, windowStart, windowEnd} */
+  summary: jsonb('summary').$type<Record<string, unknown>>().notNull(),
+  /** per payout item id: {state, localStatus, paypalStatus?, detail?} */
+  items: jsonb('items').$type<Record<string, unknown>>().notNull(),
+});
+
 /** Append-only, hash-chained audit log. UPDATE/DELETE are rejected by a trigger (see migrations). */
 export const auditLog = pgTable('audit_log', {
   seq: bigserial('seq', { mode: 'number' }).primaryKey(),
@@ -286,5 +307,6 @@ export const schema = {
   donations,
   webhookEvents,
   notifications,
+  reconcileRuns,
   auditLog,
 };

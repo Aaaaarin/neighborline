@@ -9,12 +9,14 @@ import {
   listNotifications,
   listWebhookEvents,
   markNotification,
+  beginWebhookEvent,
   markWebhookProcessed,
   recordDonation,
   recordNotification,
   recordWebhookEvent,
 } from './repo/misc.js';
 import { getTodaySpentCents } from './repo/payouts.js';
+import { latestReconcileRun, saveReconcileRun } from './repo/reconcile.js';
 import { getHistoryForDestination, listRequests } from './repo/requests.js';
 import { DEMO_GROUP, SEED_REQUESTS, seedDemo, seedTransactionId } from './seed.js';
 import { GROUP_ID, freshDb, readyRequest, withGroup } from './test-db.js';
@@ -35,6 +37,23 @@ describe('webhooks, donations, notifications', () => {
     const [row] = await listWebhookEvents(h.db);
     expect(row).toMatchObject({ id: 'WH-1', verified: true, raw: { id: 'WH-1', resource: { a: 1 } } });
     expect(row?.processedAt).toMatch(/Z$/);
+  });
+
+  it('is at-least-once: an event recorded but never marked processed is applied again', async () => {
+    const ev = { id: 'WH-2', eventType: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED', resourceId: 'PPI-2', verified: true, raw: { id: 'WH-2' } };
+    expect(await beginWebhookEvent(h.db, ev)).toBe('new');
+    // the apply crashed before markWebhookProcessed: PayPal's retry must not be swallowed
+    expect(await beginWebhookEvent(h.db, ev)).toBe('retry');
+    await markWebhookProcessed(h.db, 'WH-2');
+    expect(await beginWebhookEvent(h.db, ev)).toBe('done');
+  });
+
+  it('persists reconcile runs and returns the latest', async () => {
+    expect(await latestReconcileRun(h.db)).toBeNull();
+    const summary = { checked: 2, matched: 1, mismatched: 0, drift: 1, missingLocally: 0, pending: 0, windowStart: '2026-10-01T00:00:00.000Z', windowEnd: '2026-10-16T00:00:00.000Z' };
+    await saveReconcileRun(h.db, { at: new Date('2026-10-15T00:00:00Z'), simulated: true, summary, items: {} });
+    const run = await saveReconcileRun(h.db, { at: new Date('2026-10-16T00:00:00Z'), simulated: true, summary, items: { pi_1: { state: 'drift', localStatus: 'SUCCESS', paypalStatus: 'V', detail: 'reversed at PayPal' } } });
+    expect(await latestReconcileRun(h.db)).toEqual(run);
   });
 
   it('records donations idempotently by order id / transaction id', async () => {

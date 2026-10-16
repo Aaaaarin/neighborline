@@ -160,13 +160,30 @@ export function voidApproval(approval: Approval): Approval {
   return { ...approval, status: 'void' };
 }
 
-/** PayPal sender_batch_id: deterministic, so a retried POST is rejected/deduped by PayPal. */
-export function senderBatchIdFor(approval: Pick<Approval, 'hash'>): string {
+const SENDER_BATCH_DOMAIN = 'neighborline/paypal/sender_batch_id/v2';
+const SENDER_ITEM_DOMAIN = 'neighborline/paypal/sender_item_id/v2';
+
+function assertIdempotencyInput(approval: Pick<Approval, 'id' | 'hash'>): void {
   if (!/^[0-9a-f]{64}$/.test(approval.hash)) throw new Error('approval hash must be 64 hex chars');
-  return `nl_${approval.hash.slice(0, 24)}`;
+  if (!approval.id || /[\n\r]/.test(approval.id)) throw new Error('approval id must be a non-empty single-line string');
 }
 
-/** PayPal sender_item_id for one request inside an approval (≤ 63 chars). */
-export function senderItemIdFor(approval: Pick<Approval, 'hash'>, requestId: string): string {
-  return `nli_${sha256Hex(`${approval.hash}:${requestId}`).slice(0, 24)}`;
+/**
+ * PayPal sender_batch_id = "nl_" + 24 hex of SHA-256(domain ‖ approval id ‖ approval hash).
+ *
+ * Deterministic per approval RECORD, so double taps, retries and timeouts of one approval always send
+ * the same id and PayPal dedupes them (it rejects a reused sender_batch_id for 30 days). The approval
+ * id is in the preimage so a later, legitimate approval with identical content (a re-payment after a
+ * RETURNED or cancelled item) gets a new id instead of colliding with the old batch. The domain tag
+ * keeps this hash from ever equalling any other hash we compute over the same fields.
+ */
+export function senderBatchIdFor(approval: Pick<Approval, 'id' | 'hash'>): string {
+  assertIdempotencyInput(approval);
+  return `nl_${sha256Hex(`${SENDER_BATCH_DOMAIN}\n${approval.id}\n${approval.hash}`).slice(0, 24)}`;
+}
+
+/** PayPal sender_item_id for one request inside an approval (≤ 63 chars), same construction. */
+export function senderItemIdFor(approval: Pick<Approval, 'id' | 'hash'>, requestId: string): string {
+  assertIdempotencyInput(approval);
+  return `nli_${sha256Hex(`${SENDER_ITEM_DOMAIN}\n${approval.id}\n${approval.hash}\n${requestId}`).slice(0, 24)}`;
 }

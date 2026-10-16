@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { approvalHash, approvalPayload, canonicalJson, sha256Hex } from '@neighborline/core';
+import { approvalHash, approvalPayload, canonicalJson, senderBatchIdFor, sha256Hex } from '@neighborline/core';
 import {
   addOrganizerCredential,
   approvals,
@@ -37,7 +37,7 @@ describe('approver /v1/execute', () => {
     const r = await execute(f, await executeBody(f.db, approvalId));
     expect(r.status).toBe(200);
     expect(r.json).toMatchObject({ approvalId, sentNow: true, totalCents: 12_000, itemCount: 1 });
-    expect(r.json.senderBatchId).toBe(`nl_${String(r.json.hash).slice(0, 24)}`);
+    expect(r.json.senderBatchId).toBe(senderBatchIdFor({ id: approvalId, hash: String(r.json.hash) }));
     expect(r.json.paypalBatchId).toBeTruthy();
     expect(batchesAtPayPal()).toBe(before + 1);
     const sent = [...f.fake.state.items.values()].find((i) => i.payout_item.receiver === '@kim-park-11')!;

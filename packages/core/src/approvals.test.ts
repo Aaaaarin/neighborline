@@ -211,13 +211,23 @@ describe('two-person approval flow', () => {
 
 describe('PayPal idempotency ids', () => {
   const a = createApproval('a', content());
-  it('sender_batch_id = nl_ + first 24 hex of the approval hash', () => {
-    expect(senderBatchIdFor(a)).toBe(`nl_${a.hash.slice(0, 24)}`);
-    expect(senderBatchIdFor(a)).toHaveLength(27);
-    expect(senderBatchIdFor(createApproval('different-id', content()))).toBe(senderBatchIdFor(a));
+  it('sender_batch_id = nl_ + 24 hex of a domain-separated hash of approval id and content', () => {
+    expect(senderBatchIdFor(a)).toMatch(/^nl_[0-9a-f]{24}$/);
+    expect(senderBatchIdFor(a)).toBe(`nl_${sha256Hex(`neighborline/paypal/sender_batch_id/v2\na\n${a.hash}`).slice(0, 24)}`);
+    // not the bare content hash (domain separation)
+    expect(senderBatchIdFor(a)).not.toBe(`nl_${a.hash.slice(0, 24)}`);
   });
-  it('rejects malformed hashes', () => {
-    expect(() => senderBatchIdFor({ hash: 'abc' })).toThrow();
+  it('double taps and retries of one approval share an id; a later approval of identical content does not', () => {
+    expect(senderBatchIdFor({ ...a })).toBe(senderBatchIdFor(a));
+    const later = createApproval('different-id', content());
+    expect(later.hash).toBe(a.hash);
+    expect(senderBatchIdFor(later)).not.toBe(senderBatchIdFor(a));
+    expect(senderItemIdFor(later, 'req_lan')).not.toBe(senderItemIdFor(a, 'req_lan'));
+  });
+  it('rejects malformed hashes and ids', () => {
+    expect(() => senderBatchIdFor({ id: 'a', hash: 'abc' })).toThrow();
+    expect(() => senderBatchIdFor({ id: '', hash: a.hash })).toThrow();
+    expect(() => senderItemIdFor({ id: 'x\ny', hash: a.hash }, 'r')).toThrow();
   });
   it('sender_item_id is deterministic, unique per request and ≤ 63 chars', () => {
     const x = senderItemIdFor(a, 'req_lan');

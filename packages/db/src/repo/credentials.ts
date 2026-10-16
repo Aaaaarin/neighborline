@@ -21,6 +21,8 @@ export interface OrganizerCredential {
   deviceLabel: string;
   kind: CredentialKind;
   backedUp: boolean;
+  /** 'demo-visitor:<tag>' for a /demo visitor's passkey (signs only that visitor's demo runs); null otherwise. */
+  boundTo: string | null;
   createdAt: string;
   lastUsedAt: string | null;
 }
@@ -35,6 +37,7 @@ const toCredential = (r: Row): OrganizerCredential => ({
   deviceLabel: r.deviceLabel,
   kind: r.kind,
   backedUp: r.backedUp,
+  boundTo: r.boundTo ?? null,
   createdAt: iso(r.createdAt),
   lastUsedAt: isoOrNull(r.lastUsedAt),
 });
@@ -42,7 +45,7 @@ const toCredential = (r: Row): OrganizerCredential => ({
 /** Store a verified credential. Idempotent for the same id + organizer; another organizer's id is a conflict. */
 export async function addOrganizerCredential(
   ex: Executor,
-  input: Omit<OrganizerCredential, 'createdAt' | 'lastUsedAt' | 'counter' | 'transports' | 'backedUp'> & { counter?: number; transports?: string[]; backedUp?: boolean; actor?: string },
+  input: Omit<OrganizerCredential, 'createdAt' | 'lastUsedAt' | 'counter' | 'transports' | 'backedUp' | 'boundTo'> & { counter?: number; transports?: string[]; backedUp?: boolean; boundTo?: string | null; actor?: string },
 ): Promise<OrganizerCredential> {
   return inTx(ex, async (tx) => {
     const [org] = await tx.select({ id: organizers.id }).from(organizers).where(eq(organizers.id, input.organizerId));
@@ -63,6 +66,7 @@ export async function addOrganizerCredential(
         deviceLabel: input.deviceLabel,
         kind: input.kind,
         backedUp: input.backedUp ?? false,
+        boundTo: input.boundTo ?? null,
       })
       .returning();
     await appendAudit(tx, {
@@ -70,7 +74,7 @@ export async function addOrganizerCredential(
       action: input.kind === 'demo_key' ? 'organizer.demo_key_added' : 'organizer.passkey_added',
       entityType: 'organizer',
       entityId: input.organizerId,
-      data: { credentialId: input.id, kind: input.kind, deviceLabel: input.deviceLabel },
+      data: { credentialId: input.id, kind: input.kind, deviceLabel: input.deviceLabel, ...(input.boundTo ? { boundTo: input.boundTo } : {}) },
     });
     return toCredential(row!);
   });
@@ -157,6 +161,7 @@ export async function recordApprovalAssertion(
         origin: a.origin,
         deviceLabel: a.deviceLabel,
         verifiedAt: new Date(a.verifiedAt),
+        serverNonce: a.serverNonce ?? null,
       })
       .onConflictDoNothing()
       .returning();
@@ -189,6 +194,7 @@ const toAssertion = (r: ARow): ApproverAssertion => ({
   approvalHash: r.approvalHash,
   deviceLabel: r.deviceLabel,
   verifiedAt: iso(r.verifiedAt),
+  ...(r.serverNonce ? { serverNonce: r.serverNonce } : {}),
 });
 
 /** Assertions over one approval hash, by organizer id. */

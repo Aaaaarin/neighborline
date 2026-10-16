@@ -30,6 +30,24 @@ export async function recordWebhookEvent(
   return inserted.length > 0;
 }
 
+/**
+ * At-least-once webhook processing. Records the event (first delivery) and says what to do:
+ *   'new'   first delivery: apply it, then markWebhookProcessed
+ *   'retry' seen before but never marked processed (the apply crashed or threw): apply it again
+ *   'done'  already applied: acknowledge and do nothing
+ * Applying twice is safe because every effect is idempotent (the payout item state machine never
+ * regresses and a status applied twice is a no-op; donations dedupe on order/transaction id). What must
+ * never happen is the opposite: an event acknowledged to PayPal but never applied.
+ */
+export async function beginWebhookEvent(
+  ex: Executor,
+  ev: { id: string; eventType: string; resourceId?: string | null; verified: boolean; raw: unknown },
+): Promise<'new' | 'retry' | 'done'> {
+  if (await recordWebhookEvent(ex, ev)) return 'new';
+  const [row] = await ex.select({ processedAt: webhookEvents.processedAt }).from(webhookEvents).where(eq(webhookEvents.id, ev.id));
+  return row?.processedAt ? 'done' : 'retry';
+}
+
 export async function markWebhookProcessed(ex: Executor, id: string, at = new Date()): Promise<void> {
   await ex.update(webhookEvents).set({ processedAt: at }).where(eq(webhookEvents.id, id));
 }

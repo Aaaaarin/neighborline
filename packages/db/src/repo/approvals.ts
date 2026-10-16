@@ -2,7 +2,7 @@
  * Approvals: created from requests' current content (hash-pinned), signed by distinct
  * organizers under a row lock, voided automatically if anything material changed.
  */
-import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import {
   addApprover,
   approvalHash,
@@ -101,7 +101,10 @@ export async function createOrGetApproval(
     }
     const content = contentFromRequests(reqs);
     const hash = approvalHash(content);
-    const live = async () => (await tx.select().from(approvals).where(and(eq(approvals.hash, hash), ne(approvals.status, 'void'))))[0];
+    // Only an OPEN approval (pending/complete) is reused: double taps land on the same record. An
+    // executed one is history; identical content approved again later is a new approval (new id →
+    // new PayPal sender_batch_id), see core senderBatchIdFor.
+    const live = async () => (await tx.select().from(approvals).where(and(eq(approvals.hash, hash), inArray(approvals.status, ['pending', 'complete']))))[0];
     const existing = await live();
     if (existing) return { approval: await loadApproval(tx, existing), content, created: false };
 

@@ -166,6 +166,13 @@ export const ApproverAssertion = z.object({
   approvalHash: z.string().regex(/^[0-9a-f]{64}$/),
   deviceLabel: z.string().min(1).max(80),
   verifiedAt: z.string(),
+  /**
+   * Server nonce (base64url, 32 bytes) the web app issued with the challenge. When present the WebAuthn
+   * challenge is SHA-256("neighborline/webauthn/approval/v2" ‖ hash bytes ‖ nonce bytes) instead of the
+   * bare hash, so a captured assertion cannot be replayed for later identical content. Stored with the
+   * assertion so the approver and auditors can re-verify it (@neighborline/passkeys challengeFor).
+   */
+  serverNonce: B64URL.min(43).max(64).optional(),
 });
 export type ApproverAssertion = z.infer<typeof ApproverAssertion>;
 
@@ -222,9 +229,10 @@ export type PayoutItem = z.infer<typeof PayoutItem>;
 export const PayoutBatch = z.object({
   id: z.string(),
   approvalId: z.string(),
-  senderBatchId: z.string(), // 'nl_' + approval.hash.slice(0, 24)
+  senderBatchId: z.string(), // core senderBatchIdFor: 'nl_' + 24 hex of H(domain ‖ approval id ‖ approval hash)
   paypalBatchId: z.string().optional(),
-  status: z.enum(['CREATING', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED']),
+  /** UNKNOWN: the create call timed out or failed ambiguously; resolved by re-sending the same sender_batch_id. */
+  status: z.enum(['CREATING', 'UNKNOWN', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED']),
   createdAt: z.string(),
 });
 export type PayoutBatch = z.infer<typeof PayoutBatch>;
