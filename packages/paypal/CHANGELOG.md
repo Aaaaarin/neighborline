@@ -14,7 +14,7 @@ Nothing yet.
 ### Packaging
 - Publish-ready: ESM-only `exports` map with `types` first for every entry, `sideEffects: false`, `engines.node >= 20`,
   `publishConfig` with `access: public` and `provenance: true`, keywords, and a `files` allowlist (`dist`, README,
-  API.md, CHANGELOG, PAYPAL_NOTES, LICENSE). The tarball is 32 files, about 87 kB.
+  API.md, CHANGELOG, PAYPAL_NOTES, LICENSE). The tarball is 33 files, about 96 kB.
 - New subpath entry points: `@neighborline/paypal/approval` (approval tokens only; loads nothing but `node:crypto`)
   and `@neighborline/paypal/webhooks` (verification, typed events, the payout status machine), next to `./mcp`.
 - `scripts/pack-check.mjs` (`pack:check`) packs with pnpm and fails on stray files, missing export or bin targets,

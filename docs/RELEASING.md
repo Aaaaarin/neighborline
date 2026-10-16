@@ -62,7 +62,7 @@ In the workspace, `exports` point at `src/*.ts` so Next.js, vitest and `tsc` use
 `exports`, `main`, `types` and `bin` live in `publishConfig`, which **pnpm** applies when it packs and **npm
 ignores**. So `npm publish` run inside `packages/paypal` would ship exports pointing at files that are not in the
 package. A `prepublishOnly` guard refuses it; `pnpm publish` or `npm publish <tarball from pnpm pack>` are the two
-correct paths. (`npm pack --dry-run` in the folder lists the same 32 files and is a fine way to eyeball the content.)
+correct paths. (`npm pack --dry-run` in the folder lists the same 33 files and is a fine way to eyeball the content.)
 
 ## After the first publish
 
