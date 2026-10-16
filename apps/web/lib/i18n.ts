@@ -241,7 +241,7 @@ const STRINGS = {
     noMic: "没有麦克风？使用示例语音消息",
     whatHappensNext: "接下来",
     reply: "写下您的回答…",
-    payoutHint: "@Venmo用户名 或 PayPal邮箱",
+    payoutHint: "@Venmo用户名或邮箱",
     orJustYes: "也可以直接点上面的“对，没错”——这个问题可以不答。",
     tooLong: "超过了 2000 个字符，请稍微写短一点。",
     offline: "连接不上 Neighborline，请检查网络后再试。",

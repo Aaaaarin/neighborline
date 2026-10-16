@@ -147,7 +147,7 @@ Plain, on-brand code cards: Atkinson Hyperlegible Mono 22 px, ink on `--paper-ra
 - **Lower third on card 4:** `Open source · MIT · @neighborline/paypal + an MCP server that adds Payouts tools to the PayPal Agent Toolkit`
 
 ### Shot 12. Where the money went (2:12–2:30)
-- **Visual:** `/report`. Hold on the headline "Where the money went" and the green chip "Every number checked against the ledger · 14 figures". Then a slow scroll to "Are approvals fair across languages?".
+- **Visual:** `/report`. Hold on the headline "Where the money went" and the green chip "Every number checked against the ledger · 28 figures". Then a slow scroll to "Are approvals fair across languages?".
 - **Lower third (whole shot):** `Seeded demo data · fictional group` (required: the report figures are fixtures).
 - **VO V8 (2:12–2:28):** "Donors give with PayPal or Venmo. The public report is AI-written around numbers that code pulls from the ledger, and it never names a neighbor. Built for the roughly nine hundred volunteer groups that mobilize when the storm hits."
   - Source for "nine hundred": Mutual Aid Hub mapped about 900 active US groups by 2021 (Spotlight on Poverty). Put it in the video description, not on screen.

@@ -30,6 +30,16 @@ async function withPasskeyDevice(page) {
   });
 }
 
+/** A Spanish request this visitor filed and an organizer declined; /call opens on that thread. */
+async function declinedRequest(page) {
+  const api = page.request;
+  const { requestId } = await (await api.post(`${base}/api/intake/start`, { data: { groupSlug: 'eastside', channel: 'web_text', lang: 'es' } })).json();
+  await api.post(`${base}/api/intake/${requestId}/text`, { data: { text: 'Se fue la luz por la tormenta y necesito un calentador. Somos 3. Mi Venmo es @lucia-ramos4', lang: 'es' } });
+  await api.post(`${base}/api/intake/${requestId}/confirm`, { data: { confirmed: true } });
+  await api.post(`${base}/api/requests/${requestId}/decline`, { data: { organizerId: 'org_dana', reasonCode: 'outside_area' } });
+  await page.addInitScript((id) => sessionStorage.setItem('neighborline.call.v1', JSON.stringify({ requestId: id })), requestId);
+}
+
 const PAID = { lan: 60_000, rosa: 90_000, jean: 60_000, walter: 60_000, blocked: 20_000 };
 const scenarioShots = Object.keys(PAID).flatMap((sc) => [
   { name: `demo-1920-${sc}-done`, path: `/demo?scenario=${sc}&speed=1&autoplay=1`, vp: DESKTOP, run: untilStopped(PAID[sc]) },
@@ -71,6 +81,45 @@ const shots = [
       await p.locator('textarea').fill('انقطعت الكهرباء منذ يومين وأحتاج إلى مدفأة. نحن أربعة في البيت. حسابي في فينمو @samira-haddad');
       await p.getByRole('button', { name: 'أرسل' }).click();
       await p.waitForTimeout(2500);
+    },
+  },
+  {
+    name: 'call-390-question',
+    path: '/call',
+    vp: PHONE,
+    run: async (p) => {
+      await p.getByRole('button', { name: 'Type instead' }).click();
+      await p.locator('textarea').fill('我家停电两天了，需要买一个取暖器。我们家有三口人。');
+      await p.getByRole('button', { name: 'Send' }).click();
+      await p.getByRole('log').getByText(/钱应该汇到哪里/).waitFor({ timeout: 15_000 });
+      await p.waitForTimeout(800);
+    },
+  },
+  {
+    name: 'call-390-household',
+    path: '/call',
+    vp: PHONE,
+    run: async (p) => {
+      await p.locator('select').first().selectOption('es');
+      await p.getByRole('button', { name: 'Escribir' }).click();
+      await p.locator('textarea').fill('Se fue la luz por la tormenta y necesito un calentador. Mi Venmo es @ana-flores9');
+      await p.getByRole('button', { name: 'Enviar' }).click();
+      await p.getByRole('button', { name: 'Sí, correcto' }).waitFor({ timeout: 15_000 });
+      await p.waitForTimeout(800);
+    },
+  },
+  { name: 'call-390-appeal', path: '/call', vp: PHONE, before: declinedRequest, run: (p) => p.getByRole('button', { name: 'REVISAR' }).waitFor({ timeout: 15_000 }).then(() => p.waitForTimeout(600)) },
+  {
+    name: 'organizer-390-appeal',
+    path: '/call',
+    vp: PHONE,
+    before: declinedRequest,
+    run: async (p) => {
+      await p.getByRole('button', { name: 'REVISAR' }).click();
+      await p.getByText(/Otra persona del grupo revisará su solicitud/).waitFor({ timeout: 15_000 });
+      await p.goto(base + '/organizer');
+      await p.getByText(/asked for another look/).first().evaluate((el) => el.closest('article')?.scrollIntoView({ block: 'start' }));
+      await p.waitForTimeout(800);
     },
   },
   { name: 'organizer-390-setup', path: '/organizer', vp: PHONE, full: true, click: ['First time here? Set up a passkey'] },

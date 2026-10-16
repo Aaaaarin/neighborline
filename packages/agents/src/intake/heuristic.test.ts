@@ -54,7 +54,7 @@ describe('heuristicExtract (offline fixture extractor)', () => {
   it('household answers in every supported language', () => {
     for (const [s, n] of [
       ['3 people', 3], ['3 personas', 3], ['3 người', 3], ['3 moun', 3], ['3口人', 3], ['٣ أشخاص', 3], ['3 أشخاص', 3],
-      ['3 personnes', 3], ['3 tao', 3], ['3명', 3], ['3 человека', 3], ['нас пятеро', 5], ['两个人', 2],
+      ['3 personnes', 3], ['نحن أربعة في البيت', 4], ['3 tao', 3], ['3명', 3], ['3 человека', 3], ['нас пятеро', 5], ['两个人', 2],
     ] as const) {
       expect(householdFrom(s), s).toBe(n);
     }
