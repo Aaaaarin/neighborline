@@ -46,7 +46,7 @@ import {
   type BatchWithItems,
   type Db,
 } from '@neighborline/db';
-import type { PayoutItemInput, PayoutsApi, WebhooksApi } from '@neighborline/paypal';
+import { isAmbiguousPayPalError, type PayoutItemInput, type PayoutsApi, type WebhooksApi } from '@neighborline/paypal';
 import { checkAssertions } from './assertions.js';
 import type { ApproverConfig, Env } from './config.js';
 import type { Logger } from './log.js';
@@ -158,7 +158,7 @@ export class Approver {
     if (claimed.join('\n') !== recorded.join('\n')) return fail(409, 'approver_mismatch', 'the approvers in the request do not match the approval record');
 
     // 3. Signatures over the hash, re-verified with the organizers' public keys.
-    const sigs = await checkAssertions(db, { approvers: counted, approvalHash: hash, requirePasskeys: this.deps.config.requirePasskeys, demoMode: this.deps.config.demoMode, env: this.deps.env });
+    const sigs = await checkAssertions(db, { approvers: counted, approvalHash: hash, requestIds: approval.requestIds, demoMode: this.deps.config.demoMode, env: this.deps.env });
     const bad = sigs.filter((s) => !s.ok);
     if (bad.length) return fail(403, 'assertion_invalid', bad.map((s) => `${s.organizerId}: ${s.reason}`).join('; '));
 
@@ -177,11 +177,12 @@ export class Approver {
     }
     if (dbHash !== hash) return fail(409, 'tampered', 'the requests changed after they were approved (amount, destination or policy differs)');
 
-    // 5. Policy re-check from first principles.
-    if (!existing) {
-      const re = await recheckPolicy(db, { group, policyVersionId: approval.policyVersionId, requests, demoMode: this.deps.config.demoMode, now: this.now() });
-      if (!re.ok) return fail(409, 'policy_violation', re.problems.join('; '));
-    }
+    // 5. Policy re-check from first principles — before the first send AND before any re-send of a
+    // batch whose earlier attempt failed or ended UNKNOWN (the batch's own requests are excluded from
+    // history and today's spend, so a retry is judged exactly like the first attempt).
+    const re = await recheckPolicy(db, { group, policyVersionId: approval.policyVersionId, requests, demoMode: this.deps.config.demoMode, now: this.now() });
+    if (!re.ok) return fail(409, 'policy_violation', re.problems.join('; '));
+    if (existing) this.deps.log('info', 'execute.resend', { approvalId: approval.id, batchId: existing.id, senderBatchId: existing.senderBatchId, previousStatus: existing.status });
 
     // 6. Batch row (idempotent, re-checks canExecute under locks) → PayPal.
     let bw: BatchWithItems;
@@ -227,8 +228,17 @@ export class Approver {
       paypalBatchId = res.batchId;
       await updateBatch(db, bw.batch.id, { paypalBatchId, status: res.status === 'CREATING' ? 'PENDING' : res.status });
     } catch (err) {
-      await updateBatch(db, bw.batch.id, { status: 'FAILED' }).catch(() => {});
       const msg = err instanceof Error ? err.message : String(err);
+      if (isAmbiguousPayPalError(err)) {
+        // The request may have landed. Never call that FAILED (an organizer might then pay again by
+        // other means). Keep the batch UNKNOWN: re-executing re-checks policy and re-sends the SAME
+        // sender_batch_id + PayPal-Request-Id, which PayPal answers with the original batch if it exists.
+        await updateBatch(db, bw.batch.id, { status: 'UNKNOWN' }).catch(() => {});
+        this.deps.log('warn', 'execute.paypal_unknown', { approvalId: a.approvalId, senderBatchId: bw.batch.senderBatchId, error: msg });
+        await appendAudit(db, { actor: ACTOR, action: 'approver.paypal_unknown', entityType: 'payout_batch', entityId: bw.batch.id, data: { senderBatchId: bw.batch.senderBatchId, error: msg.slice(0, 300) } }).catch(() => {});
+        throw new ApproverFailure(504, 'paypal_unknown', 'PayPal didn’t confirm the payout batch in time. It may still go through; we’ll check again with the same batch id, so it can’t be paid twice.');
+      }
+      await updateBatch(db, bw.batch.id, { status: 'FAILED' }).catch(() => {});
       this.deps.log('error', 'execute.paypal_failed', { approvalId: a.approvalId, senderBatchId: bw.batch.senderBatchId, error: msg });
       await appendAudit(db, { actor: ACTOR, action: 'approver.paypal_failed', entityType: 'payout_batch', entityId: bw.batch.id, data: { senderBatchId: bw.batch.senderBatchId, error: msg.slice(0, 300) } }).catch(() => {});
       throw new ApproverFailure(502, 'paypal_error', `PayPal didn’t accept the payout batch: ${msg}`);

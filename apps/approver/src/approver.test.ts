@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { approvalHash, approvalPayload, canonicalJson, senderBatchIdFor, sha256Hex } from '@neighborline/core';
 import {
   addOrganizerCredential,
@@ -16,7 +16,9 @@ import {
 } from '@neighborline/db';
 import { challengeForApprovalHash, createSoftwareAuthenticator } from '@neighborline/passkeys';
 import { APPROVER_ROUTES, signApproverRequest } from './protocol.js';
-import { SECRET, approve, call, execute, executeBody, fileRequest, startFixture, type Fixture } from './test-helpers.js';
+import { PayPalApiError, PayPalTimeoutError, type PayoutsApi } from '@neighborline/paypal';
+import { getBatch, payoutBatches } from '@neighborline/db';
+import { SECRET, approve, call, execute, executeBody, fileRequest, signAs, startFixture, type Fixture } from './test-helpers.js';
 
 let f: Fixture;
 beforeAll(async () => {
@@ -47,8 +49,8 @@ describe('approver /v1/execute', () => {
     const done = audit.find((e) => e.action === 'approver.executed' && e.data.approvalId === approvalId)!;
     expect(done.actor).toBe('approver');
     expect(done.data.approvers).toEqual([
-      { organizerId: 'org_dana', signature: 'unsigned' },
-      { organizerId: 'org_marcus', signature: 'unsigned' },
+      { organizerId: 'org_dana', signature: 'demo_key' },
+      { organizerId: 'org_marcus', signature: 'demo_key' },
     ]);
     expect((await verifyAuditChain(f.db)).ok).toBe(true);
   });
@@ -187,9 +189,9 @@ describe('approver passkey checks', () => {
     return auth;
   }
 
-  it('requires a verified signature from every approver when NEIGHBORLINE_REQUIRE_PASSKEYS=true', async () => {
+  it('always requires a verified signature from every approver (there is no unsigned mode)', async () => {
     const id = await fileRequest(g.db, g.groupId, { dest: venmo('@uma-diaz-12'), requestedCents: 5_000 });
-    const approvalId = await approve(g.db, [id], ['org_dana', 'org_marcus']);
+    const approvalId = await approve(g.db, [id], ['org_dana', 'org_marcus'], { unsigned: true });
     const res = await execute(g, await executeBody(g.db, approvalId));
     expect(res.status).toBe(403);
     expect(res.json.code).toBe('assertion_invalid');
@@ -283,5 +285,149 @@ describe('approver poll, cancel-unclaimed, health', () => {
     expect(canonicalJson(body.payload)).toBe(canonicalJson(approvalPayload(contentFromRequests(reqs))));
     const res = await execute(f, { ...body, payload: { ...body.payload, totalCents: body.payload.totalCents + 1 } });
     expect(res.json.code).toBe('hash_mismatch');
+  });
+});
+
+describe('ambiguous PayPal failures (QA P2-8)', () => {
+  /** createBatch that lands at PayPal and then "times out" (the response is lost), `times` times. */
+  const lostResponse = (times: number) => (p: PayoutsApi): PayoutsApi => {
+    let left = times;
+    const real = p.createBatch.bind(p);
+    p.createBatch = async (input) => {
+      const res = await real(input);
+      if (left-- > 0) throw new PayPalTimeoutError('POST', '/v1/payments/payouts', 30_000);
+      return res;
+    };
+    return p;
+  };
+
+  it('a timeout after PayPal accepted the batch is UNKNOWN, not FAILED; re-executing resolves to the same batch', async () => {
+    const h = await startFixture({ wrapPayouts: lostResponse(1) });
+    try {
+      const id = await fileRequest(h.db, h.groupId, { dest: venmo('@lost-reply-1'), requestedCents: 5_000 });
+      const approvalId = await approve(h.db, [id], ['org_dana', 'org_marcus']);
+      const first = await execute(h, await executeBody(h.db, approvalId));
+      expect(first.status).toBe(504);
+      expect(first.json.code).toBe('paypal_unknown');
+      const [row] = await h.db.select().from(payoutBatches).where(eq(payoutBatches.approvalId, approvalId));
+      expect(row!.status).toBe('UNKNOWN');
+      expect(h.fake.state.batches.size).toBe(1); // it did land
+      const again = await execute(h, await executeBody(h.db, approvalId));
+      expect(again.status).toBe(200);
+      expect(again.json.senderBatchId).toBe(row!.senderBatchId);
+      expect(h.fake.state.batches.size).toBe(1); // resolved by the same sender_batch_id, never paid twice
+      expect((await getBatch(h.db, row!.id))!.batch.paypalBatchId).toBe(again.json.paypalBatchId);
+      const audit = await listAudit(h.db);
+      expect(audit.some((e) => e.action === 'approver.paypal_unknown')).toBe(true);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('a definite rejection is FAILED', async () => {
+    const h = await startFixture({
+      wrapPayouts: (p) => {
+        p.createBatch = async () => {
+          throw new PayPalApiError({ status: 422, body: { name: 'UNPROCESSABLE_ENTITY', message: 'nope' }, method: 'POST', path: '/v1/payments/payouts' });
+        };
+        return p;
+      },
+    });
+    try {
+      const id = await fileRequest(h.db, h.groupId, { dest: venmo('@rejected-1'), requestedCents: 5_000 });
+      const approvalId = await approve(h.db, [id], ['org_dana', 'org_marcus']);
+      const r = await execute(h, await executeBody(h.db, approvalId));
+      expect(r.json.code).toBe('paypal_error');
+      const [row] = await h.db.select().from(payoutBatches).where(eq(payoutBatches.approvalId, approvalId));
+      expect(row!.status).toBe('FAILED');
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('re-checks policy before a re-send: a batch left UNKNOWN is not re-sent after the policy changed', async () => {
+    const h = await startFixture({ wrapPayouts: (p) => {
+      p.createBatch = async () => {
+        throw new PayPalTimeoutError('POST', '/v1/payments/payouts', 30_000);
+      };
+      return p;
+    } });
+    try {
+      const id = await fileRequest(h.db, h.groupId, { dest: venmo('@recheck-1'), requestedCents: 5_000 });
+      const approvalId = await approve(h.db, [id], ['org_dana', 'org_marcus']);
+      expect((await execute(h, await executeBody(h.db, approvalId))).json.code).toBe('paypal_unknown');
+      // between attempts the destination became one of the group's own handles (rail block)
+      await h.db.execute(sql`update groups set official_handles = official_handles || ${JSON.stringify([{ wallet: 'VENMO', type: 'USER_HANDLE', value: '@recheck-1' }])}::jsonb`);
+      const r = await execute(h, await executeBody(h.db, approvalId));
+      expect(r.status).toBe(409);
+      expect(r.json.code).toBe('policy_violation');
+    } finally {
+      await h.close();
+    }
+  });
+});
+
+describe('demo-visitor passkeys and nonce-bound signatures', () => {
+  it('a visitor-bound credential signs only that visitor’s own demo runs, and only in DEMO_MODE', async () => {
+    const h = await startFixture({ demoMode: true });
+    try {
+      const own = await fileRequest(h.db, h.groupId, { id: 'req_demo_abc123_run1', dest: venmo('@visitor-own-1'), requestedCents: 5_000 });
+      const { approval } = await createOrGetApproval(h.db, { requestIds: [own] });
+      await signAs(h.db, 'org_dana', approval.hash);
+      await signAs(h.db, 'org_marcus', approval.hash, { boundTo: 'demo-visitor:abc123' });
+      const ok = await execute(h, await executeBody(h.db, await approve(h.db, [own], ['org_dana', 'org_marcus'], { unsigned: true })));
+      expect(ok.status).toBe(200);
+
+      const other = await fileRequest(h.db, h.groupId, { id: 'req_demo_ffff99_run1', dest: venmo('@visitor-other-1'), requestedCents: 5_000 });
+      const a2 = (await createOrGetApproval(h.db, { requestIds: [other] })).approval;
+      await signAs(h.db, 'org_dana', a2.hash);
+      await signAs(h.db, 'org_marcus', a2.hash, { boundTo: 'demo-visitor:abc123' });
+      const bad = await execute(h, await executeBody(h.db, await approve(h.db, [other], ['org_dana', 'org_marcus'], { unsigned: true })));
+      expect(bad.status).toBe(403);
+      expect(String(bad.json.error)).toContain('own demo runs');
+
+      const real = await fileRequest(h.db, h.groupId, { dest: venmo('@real-request-1'), requestedCents: 5_000 });
+      const a3 = (await createOrGetApproval(h.db, { requestIds: [real] })).approval;
+      await signAs(h.db, 'org_dana', a3.hash);
+      await signAs(h.db, 'org_marcus', a3.hash, { boundTo: 'demo-visitor:abc123' });
+      expect((await execute(h, await executeBody(h.db, await approve(h.db, [real], ['org_dana', 'org_marcus'], { unsigned: true })))).status).toBe(403);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('demo keys and visitor passkeys do not count when DEMO_MODE is off', async () => {
+    const h = await startFixture({ demoMode: false });
+    try {
+      const id = await fileRequest(h.db, h.groupId, { dest: venmo('@no-demo-1'), requestedCents: 5_000 });
+      const r = await execute(h, await executeBody(h.db, await approve(h.db, [id], ['org_dana', 'org_marcus'])));
+      expect(r.status).toBe(403);
+      expect(String(r.json.error)).toContain('DEMO_MODE');
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('re-verifies a nonce-bound assertion with the nonce stored next to it; a wrong nonce fails', async () => {
+    const h = await startFixture();
+    try {
+      const id = await fileRequest(h.db, h.groupId, { dest: venmo('@nonce-1'), requestedCents: 5_000 });
+      const { approval } = await createOrGetApproval(h.db, { requestIds: [id] });
+      await signAs(h.db, 'org_dana', approval.hash);
+      await signAs(h.db, 'org_marcus', approval.hash);
+      const res = await execute(h, await executeBody(h.db, await approve(h.db, [id], ['org_dana', 'org_marcus'], { unsigned: true })));
+      expect(res.status).toBe(200);
+      // Marcus's next assertion was made over one nonce but the row claims another (tampered)
+      const id2 = await fileRequest(h.db, h.groupId, { dest: venmo('@nonce-2'), requestedCents: 5_000 });
+      const a2 = (await createOrGetApproval(h.db, { requestIds: [id2] })).approval;
+      await signAs(h.db, 'org_dana', a2.hash);
+      await signAs(h.db, 'org_marcus', a2.hash);
+      await h.db.execute(sql`update approval_assertions set server_nonce = ${'A'.repeat(43)} where approval_hash = ${a2.hash} and organizer_id = 'org_marcus'`);
+      const bad = await execute(h, await executeBody(h.db, await approve(h.db, [id2], ['org_dana', 'org_marcus'], { unsigned: true })));
+      expect(bad.status).toBe(403);
+      expect(String(bad.json.error)).toContain('org_marcus');
+    } finally {
+      await h.close();
+    }
   });
 });

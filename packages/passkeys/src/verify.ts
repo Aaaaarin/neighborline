@@ -4,7 +4,7 @@
  * every approver before it pays (stateless: needs only the stored public key).
  */
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
-import { challengeForApprovalHash, fromB64url } from './encoding.js';
+import { challengeFor, fromB64url } from './encoding.js';
 import type { AssertionParts, SignerKind } from './assertion.js';
 
 export interface StoredCredential {
@@ -27,14 +27,16 @@ export async function verifyApprovalAssertion(input: {
   credential: StoredCredential;
   expectedOrigin: string | string[];
   expectedRpId: string | string[];
+  /** The server nonce the challenge was bound to (stored with the assertion); omit for legacy bare-hash challenges. */
+  serverNonce?: string | null | undefined;
 }): Promise<VerifyResult> {
   const { assertion: a, credential: c } = input;
   if (a.credentialId !== c.id) return { ok: false, reason: 'assertion was made by a different credential' };
   let expectedChallenge: string;
   try {
-    expectedChallenge = challengeForApprovalHash(input.approvalHash);
+    expectedChallenge = challengeFor(input.approvalHash, input.serverNonce);
   } catch {
-    return { ok: false, reason: 'bad approval hash' };
+    return { ok: false, reason: 'bad approval hash or server nonce' };
   }
   try {
     const res = await verifyAuthenticationResponse({

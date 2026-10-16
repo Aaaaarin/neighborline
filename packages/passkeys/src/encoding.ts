@@ -1,4 +1,5 @@
 /** Byte helpers shared by the browser-facing JSON (base64url) and the approval hash (hex). */
+import { createHash, randomBytes } from 'node:crypto';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -35,4 +36,28 @@ export function approvalHashFromChallenge(challenge: string): string | null {
   } catch {
     return null;
   }
+}
+
+const NONCE_DOMAIN = 'neighborline/webauthn/approval/v2';
+
+/** A fresh 32-byte server nonce, base64url (what the web app issues with each approval challenge). */
+export function newServerNonce(): string {
+  return toB64url(Uint8Array.from(randomBytes(32)));
+}
+
+/**
+ * The challenge an organizer signs, bound to a server nonce:
+ *   base64url( SHA-256( "neighborline/webauthn/approval/v2" ‖ approvalHash (32 bytes) ‖ serverNonce (bytes) ) )
+ * The signature still commits to exactly what will be paid (the hash is in the preimage), and the
+ * nonce — issued once, expiring, stored with the assertion — means a captured assertion can never be
+ * replayed for a later approval with identical content. Re-verifiable by anyone holding the stored
+ * nonce. Without a nonce this is the legacy bare-hash challenge ({@link challengeForApprovalHash}).
+ */
+export function challengeFor(approvalHash: string, serverNonce?: string | null): string {
+  if (!serverNonce) return challengeForApprovalHash(approvalHash);
+  if (!HEX64.test(approvalHash)) throw new TypeError('approval hash must be 64 lowercase hex chars');
+  const nonce = fromB64url(serverNonce);
+  if (nonce.length < 16) throw new TypeError('server nonce must be at least 16 bytes');
+  const h = createHash('sha256').update(NONCE_DOMAIN, 'utf8').update(hexToBytes(approvalHash)).update(nonce).digest();
+  return toB64url(Uint8Array.from(h));
 }

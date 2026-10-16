@@ -1,7 +1,10 @@
 /** Test fixture: in-memory Postgres (PGlite) + in-process fake PayPal + an approver on a random port. */
 import { checkRail, computeAmount, type IntakeExtraction, type PayoutDestination } from '@neighborline/core';
+import { challengeFor, createSoftwareAuthenticator, newServerNonce, type SoftwareAuthenticator } from '@neighborline/passkeys';
 import {
   addApproverTx,
+  addOrganizerCredential,
+  recordApprovalAssertion,
   createDb,
   createOrGetApproval,
   createRequest,
@@ -35,7 +38,7 @@ export interface Fixture {
   close(): Promise<void>;
 }
 
-export async function startFixture(opts: { requirePasskeys?: boolean; demoMode?: boolean; unclaimed?: string[] } = {}): Promise<Fixture> {
+export async function startFixture(opts: { requirePasskeys?: boolean; demoMode?: boolean; unclaimed?: string[]; wrapPayouts?: (p: PayoutsApi) => PayoutsApi } = {}): Promise<Fixture> {
   const handle = createDb({ memory: true });
   await migrate(handle.db);
   const { group } = await seedDemo(handle.db);
@@ -43,13 +46,13 @@ export async function startFixture(opts: { requirePasskeys?: boolean; demoMode?:
   const client = new PayPalClient({ clientId: 'fake-client-id', clientSecret: 'fake-client-secret', baseUrl: fake.url });
   const approver = await startApproverServer({
     db: () => handle.db,
-    payouts: new PayoutsApi(client),
+    payouts: opts.wrapPayouts ? opts.wrapPayouts(new PayoutsApi(client)) : new PayoutsApi(client),
     webhooks: new WebhooksApi(client),
-    config: { requirePasskeys: opts.requirePasskeys ?? false, demoMode: opts.demoMode ?? true, webhookId: fake.config.webhookId },
+    config: { requirePasskeys: true, demoMode: opts.demoMode ?? true, webhookId: fake.config.webhookId },
     env: { DEMO_MODE: String(opts.demoMode ?? true) },
     log: silentLogger,
     secret: SECRET,
-    health: { paypalMode: 'fake', credentials: 'fake', requirePasskeys: opts.requirePasskeys ?? false, demoMode: opts.demoMode ?? true },
+    health: { paypalMode: 'fake', credentials: 'fake', requirePasskeys: true, demoMode: opts.demoMode ?? true },
   });
   return {
     handle,
@@ -97,8 +100,35 @@ export async function fileRequest(
   return id;
 }
 
-export async function approve(db: Db, requestIds: string[], organizers: string[]): Promise<string> {
+const demoKeys = new Map<string, SoftwareAuthenticator>();
+
+/**
+ * Sign `hash` as `organizerId` the way the web app does: a demo key (one per organizer per db), a
+ * nonce-bound challenge, the assertion stored with its nonce. `opts.boundTo` registers a fresh
+ * demo-visitor passkey-kind credential instead.
+ */
+export async function signAs(db: Db, organizerId: string, hash: string, opts: { boundTo?: string; nonce?: string | null } = {}): Promise<SoftwareAuthenticator> {
+  const kind = opts.boundTo ? ('passkey' as const) : ('demo_key' as const);
+  const key = `${organizerId}|${opts.boundTo ?? ''}`;
+  let auth = opts.boundTo ? undefined : demoKeys.get(key);
+  if (!auth) {
+    auth = createSoftwareAuthenticator(opts.boundTo ? { userVerified: true } : {});
+    if (!opts.boundTo) demoKeys.set(key, auth);
+  }
+  await addOrganizerCredential(db, { id: auth.credentialId, organizerId, publicKey: auth.publicKey, deviceLabel: `${organizerId} test key`, kind, ...(opts.boundTo ? { boundTo: opts.boundTo } : {}) });
+  const nonce = opts.nonce === null ? undefined : (opts.nonce ?? newServerNonce());
+  const origin = 'http://localhost:3000';
+  const parts = auth.sign({ challenge: challengeFor(hash, nonce), origin, rpId: 'localhost' });
+  await recordApprovalAssertion(db, {
+    organizerId,
+    assertion: { v: 1, kind, ...parts, rpId: 'localhost', origin, approvalHash: hash, deviceLabel: `${organizerId} test key`, verifiedAt: new Date().toISOString(), ...(nonce ? { serverNonce: nonce } : {}) },
+  });
+  return auth;
+}
+
+export async function approve(db: Db, requestIds: string[], organizers: string[], opts: { unsigned?: boolean } = {}): Promise<string> {
   const { approval } = await createOrGetApproval(db, { requestIds, actor: organizers[0] });
+  if (!opts.unsigned) for (const org of organizers) await signAs(db, org, approval.hash);
   for (const org of organizers) {
     const r = await addApproverTx(db, { approvalId: approval.id, organizerId: org, deviceLabel: 'test phone' });
     if (!r.ok) throw new Error(`addApprover ${org}: ${r.reason}`);

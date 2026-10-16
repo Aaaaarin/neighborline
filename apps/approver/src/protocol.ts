@@ -239,5 +239,7 @@ export interface ApproverError {
     | 'not_executable'
     | 'not_cancellable'
     | 'paypal_error'
+    /** PayPal may or may not have accepted the batch (timeout / network / 5xx). Batch is UNKNOWN; re-execute resolves it. */
+    | 'paypal_unknown'
     | 'internal';
 }

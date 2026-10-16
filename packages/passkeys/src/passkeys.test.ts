@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApprovalAssertion, approvalHashFromChallenge, challengeForApprovalHash, createSoftwareAuthenticator, fromB64url, toB64url, verifyApprovalAssertion } from './index.js';
+import { ApprovalAssertion, approvalHashFromChallenge, challengeFor, challengeForApprovalHash, newServerNonce, createSoftwareAuthenticator, fromB64url, toB64url, verifyApprovalAssertion } from './index.js';
 
 const HASH = 'a3'.repeat(32);
 const OTHER = 'b4'.repeat(32);
@@ -87,5 +87,27 @@ describe('relying party', async () => {
     expect(relyingParty({ WEBAUTHN_ORIGIN: 'https://app.nl.example', WEBAUTHN_RP_ID: 'nl.example' }, 'https://evil.example')).toMatchObject({ rpId: 'nl.example', origin: 'https://app.nl.example' });
     expect(expectedFor({ origin: 'https://evil.example' }, {})).toBeNull();
     expect(expectedFor({ origin: 'http://localhost:3000' }, {})).toEqual({ expectedOrigin: ['http://localhost:3000'], expectedRpId: 'localhost' });
+  });
+});
+
+describe('nonce-bound approval challenges', () => {
+  const HASH2 = 'ab'.repeat(32);
+  it('binds the hash and a server nonce; legacy challenge without a nonce', () => {
+    const n1 = newServerNonce();
+    const n2 = newServerNonce();
+    expect(n1).not.toBe(n2);
+    expect(challengeFor(HASH2, n1)).not.toBe(challengeFor(HASH2, n2));
+    expect(challengeFor(HASH2, n1)).toBe(challengeFor(HASH2, n1));
+    expect(challengeFor(HASH2)).toBe(challengeForApprovalHash(HASH2));
+    expect(() => challengeFor(HASH2, 'AAAA')).toThrow(/nonce/);
+  });
+  it('verifies only with the nonce it was signed over (a captured assertion is not reusable)', async () => {
+    const auth = createSoftwareAuthenticator();
+    const nonce = newServerNonce();
+    const parts = auth.sign({ challenge: challengeFor(HASH2, nonce), origin: 'http://localhost:3000', rpId: 'localhost' });
+    const base = { assertion: parts, approvalHash: HASH2, credential: { id: auth.credentialId, publicKey: auth.publicKey, kind: 'demo_key' as const }, expectedOrigin: 'http://localhost:3000', expectedRpId: 'localhost' };
+    expect((await verifyApprovalAssertion({ ...base, serverNonce: nonce })).ok).toBe(true);
+    expect((await verifyApprovalAssertion({ ...base, serverNonce: newServerNonce() })).ok).toBe(false);
+    expect((await verifyApprovalAssertion(base)).ok).toBe(false); // not valid as a bare-hash signature either
   });
 });

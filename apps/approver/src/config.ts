@@ -9,8 +9,12 @@
  *   NEIGHBORLINE_APPROVER_SECRET     HMAC key shared with the web app (≥ 32 chars)
  *   DATABASE_URL                     Postgres (production) or the local dev database (tools/dev-db)
  *   APPROVER_PORT / APPROVER_HOST    default 4020 / 127.0.0.1
- *   NEIGHBORLINE_REQUIRE_PASSKEYS    true → every approver needs a verified WebAuthn assertion
- *   DEMO_MODE                        true → demo rehearsals (req_demo_*) excluded from caps, demo keys accepted
+ *   DEMO_MODE                        true → demo rehearsals (req_demo_*) excluded from caps, demo keys and
+ *                                    demo-visitor passkeys accepted. Default: on only when PAYPAL_MODE=fake;
+ *                                    refused outright with PAYPAL_MODE=live.
+ *
+ * Every counted approver always needs a verified signature (a passkey, or in DEMO_MODE a labelled demo
+ * key). There is no "unsigned" mode any more; NEIGHBORLINE_REQUIRE_PASSKEYS is accepted and ignored.
  */
 import { resolvePayPalEnv } from '@neighborline/paypal';
 import { APPROVER_MIN_SECRET_LENGTH, DEFAULT_APPROVER_PORT } from './protocol.js';
@@ -39,6 +43,16 @@ export interface ApproverConfig {
 export class ConfigError extends Error {}
 
 const truthy = (v: string | undefined) => /^(1|true|yes)$/i.test(v ?? '');
+
+/**
+ * DEMO_MODE fails closed: explicit DEMO_MODE=true|false wins; unset means on only for PAYPAL_MODE=fake
+ * (nothing real can move). The web app reads it the same way (lib/server/security/demo-mode.ts).
+ */
+export function demoModeFromEnv(env: Env): boolean {
+  const raw = (env.DEMO_MODE ?? '').trim().toLowerCase();
+  if (raw) return truthy(raw);
+  return (env.PAYPAL_MODE ?? 'fake').toLowerCase() === 'fake';
+}
 
 export function readConfig(env: Env = process.env): ApproverConfig {
   const warnings: string[] = [];
@@ -86,11 +100,10 @@ export function readConfig(env: Env = process.env): ApproverConfig {
   const port = Number(env.APPROVER_PORT ?? DEFAULT_APPROVER_PORT);
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new ConfigError('APPROVER_PORT must be a port number');
 
-  const demoMode = (env.DEMO_MODE ?? 'true').toLowerCase() !== 'false';
-  const requirePasskeys = truthy(env.NEIGHBORLINE_REQUIRE_PASSKEYS);
-  if (!requirePasskeys && mode !== 'fake') {
-    warnings.push('NEIGHBORLINE_REQUIRE_PASSKEYS is off: approvals without a WebAuthn signature are executed and audited as "unsigned".');
-  }
+  const demoMode = demoModeFromEnv(env);
+  if (demoMode && mode === 'live') throw new ConfigError('DEMO_MODE=true is not allowed with PAYPAL_MODE=live: demo keys would count as organizers for real money.');
+  if (demoMode && mode !== 'fake') warnings.push(`DEMO_MODE is on with PAYPAL_MODE=${mode}: labelled demo keys count as organizer signatures. Set DEMO_MODE=false for anything but a demo.`);
+  const requirePasskeys = true;
 
   return {
     port,

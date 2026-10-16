@@ -27,6 +27,22 @@ describe('approver config: Payouts credentials live here, and only here', () => 
   });
 });
 
+describe('DEMO_MODE fails closed', () => {
+  const sandbox = { NEIGHBORLINE_APPROVER_SECRET: secret, PAYPAL_MODE: 'sandbox', PAYPAL_PAYOUTS_CLIENT_ID: 'p', PAYPAL_PAYOUTS_CLIENT_SECRET: 'ps' };
+  it('defaults on only in fake mode', () => {
+    expect(readConfig({ NEIGHBORLINE_APPROVER_SECRET: secret }).demoMode).toBe(true);
+    expect(readConfig(sandbox).demoMode).toBe(false);
+    expect(readConfig({ ...sandbox, DEMO_MODE: 'true' }).demoMode).toBe(true);
+    expect(readConfig({ NEIGHBORLINE_APPROVER_SECRET: secret, DEMO_MODE: 'false' }).demoMode).toBe(false);
+    expect(readConfig({ NEIGHBORLINE_APPROVER_SECRET: secret, DEMO_MODE: 'nonsense' }).demoMode).toBe(false);
+  });
+  it('is refused with live PayPal, and signatures are always required', () => {
+    expect(() => readConfig({ ...sandbox, PAYPAL_MODE: 'live', DEMO_MODE: 'true' })).toThrow(/DEMO_MODE=true is not allowed/);
+    expect(readConfig({ ...sandbox, PAYPAL_MODE: 'live' }).demoMode).toBe(false);
+    expect(readConfig({ ...sandbox, NEIGHBORLINE_REQUIRE_PASSKEYS: 'false' }).requirePasskeys).toBe(true);
+  });
+});
+
 describe('request signing', () => {
   it('verifies a signature and rejects a tampered body', () => {
     const h = signApproverRequest(secret, 'POST', '/v1/execute', '{"a":1}');

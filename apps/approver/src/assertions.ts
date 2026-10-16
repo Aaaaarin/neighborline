@@ -9,15 +9,19 @@
  * origin outside WEBAUTHN_ORIGIN fails.
  *
  * Policy:
- *   - NEIGHBORLINE_REQUIRE_PASSKEYS=true → every counted approver needs a verified assertion.
- *   - Demo keys (server-held, kind 'demo_key') count only when DEMO_MODE is on.
- *   - Otherwise an approver without an assertion is executed and audited as 'unsigned', but an
- *     assertion that IS present must verify (a bad signature is never ignored).
+ *   - Every counted approver needs a verified assertion. There is no unsigned path.
+ *   - Demo keys (server-held, kind 'demo_key') count only when DEMO_MODE is on (never with live PayPal).
+ *   - A demo-visitor passkey (credential bound_to 'demo-visitor:<tag>') counts only in DEMO_MODE and only
+ *     when every request in the approval is that visitor's own demo run (id 'req_demo_<tag>_…').
+ *   - Nonce-bound challenges are re-verified with the server nonce stored next to the assertion.
  */
 import type { Approver } from '@neighborline/core';
 import { getOrganizerCredential, type Db } from '@neighborline/db';
 import { expectedFor, verifyApprovalAssertion } from '@neighborline/passkeys';
 import type { Env } from './config.js';
+
+/** Demo runs on /demo are 'req_demo_<visitorTag>_<random>' (apps/web scenario-runner). */
+export const DEMO_VISITOR_PREFIX = 'req_demo_';
 
 export type SignatureKind = 'passkey' | 'demo_key' | 'unsigned';
 
@@ -30,17 +34,13 @@ export interface AssertionCheck {
 
 export async function checkAssertions(
   db: Db,
-  input: { approvers: readonly Approver[]; approvalHash: string; requirePasskeys: boolean; demoMode: boolean; env: Env },
+  input: { approvers: readonly Approver[]; approvalHash: string; requestIds: readonly string[]; requirePasskeys?: boolean; demoMode: boolean; env: Env },
 ): Promise<AssertionCheck[]> {
   const out: AssertionCheck[] = [];
   for (const ap of input.approvers) {
     const a = ap.assertion;
     if (!a) {
-      out.push(
-        input.requirePasskeys
-          ? { organizerId: ap.organizerId, signature: 'unsigned', ok: false, reason: 'no passkey signature on record' }
-          : { organizerId: ap.organizerId, signature: 'unsigned', ok: true },
-      );
+      out.push({ organizerId: ap.organizerId, signature: 'unsigned', ok: false, reason: 'no passkey signature on record' });
       continue;
     }
     const fail = (reason: string) => out.push({ organizerId: ap.organizerId, signature: a.kind, ok: false, reason });
@@ -65,6 +65,18 @@ export async function checkAssertions(
       fail('assertion kind does not match the credential');
       continue;
     }
+    if (cred.boundTo) {
+      const m = /^demo-visitor:([0-9a-f]{6,32})$/.exec(cred.boundTo);
+      if (!input.demoMode || !m) {
+        fail('a demo-visitor passkey counts only in DEMO_MODE');
+        continue;
+      }
+      const prefix = `${DEMO_VISITOR_PREFIX}${m[1]}_`;
+      if (!input.requestIds.length || !input.requestIds.every((id) => id.startsWith(prefix))) {
+        fail("a demo-visitor passkey signs only that visitor's own demo runs");
+        continue;
+      }
+    }
     const expected = expectedFor(a, input.env);
     if (!expected) {
       fail(`origin ${a.origin} is not an allowed origin (WEBAUTHN_ORIGIN)`);
@@ -75,6 +87,7 @@ export async function checkAssertions(
       approvalHash: input.approvalHash,
       credential: { id: cred.id, publicKey: cred.publicKey, counter: 0, kind: cred.kind },
       ...expected,
+      serverNonce: a.serverNonce,
     });
     if (!v.ok) {
       fail(`signature did not verify: ${v.reason}`);
