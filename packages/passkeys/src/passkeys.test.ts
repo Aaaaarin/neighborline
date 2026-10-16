@@ -111,3 +111,15 @@ describe('nonce-bound approval challenges', () => {
     expect((await verifyApprovalAssertion(base)).ok).toBe(false); // not valid as a bare-hash signature either
   });
 });
+
+describe('demoModeOn', () => {
+  it('fails closed: explicit value wins, unset means fake mode only, never live', async () => {
+    const { demoModeOn } = await import('./relying-party.js');
+    expect(demoModeOn({})).toBe(true);
+    expect(demoModeOn({ PAYPAL_MODE: 'sandbox' })).toBe(false);
+    expect(demoModeOn({ PAYPAL_MODE: 'sandbox', DEMO_MODE: 'true' })).toBe(true);
+    expect(demoModeOn({ DEMO_MODE: 'false' })).toBe(false);
+    expect(demoModeOn({ DEMO_MODE: 'typo' })).toBe(false);
+    expect(demoModeOn({ PAYPAL_MODE: 'live', DEMO_MODE: 'true' })).toBe(false);
+  });
+});

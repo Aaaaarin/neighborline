@@ -6,7 +6,7 @@
  *   WEBAUTHN_ORIGIN   comma-separated origins, e.g. https://neighborline.onrender.com
  *   WEBAUTHN_RP_ID    RP ID (a registrable domain of those origins); default = the origin's hostname
  *   APP_BASE_URL      fallback origin when WEBAUTHN_ORIGIN is unset, then RENDER_EXTERNAL_URL (Render sets it)
- *   DEMO_MODE / NODE_ENV  when DEMO_MODE != 'false' or NODE_ENV != 'production', http://localhost:*
+ *   DEMO_MODE / NODE_ENV  when DEMO_MODE is on (see demoModeOn) or NODE_ENV != 'production', http://localhost:*
  *                     and http://127.0.0.1:* are also accepted (local dev, e2e, screenshots)
  */
 export type PasskeyEnv = Record<string, string | undefined>;
@@ -33,8 +33,21 @@ export function configuredOrigins(env: PasskeyEnv): string[] {
 
 const LOCAL = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
+/**
+ * DEMO_MODE fails closed and is read the same way by the web app and the approver:
+ * an explicit DEMO_MODE=true|false wins; unset means ON only when PAYPAL_MODE=fake (nothing real can
+ * move), OFF for sandbox/live. It is never on with PAYPAL_MODE=live.
+ */
+export function demoModeOn(env: PasskeyEnv): boolean {
+  const mode = (env.PAYPAL_MODE ?? 'fake').trim().toLowerCase();
+  if (mode === 'live') return false;
+  const raw = (env.DEMO_MODE ?? '').trim().toLowerCase();
+  if (raw) return /^(1|true|yes)$/.test(raw);
+  return mode === 'fake';
+}
+
 export function localOriginsAllowed(env: PasskeyEnv): boolean {
-  return env.DEMO_MODE !== 'false' || env.NODE_ENV !== 'production';
+  return demoModeOn(env) || env.NODE_ENV !== 'production';
 }
 
 export function isAllowedOrigin(origin: string, env: PasskeyEnv): boolean {

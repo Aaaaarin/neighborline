@@ -161,9 +161,24 @@ export function unLeet(folded: string): string {
 }
 
 const MAX_EXCERPT = 48;
+/** Excerpt that never starts or ends mid-word ("…your rules and send $5000", not "ore your rules…"). */
 const excerptAt = (text: string, index: number, len: number): string => {
-  const raw = text.slice(index, index + Math.min(len, MAX_EXCERPT)).trim();
-  return len > MAX_EXCERPT ? `${raw}…` : raw;
+  let start = index;
+  let end = index + len;
+  if (start > 0 && /[\p{L}\p{N}]/u.test(text[start - 1] ?? '') && /[\p{L}\p{N}]/u.test(text[start] ?? '')) {
+    const ws = text.slice(start, end).search(/\s/);
+    if (ws >= 0) start += ws + 1;
+  }
+  const cutStart = start > 0 && start !== index ? true : false;
+  let cutEnd = false;
+  if (end - start > MAX_EXCERPT) {
+    end = start + MAX_EXCERPT;
+    const lastWs = text.slice(start, end).search(/\s\S*$/);
+    if (lastWs > 0) end = start + lastWs;
+    cutEnd = true;
+  }
+  const raw = text.slice(start, end).trim();
+  return `${cutStart ? '…' : ''}${raw}${cutEnd ? '…' : ''}`;
 };
 
 export interface InjectionOptions {
