@@ -63,13 +63,13 @@ const LANG_MIX: Array<[Lang, number]> = [
 
 const CAT_BY_DAY = (day: number): Array<[string, number]> =>
   day < 5
-    ? [['utility_outage', 0.5], ['groceries', 0.3], ['medicine', 0.12], ['transport', 0.08]]
-    : [['utility_outage', 0.15], ['groceries', 0.5], ['medicine', 0.2], ['transport', 0.15]];
+    ? [['utility_outage', 0.5], ['groceries', 0.3], ['medicine_copay', 0.12], ['transport', 0.08]]
+    : [['utility_outage', 0.15], ['groceries', 0.5], ['medicine_copay', 0.2], ['transport', 0.15]];
 
 const AMOUNTS: Record<string, number[]> = {
   utility_outage: [15_000, 15_000, 12_000, 15_000, 9_000],
   groceries: [10_000, 10_000, 8_000, 6_000, 10_000],
-  medicine: [6_000, 12_000, 4_500, 9_000],
+  medicine_copay: [6_000, 12_000, 4_500, 9_000],
   transport: [5_000, 3_000, 5_000, 4_000],
 };
 

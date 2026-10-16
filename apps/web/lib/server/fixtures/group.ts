@@ -41,7 +41,7 @@ export const POLICY = {
       perHouseholdPer30dCents: 20_000,
     },
     {
-      key: 'medicine',
+      key: 'medicine_copay',
       label: { en: 'Medicine & copays', es: 'Medicinas y copagos', vi: 'Thuốc men', ht: 'Medikaman ak copay' },
       maxCents: 12_000,
       perHouseholdPer30dCents: 24_000,
@@ -104,7 +104,7 @@ export function groupView(simulatedPaypal: boolean): GroupView {
         },
         {
           key: 'purpose_donations',
-          label: 'Every payout item tagged purpose = DONATIONS',
+          label: 'Every payout item tagged purpose = NON_GOODS_OR_SERVICES',
           ok: true,
           simulated: false,
           detail: 'Set on each Payouts item so PayPal and Venmo treat the money as mutual aid, not income for goods.',

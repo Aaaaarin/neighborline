@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-// speed=6 compresses the ~30 s scripted pacing; the code path is identical.
-test.describe('/demo stage (mock mode)', () => {
+// speed=6 compresses the scripted human beats (listening, reading the card); everything else is real latency.
+test.describe('/demo stage (real engine, fake PayPal)', () => {
   test('Lan’s Vietnamese voice note reaches PayPal SUCCESS and the clock stops', async ({ page }) => {
     await page.goto('/demo?scenario=lan&speed=6');
     await page.getByRole('button', { name: 'Play scenario' }).click();

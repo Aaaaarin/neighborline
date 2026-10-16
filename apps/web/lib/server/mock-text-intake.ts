@@ -5,7 +5,7 @@
 import type { IntakeExtraction, Lang, PayoutDestination } from '@neighborline/core';
 
 const CATEGORY_WORDS: Array<[string, RegExp]> = [
-  ['medicine', /insulin|medic|pharm|prescri|copay|thuốc|medicina|copago|ensilin|medikaman|famasi/i],
+  ['medicine_copay', /insulin|medic|pharm|prescri|copay|thuốc|medicina|copago|ensilin|medikaman|famasi/i],
   ['transport', /ride|cab|taxi|bus|gas|dialysis|transport|xe|đi lại|transpò|pasaje/i],
   ['utility_outage', /power|electric|heat|heater|outage|furnace|điện|sưởi|luz|calefac|calentador|kouran|chofaj/i],
   ['groceries', /food|grocer|eat|meal|fridge|ăn|thực phẩm|comida|súper|mercado|manje/i],

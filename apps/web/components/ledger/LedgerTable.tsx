@@ -31,7 +31,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
   const [note, setNote] = useState<string | null>(null);
   const statuses = FILTERS[filter]![1];
   const rows = statuses ? view.rows.filter((r) => statuses.includes(r.status)) : view.rows;
-  const pending = view.rows.filter((r) => r.reconcile !== 'matched' && r.status === 'SUCCESS').length;
+  const pending = view.rows.filter((r) => r.reconcile !== 'matched' && r.reconcile !== 'seeded' && r.status === 'SUCCESS').length;
 
   const reconcile = async () => {
     setBusy(true);
@@ -166,6 +166,10 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
                     </span>
                   ) : r.reconcile === 'mismatch' ? (
                     <span className="text-signal">Mismatch</span>
+                  ) : r.reconcile === 'seeded' ? (
+                    <span className="text-ink-3" title="Demo history from the seed script; it never went through this PayPal environment, so there is nothing to reconcile.">
+                      Seed history
+                    </span>
                   ) : (
                     <span className="text-ink-3">{r.status === 'SUCCESS' ? 'Next run' : 'Waiting'}</span>
                   )}

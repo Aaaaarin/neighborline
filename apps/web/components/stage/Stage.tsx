@@ -5,6 +5,7 @@ import { Play, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Organizer, PlayMode, RuntimeModes, ScenarioId } from '@/lib/types';
+import { api } from '@/lib/api';
 import { cx } from '@/lib/format';
 import { Chip } from '../RailChips';
 import { Wordmark } from '../Wordmark';
@@ -35,7 +36,7 @@ const IDLE: Record<ScenarioId, [string, string]> = {
   lan: ['Mrs. Lan’s power has been out for two days.', 'Press Play scenario and she leaves a voice note in Vietnamese.'],
   rosa: ['Rosa hasn’t worked since the storm.', 'Press Play scenario and she asks for groceries, in Spanish.'],
   jean: ['Jean’s insulin ran out.', 'Press Play scenario and he asks for the copay, in Haitian Creole.'],
-  walter: ['Walter’s car is iced in, and dialysis won’t wait.', 'Press Play scenario and he asks for cab fare.'],
+  walter: ['Walter’s oxygen battery is running low.', 'Press Play scenario and he asks for a ride to the warming center.'],
   blocked: ['Someone is pretending to be an organizer.', 'Press Play scenario and watch the rail stop them.'],
 };
 const NEXT: Partial<Record<ScenarioId, ScenarioId>> = { lan: 'rosa', rosa: 'blocked', blocked: 'jean', jean: 'walter' };
@@ -102,7 +103,11 @@ export function Stage({
 
   const captions = {
     idle: 'The clock starts when the voice note arrives.',
-    running: runningMode === 'manual' && marcusTurn ? 'Waiting for you to approve as Marcus' : s.view?.request.status === 'unclaimed' ? `Unclaimed — helping ${active.title} claim it` : 'Running',
+    running: runningMode === 'manual' && marcusTurn ? 'Waiting for you to approve as Marcus' : s.view?.request.status === 'unclaimed'
+            ? modes.paypalMode === 'sandbox'
+              ? `Unclaimed — waiting for ${active.title} to claim it`
+              : `Unclaimed — helping ${active.title} claim it`
+            : 'Running',
     paid: `Stopped when PayPal reported SUCCESS · ${s.view?.payout?.item.wallet === 'VENMO' ? 'Venmo' : 'PayPal'}`,
     blocked: 'Stopped · blocked before any money moved',
   };
@@ -266,6 +271,9 @@ export function Stage({
                 <div className="mt-2">
                   <Stopwatch clock={clock} skewMs={s.skew.current} caption={captions} />
                 </div>
+                {modes.paypalMode === 'sandbox' && s.view?.request.status === 'unclaimed' && s.view.payout && (
+                  <SandboxUnclaimed name={active.title} batchId={s.view.payout.batch.id} itemId={s.view.payout.item.id} />
+                )}
                 {finished && NEXT[s.run?.scenario ?? scenario] && (
                   <button
                     type="button"
@@ -292,6 +300,35 @@ export function Stage({
           </aside>
         </div>
       </main>
+    </div>
+  );
+}
+
+/** Real sandbox: nobody can claim for the neighbor, so say so and let an organizer return the money. */
+function SandboxUnclaimed({ name, batchId, itemId }: { name: string; batchId: string; itemId: string }) {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
+  return (
+    <div className="mt-4 rounded-xl border border-dashed border-rule-strong p-3 text-[0.88rem] text-ink-2">
+      <p>
+        In the PayPal sandbox the claim happens in {name}’s own PayPal account, so the clock keeps running until she does. Unclaimed money returns to the fund
+        after 30 days, or now:
+      </p>
+      <button
+        type="button"
+        disabled={state === 'busy' || state === 'done'}
+        onClick={async () => {
+          setState('busy');
+          try {
+            await api.cancelItem(batchId, itemId);
+            setState('done');
+          } catch {
+            setState('error');
+          }
+        }}
+        className="mt-2 min-h-10 rounded-full border border-rule-strong px-4 text-ink hover:bg-sunk disabled:opacity-60"
+      >
+        {state === 'done' ? 'Cancelled · money returned' : state === 'error' ? 'Couldn’t cancel — try again' : 'Cancel unclaimed payout'}
+      </button>
     </div>
   );
 }

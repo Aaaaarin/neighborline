@@ -129,7 +129,7 @@ export function buildSteps(input: {
         set('batch', {
           state: 'done',
           atMs,
-          detail: `${e.itemCount} item · ${money(e.totalCents)} · purpose DONATIONS`,
+          detail: `${e.itemCount} item · ${money(e.totalCents)} · purpose NON_GOODS_OR_SERVICES`,
           ids: [
             ['sender_batch_id', e.senderBatchId],
             ['payout_batch_id', e.paypalBatchId ?? '—'],

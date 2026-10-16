@@ -3,10 +3,27 @@
 The web app talks to the domain through **one seam**: the `Services` interface in
 `lib/server/services.ts`. Route handlers under `app/api/**` are thin adapters (parse + zod-validate →
 call one `services()` method → JSON), and server components (`/demo`, `/organizer`, `/report`, `/trust`,
-`/ledger`, `/donate`) call `services()` directly. Today `createServices()` returns the in-memory
-`MockEngine` (`lib/server/mock-engine.ts`). To go real, implement `Services` on top of
-`@neighborline/core`, `/db`, `/paypal` and `/agents` and return it from `createServices()` — no page,
-component or route needs to change.
+`/ledger`, `/donate`) call `services()` directly. `createServices()` returns the **real engine**
+(`lib/server/engine/engine.ts`, built on `@neighborline/core`, `/db`, `/paypal`, `/agents`).
+`ENGINE=mock` switches back to the in-memory `MockEngine` (`lib/server/mock-engine.ts`) as a fallback.
+
+### Real engine layout (`lib/server/engine/`)
+
+| File | Role |
+|---|---|
+| `engine.ts` | `Engine implements Services`; DB generations, timers, SSE bus, wiring |
+| `db-state.ts` | open/migrate/seed a DB generation; demo reset = fresh generation, old one retired after 30 s |
+| `demo-extras.ts` | Minh + Ana waiting in the queue (through computeAmount/checkRail), organizer Priya |
+| `intake.ts` | startIntake / submitAudio / submitText / confirmIntake (agents.intake → core amounts + rail) |
+| `views.ts` | GroupView, RequestView, ThreadView |
+| `settle.ts` | item status → core state machine (db.upsertItemFromEvent) → agents.notify in the neighbor's language |
+| `webhooks.ts` | verify signature → dedupe (recordWebhookEvent) → settle |
+| `ledger.ts`, `report.ts`, `donations.ts` | /ledger + reconcile, /report + /trust, Orders v2 + Subscriptions |
+| `scenario-runner.ts` | `/demo` Play: drives the public methods with fixture samples; only human beats are scripted |
+| `../approval-service.ts` | **the only module with a Payouts client** (enforced by `lib/server/least-privilege.test.ts`) |
+
+Demo rehearsals get request ids `req_demo_…` and never count against a household's caps, velocity or
+the daily budget (otherwise the third visitor to play "Mrs. Lan" would be blocked by her household cap).
 
 ```ts
 // lib/server/services.ts (abridged — the file is the source of truth)
@@ -98,7 +115,7 @@ What each screen reads from events:
 | `submitAudio` | `agents.intake.fromAudio({ audio: Uint8Array, mimeType, categories, langHint, speakReadBack: true })` → store `originalText`/`englishText`/`extracted`; delete audio. `sampleId` → `fixtureAudioBytes(<scenario>)` (`lan_vi`, `rosa_es`, `jean_ht`, `walter_en`). `simulatedTranscript = agents.providers.mode !== 'live'` |
 | `submitText` | `agents.intake.fromText` (stateless: re-run on previous text + answer) — replaces `mock-text-intake.ts` |
 | `confirmIntake` | `getActivePolicy` → `getHistoryForDestination` → `getTodaySpentCents` → core `computeAmount` + `checkRail` → `updateRequest(status: 'awaiting_approval')` → `agents.notify.render({ key: 'confirmed_waiting' })` |
-| `approve` | `createOrGetApproval` → `addApproverTx` → if complete: `createBatch` → `paypal` create-batch with `senderBatchId`, `senderItemId`, `toPayPalValue`, `purpose: DONATIONS`, Venmo `social_feed_privacy: PRIVATE` → `updateBatch`/`setPaypalItemId`. Block flags must throw a 409 (`HttpError`) with the flag detail — the card shows it. |
+| `approve` | `createOrGetApproval` → `addApproverTx` → if complete: `createBatch` → `paypal` create-batch with `senderBatchId`, `senderItemId`, `toPayPalValue`, `purpose: NON_GOODS_OR_SERVICES`, Venmo `social_feed_privacy: PRIVATE` → `updateBatch`/`setPaypalItemId`. Block flags must throw a 409 (`HttpError`) with the flag detail — the card shows it. |
 | `handlePaypalWebhook` | `paypal.WebhooksApi.verify` → `recordWebhookEvent` (skip duplicates) → `itemStatusForWebhookEvent` → `upsertItemFromEvent` → `notifyKeyFor` → `agents.notify.render` → `recordNotification` |
 | `getReport` | `db.listForReport` → core `buildReport` → `agents.report.write` → map `narrative` + `numberTrace` to `NarrativeSegment[][]` (`{ figure, ref }` for every grounded number) |
 | `getLedger` / `reconcile` | `listItems` + Transaction Search via `@neighborline/paypal`; `reconcile: 'matched' | 'pending' | 'mismatch'` per item |
@@ -124,12 +141,13 @@ serverExternalPackages: ['@electric-sql/pglite', '@paypal/agent-toolkit'],
 workspace packages use. Cache the DB handle and the agents/PayPal clients on `globalThis` exactly as
 `services()` does, so dev hot reloads and the per-route bundles share one instance.
 
-## Known fixture mismatches to reconcile
+## Fixture alignment (resolved)
 
-- Mrs. Lan's Venmo: web/agents use `@lan-nguyen54`; the db seed note says `@lan-nguyen`.
-- Category key: web mock uses `medicine`; core's demo policy uses `medicine_copay`.
-- Rule citation text: core appends "per request" (`Policy v1 · Utility outage · up to $150 per request`); the
-  UI renders whatever string arrives, no change needed.
+- Mrs. Lan's Venmo is `@lan-nguyen54` everywhere (agents fixtures, web stage, NOTES-core).
+- Category key is `medicine_copay` (core) in the web mock too.
+- Stage texts come straight from `packages/agents/fixtures/scenarios/*.json` (`lib/server/fixtures/scenarios.ts`).
+- Jean is paid by Venmo `@jean-baptiste-h` (sandbox rejects `recipient_type: PHONE`).
+- Rosa's `rosa.m.delgado@example.com` has "no PayPal account yet" in fake PayPal (`unclaimedReceivers`).
 
 ## Environment
 
@@ -149,7 +167,10 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 
 ## Tests
 
-`pnpm --filter @neighborline/web test:e2e` builds, starts on :3100 and runs `e2e/*.spec.ts`
+`pnpm --filter @neighborline/web test` runs the engine integration tests (vitest: in-memory PGlite +
+in-process fake PayPal + fixture AI) and the least-privilege check.
+`pnpm --filter @neighborline/web test:e2e` starts tools/fake-paypal on :4110, builds, starts on :3100 (real
+engine, `PAYPAL_MODE=fake`) and runs `e2e/*.spec.ts`
 (Lan → SUCCESS with the stopwatch frozen; visitor approves as Marcus; lookalike blocked; approval
 idempotency over the API; `/call` sample voice note on a phone viewport). Set `BASE_URL` to test a
 running server instead. Chromium comes from `PLAYWRIGHT_BROWSERS_PATH`.

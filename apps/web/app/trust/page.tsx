@@ -128,7 +128,7 @@ export default async function TrustPage() {
               <li><strong className="font-semibold text-ink">Voice notes are deleted</strong> as soon as they’re transcribed. Only the text and the read-back the neighbor confirmed are kept.</li>
               <li><strong className="font-semibold text-ink">Logs are redacted.</strong> Phone numbers, emails and handles are masked before anything is written to a log.</li>
               <li><strong className="font-semibold text-ink">Organizers see first names</strong> and a neighborhood — enough to call back, no more.</li>
-              <li><strong className="font-semibold text-ink">The public report is aggregate-only.</strong> Groups under 5 households are merged; payout lines never show language, name or place.</li>
+              <li><strong className="font-semibold text-ink">The public report is aggregate-only.</strong> Groups of fewer than 3 people are hidden or merged; payout lines never show language, name or place.</li>
               <li><strong className="font-semibold text-ink">Venmo payouts are private</strong> (social feed privacy set to PRIVATE), so a neighbor’s need never appears in a feed.</li>
             </ul>
           </section>
@@ -137,7 +137,7 @@ export default async function TrustPage() {
               Sandbox reality
             </h2>
             <p className="mt-2 text-[0.95rem] text-ink-2">
-              Running in <strong className="text-ink">{trust.modes.paypalMode === 'sandbox' ? 'PayPal sandbox' : 'offline demo'}</strong> mode with <strong className="text-ink">{trust.modes.aiMode === 'live' ? 'live AI' : 'fixture AI'}</strong>.
+              Running in <strong className="text-ink">{trust.modes.paypalMode === 'sandbox' ? 'PayPal sandbox' : trust.modes.paypalMode === 'fake' ? 'local fake PayPal' : 'offline demo'}</strong> mode with <strong className="text-ink">{trust.modes.aiMode === 'live' ? 'live AI' : 'fixture AI'}</strong>.
             </p>
             <ul className="mt-5 space-y-4">
               {trust.sandboxReality.map((s) => (

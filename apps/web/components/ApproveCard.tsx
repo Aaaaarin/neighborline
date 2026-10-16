@@ -83,7 +83,7 @@ export function ApproveCard({
       <div className={cx('mt-3 border-t border-rule pt-3', dense ? 'space-y-2' : 'space-y-3')}>
         <div>
           <p className={cx('font-semibold leading-none tracking-[-0.02em] text-ink', block ? 'text-ink-3 line-through decoration-2' : '', dense ? 'text-[2.1rem]' : 'text-[2.5rem]')}>
-            {block ? money(r.extracted?.requestedAmountCents ?? 0) : money(amount)}
+            {block ? money(r.extracted?.requestedAmountCents ?? amount) : money(amount)}
           </p>
           <p className="mt-1.5 text-[0.82rem] leading-snug text-ink-2">{r.computed?.ruleCitation ?? 'No policy category matches this request'}</p>
           {dest && (

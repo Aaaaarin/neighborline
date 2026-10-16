@@ -4,7 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
 const base = process.env.BASE_URL ?? 'http://localhost:3000';
-const out = new URL('../screenshots/', import.meta.url).pathname;
+const out = process.env.SHOTS_DIR ? process.env.SHOTS_DIR.replace(/\/?$/, '/') : new URL('../screenshots/', import.meta.url).pathname;
 mkdirSync(out, { recursive: true });
 
 const DESKTOP = { width: 1920, height: 1080 };
