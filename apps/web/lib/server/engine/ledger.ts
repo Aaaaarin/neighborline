@@ -1,10 +1,11 @@
 /** /ledger: every payout item from the db, plus reconcile against PayPal Transaction Search. */
-import type { Lang, PayoutItemStatus } from '@neighborline/core';
-import { getActivePolicy, latestReconcileRun, listDonations, listItems, listRequests, saveReconcileRun, type ReconcileItemOutcome } from '@neighborline/db';
+import type { Lang } from '@neighborline/core';
+import { getActivePolicy, latestReconcileRun, listItems, listRequests, saveReconcileRun, type ReconcileItemOutcome } from '@neighborline/db';
 import { reconcile as reconcileItems, TRANSACTION_SEARCH_LAG_MS, type ReconcileReport } from '@neighborline/paypal';
 import type { LedgerRow, LedgerView, ReconcileResult, ReconcileState } from '../../types';
 import { categoryLabelFor, type BaseCtx } from './context';
 import { allBatches, listAlerts } from './queries';
+import { loadFund } from './totals';
 
 /** Seeded history never went through this PayPal environment, so it is labelled, not "reconciled". */
 const isSeeded = (paypalItemId: string | undefined) => !!paypalItemId?.startsWith('SEEDITEM');
@@ -78,15 +79,17 @@ export function maskReceiver(receiver: string): string {
 export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<LedgerView> {
   await hydrate(ctx, cache);
   const g = ctx.gen.group;
-  const [items, batches, reqs, policy, donations] = await Promise.all([
+  const [items, batches, reqs, policy, fund] = await Promise.all([
     listItems(ctx.db),
     allBatches(ctx.db),
     listRequests(ctx.db, { groupId: g.id }),
     getActivePolicy(ctx.db, g.id),
-    listDonations(ctx.db, g.id),
+    loadFund(ctx),
   ]);
   const alerts = await listAlerts(ctx.db);
-  const reqById = new Map(reqs.map((r) => [r.id, r]));
+  // Rows for exactly the requests the totals (and /report, /donate) count: same query, same window.
+  const inWindow = new Set(fund.input.requests.map((r) => r.id));
+  const reqById = new Map(reqs.filter((r) => inWindow.has(r.id)).map((r) => [r.id, r]));
   const batchById = new Map(batches.map((b) => [b.id, b]));
   const rows: LedgerRow[] = [];
   for (const it of items) {
@@ -112,14 +115,13 @@ export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<
     });
   }
   rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const sum = (s: PayoutItemStatus) => rows.filter((r) => r.status === s).reduce((t, r) => t + r.amountCents, 0);
-  const paid = sum('SUCCESS');
-  const inCents = donations.filter((d) => d.status === 'COMPLETED').reduce((t, d) => t + d.amountCents, 0);
+  const t = fund.totals;
   return {
     rows,
-    summary: { paidCents: paid, pendingCents: sum('PENDING') + sum('ONHOLD'), unclaimedCents: sum('UNCLAIMED'), items: rows.length, batches: new Set(rows.map((r) => r.batchId)).size },
+    fund: t,
+    summary: { paidCents: t.landedCents, pendingCents: t.sendingCents, unclaimedCents: t.unclaimedCents, items: rows.length, batches: new Set(rows.map((r) => r.batchId)).size },
     lastReconciledAt: cache.at,
-    balanceCents: inCents - paid - sum('PENDING') - sum('ONHOLD') - sum('UNCLAIMED'),
+    balanceCents: t.leftInFundCents,
     ...(alerts.length ? { alerts } : {}),
   };
 }

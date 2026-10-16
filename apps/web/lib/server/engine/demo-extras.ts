@@ -16,6 +16,7 @@ import {
 } from '@neighborline/core';
 import {
   addApproverTx,
+  appendAudit,
   createBatch,
   createOrGetApproval,
   createOrganizer,
@@ -180,6 +181,8 @@ async function seedQueueRows(db: Executor, s: { group: Group; policy: Policy; or
     at: new Date(prevAt.getTime() + 6 * 60_000 + 20_000),
   });
 
+  await seedUnclaimed(db, s);
+
   for (const q of QUEUE) {
     await file(db, s.policy, {
       id: q.id,
@@ -198,4 +201,51 @@ async function seedQueueRows(db: Executor, s: { group: Group; policy: Policy; or
   const minh = await createOrGetApproval(db, { requestIds: ['req_seed_q_minh'], actor: PRIYA.id });
   await signSeeded(db, s.group.id, PRIYA.id, minh.approval.hash);
   await addApproverTx(db, { approvalId: minh.approval.id, organizerId: PRIYA.id, deviceLabel: 'Priya’s phone (demo key)' });
+}
+
+/** The one payout in the seeded month that is genuinely still unclaimed (JUDGE-PANEL-2 #3b). */
+export const SEED_UNCLAIMED = { id: 'req_seed_27', paypalItemId: 'SEEDITEM9002', daysAgo: 25, hoursAgo: 3 } as const;
+
+/**
+ * Graciela asked 25 days ago; her PayPal payout went out but she never claimed it. The line followed up
+ * in Spanish on the scheduled days (1, 3, 7, 14, 21: workflows/src/policy.ts), so the unclaimed sweep
+ * sees five nudges, and on day 25 the scheduled check raises the organizer alert for exactly this item
+ * (PayPal returns it on day 30). The ledger row, the Unclaimed total and the alert all describe it.
+ */
+async function seedUnclaimed(db: Executor, s: { group: Group; policy: Policy }) {
+  const createdAt = new Date(Date.now() - (SEED_UNCLAIMED.daysAgo * 24 + SEED_UNCLAIMED.hoursAgo) * 3_600_000);
+  const id = SEED_UNCLAIMED.id;
+  await file(db, s.policy, {
+    id,
+    createdAt,
+    lang: 'es',
+    channel: 'sms',
+    original: 'Con la tormenta perdí el trabajo esta semana y no tengo para la comida. Somos cuatro. Mi PayPal es graciela.mora@example.com',
+    english: 'I lost work this week because of the storm and can’t afford food. There are four of us. My PayPal is graciela.mora@example.com',
+    category: 'groceries',
+    requestedCents: 9_000,
+    dest: { wallet: 'PAYPAL', type: 'EMAIL', value: 'graciela.mora@example.com', nameOnFile: 'Graciela Mora' },
+  });
+  const { approval } = await createOrGetApproval(db, { requestIds: [id], actor: 'org_dana' });
+  const danaAt = new Date(createdAt.getTime() + 4 * 60_000);
+  const marcusAt = new Date(createdAt.getTime() + 7 * 60_000);
+  await signSeeded(db, s.group.id, 'org_dana', approval.hash, danaAt);
+  await addApproverTx(db, { approvalId: approval.id, organizerId: 'org_dana', deviceLabel: 'Dana’s phone (demo key)', at: danaAt });
+  await signSeeded(db, s.group.id, 'org_marcus', approval.hash, marcusAt);
+  await addApproverTx(db, { approvalId: approval.id, organizerId: 'org_marcus', deviceLabel: 'Marcus’s phone (demo key)', at: marcusAt });
+  const sentAt = new Date(marcusAt.getTime() + 5_000);
+  const { items } = await createBatch(db, { approvalId: approval.id, now: sentAt });
+  const item = items[0]!;
+  const unclaimedAt = new Date(sentAt.getTime() + 95_000);
+  await upsertItemFromEvent(db, { senderItemId: item.senderItemId, paypalItemId: SEED_UNCLAIMED.paypalItemId, status: 'UNCLAIMED', at: unclaimedAt });
+  for (const [n, days] of [1, 3, 7, 14, 21].entries()) {
+    await appendAudit(db, {
+      actor: 'workflow',
+      action: 'unclaimed.renotify',
+      entityType: 'payout_item',
+      entityId: item.id,
+      data: { nudgeNumber: n + 1, lang: 'es', channel: 'sms', idempotencyKey: `renotify:${item.id}:${n + 1}`, seeded: true },
+      at: new Date(unclaimedAt.getTime() + days * 86_400_000),
+    });
+  }
 }

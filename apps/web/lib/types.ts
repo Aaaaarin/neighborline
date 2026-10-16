@@ -139,6 +139,11 @@ export interface RequestView {
   /** One-line summary of the schema pipeline behind the AI extraction (agents' trace.summary). */
   aiTrace?: { status: 'valid' | 'locally_fixed' | 'repaired' | 'invalid' | 'error'; summary: string };
   /**
+   * Offline mode (AI_MODE=fixture) could not translate: `request.extracted.summaryEn` holds the
+   * neighbor's own words (in `request.lang`), and the card says so beside them, never inside them.
+   */
+  summaryUntranslated?: true;
+  /**
    * Set when the reader is neither an organizer nor the visitor who sent it: first name + area,
    * masked destination, no transcript (lib/server/security/redact.ts). Organizers sign in to see more.
    */
@@ -318,8 +323,30 @@ export interface LedgerRow {
   reconcileDetail?: string;
 }
 
+/**
+ * The money totals every page shows, from one query over one window (lib/server/engine/totals.ts).
+ * "Donations in" and "Landed with neighbors" mean the same thing on /, /report, /ledger and /donate.
+ */
+export interface FundTotals {
+  window: { from: string; to: string; label: string; days: number };
+  donationsInCents: number;
+  donations: number;
+  donors: number;
+  /** Payout items PayPal reports SUCCESS (or recorded by hand on the manual rail). */
+  landedCents: number;
+  landedPayouts: number;
+  households: number;
+  /** PENDING + ONHOLD */
+  sendingCents: number;
+  unclaimedCents: number;
+  /** donationsIn − landed − sending − unclaimed */
+  leftInFundCents: number;
+}
+
 export interface LedgerView {
+  /** Payout items for requests filed in `fund.window` (the same rows the report counts). */
   rows: LedgerRow[];
+  fund: FundTotals;
   summary: { paidCents: number; pendingCents: number; unclaimedCents: number; items: number; batches: number };
   lastReconciledAt: string | null;
   balanceCents: number;

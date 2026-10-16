@@ -33,7 +33,7 @@ export default async function ReportPage() {
     <PageShell>
       <article className="mx-auto max-w-[1100px] px-4 pb-10 pt-12 sm:px-8 lg:pt-16">
         <header className="max-w-[760px]">
-          <p className="text-[0.95rem] text-ink-2">Eastside Mutual Aid · {r.period.label}</p>
+          <p className="text-[0.95rem] text-ink-2">Eastside Mutual Aid · last 30 days · {r.period.label}</p>
           <h1 className="mt-2 text-h2 text-ink sm:text-h1">Where the money went</h1>
           {demo && (
             <p className="mt-4 max-w-[62ch] rounded-2xl border-2 border-dashed border-rule-strong px-4 py-3 text-[0.92rem] text-ink-2">
@@ -67,9 +67,10 @@ export default async function ReportPage() {
           </p>
         </section>
 
-        <dl className="mt-12 grid grid-cols-2 gap-x-8 gap-y-6 border-y border-rule py-7 md:grid-cols-4">
+        <dl className="mt-12 grid grid-cols-2 gap-x-8 gap-y-6 border-y border-rule py-7 md:grid-cols-5">
           {[
-            ['Sent to neighbors', money(t.paidCents)],
+            ['Landed with neighbors', money(t.paidCents)],
+            ['Donations in', money(t.donationsCents)],
             ['Households helped', String(t.households)],
             ['Median, request to cash (incl. approvals)', duration(t.medianSecondsToCash)],
             ['Unclaimed, then rescued', t.unclaimedMasked ? `Fewer than ${r.kAnonymity.k}` : `${t.unclaimedRescued} of ${t.unclaimedTotal}`],

@@ -289,8 +289,23 @@ export function buildLedger(e: MockEngine): LedgerView {
   rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const sum = (s: PayoutItemStatus) => rows.filter((r) => r.status === s).reduce((t, r) => t + r.amountCents, 0);
   const paidCents = sum('SUCCESS');
+  const now = new Date();
+  const from = new Date(now.getTime() - 30 * 86_400_000);
   return {
     rows,
+    // The mock (ENGINE=mock) has no window: everything it holds is "the last 30 days".
+    fund: {
+      window: { from: from.toISOString(), to: now.toISOString(), label: 'last 30 days', days: 30 },
+      donationsInCents: e.donations.cents,
+      donations: e.donations.donors,
+      donors: e.donations.donors,
+      landedCents: paidCents,
+      landedPayouts: rows.filter((r) => r.status === 'SUCCESS').length,
+      households: new Set(rows.filter((r) => r.status === 'SUCCESS').map((r) => r.requestRef)).size,
+      sendingCents: sum('PENDING'),
+      unclaimedCents: sum('UNCLAIMED'),
+      leftInFundCents: e.donations.cents - paidCents - sum('PENDING') - sum('UNCLAIMED'),
+    },
     summary: {
       paidCents,
       pendingCents: sum('PENDING'),

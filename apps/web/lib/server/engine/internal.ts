@@ -13,7 +13,7 @@
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { redactDeep, redactPII, type PayoutItemStatus } from '@neighborline/core';
-import { appendAudit, auditLog, getRequest, listItems, payoutItems, recordNotification, type Db } from '@neighborline/db';
+import { appendAudit, auditLog, donations, getRequest, listItems, payoutItems, recordNotification, type Db } from '@neighborline/db';
 import { reconcile as reconcileItems } from '@neighborline/paypal';
 import { notifyKeyFor } from '@neighborline/agents';
 import type {
@@ -213,7 +213,12 @@ export async function organizerAlert(ctx: BaseCtx, req: OrganizerAlertRequest): 
 /* ---------------- report versions ---------------- */
 
 export interface ReportStore {
-  latest: { version: number; view: ReportView; totalPayouts: number } | null;
+  latest: { version: number; view: ReportView; totalPayouts: number; donations?: number } | null;
+}
+
+async function totalDonations(db: Db): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(donations).where(eq(donations.status, 'COMPLETED'));
+  return Number(row?.n ?? 0);
 }
 
 async function totalPayouts(db: Db): Promise<number> {
@@ -233,12 +238,17 @@ export async function reportRefresh(ctx: BaseCtx, store: ReportStore, req: Repor
   await ctx.db.transaction(async (tx) => {
     await appendAudit(tx, { actor: 'workflow', action: 'report.generated', entityType: 'report', entityId: `v${version}`, data: { version, totalPayouts: total, reason: req.reason, narrativeSource, generatedAt: view.generatedAt } });
   });
-  store.latest = { version, view, totalPayouts: total };
+  store.latest = { version, view, totalPayouts: total, donations: await totalDonations(ctx.db) };
   return { regenerated: true, newPayoutsSinceLast: sinceLast, totalPayouts: total, reportVersion: version, generatedAt: view.generatedAt, narrativeSource };
 }
 
-/** /report: the stored version while nothing new was paid; otherwise a fresh build (not stored as a version). */
+/**
+ * /report: the stored version while nothing new was paid or given and its window still ends today; otherwise a
+ * fresh build (not stored as a version), so /report never lags the ledger's window (totals.ts).
+ */
 export async function currentReport(ctx: BaseCtx, store: ReportStore): Promise<ReportView> {
-  if (store.latest && store.latest.totalPayouts === (await totalPayouts(ctx.db))) return store.latest.view;
+  const today = new Date().toISOString().slice(0, 10);
+  const l = store.latest;
+  if (l && l.view.period.to === today && l.totalPayouts === (await totalPayouts(ctx.db)) && l.donations === (await totalDonations(ctx.db))) return l.view;
   return buildReportView(ctx);
 }

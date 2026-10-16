@@ -52,12 +52,16 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
   return (
     <>
       <Alerts alerts={view.alerts} items={new Map(view.rows.map((r) => [r.itemId, { requestRef: r.requestRef, amountCents: r.amountCents }]))} className="mt-8" />
-      <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-y border-rule py-6 md:grid-cols-4">
+      <p className="mt-8 text-[0.88rem] text-ink-3">
+        Last {view.fund.window.days} days · {view.fund.window.label} · the same rows and window as the transparency report and the donate page
+      </p>
+      <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-5 border-y border-rule py-6 md:grid-cols-5">
         {[
-          ['Landed', money(view.summary.paidCents)],
-          ['Sending now', money(view.summary.pendingCents)],
-          ['Unclaimed', money(view.summary.unclaimedCents)],
-          ['Left in the fund', money(view.balanceCents)],
+          ['Donations in', money(view.fund.donationsInCents)],
+          ['Landed with neighbors', money(view.fund.landedCents)],
+          ['Sending now', money(view.fund.sendingCents)],
+          ['Unclaimed', money(view.fund.unclaimedCents)],
+          ['Left in the fund', money(view.fund.leftInFundCents)],
         ].map(([k, v]) => (
           <div key={k}>
             <dt className="text-[0.9rem] text-ink-2">{k}</dt>

@@ -6,11 +6,12 @@ import { demoModeOn } from '@neighborline/passkeys';
 import { demoDisclosure } from '../security/demo-disclosure';
 import { MASK, buildReport, percentile, type Lang, type Masked, type TransparencyReport } from '@neighborline/core';
 import { PayPalToolkitInflowSource, type WriteReportResult } from '@neighborline/agents';
-import { getActivePolicy, listForReport } from '@neighborline/db';
+import { getActivePolicy } from '@neighborline/db';
 import { LANGUAGE_NAMES } from '../../format';
 import type { GroupView, NarrativeSegment, ReportView, TrustView } from '../../types';
 import { categoryLabelFor, type BaseCtx } from './context';
 import { confirmedAtByRequest, signaturesByRequest } from './queries';
+import { loadFund } from './totals';
 
 const num = (m: Masked<number> | null | undefined): number => (typeof m === 'number' ? m : 0);
 const langLabel = (l: string) => LANGUAGE_NAMES[l as Lang]?.en ?? l;
@@ -23,11 +24,6 @@ const BUCKETS: Array<[string, number, number | null]> = [
   ['10–60 min', 600, 3600],
   ['Over 1 hour', 3600, null],
 ];
-
-function periodLabel(from: Date, to: Date): string {
-  const md = (d: Date) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
-  return `${md(from)} – ${md(to)}, ${to.getFullYear()}`;
-}
 
 /** Split the narrative into paragraphs and mark every traced number as a checked figure. */
 export function segment(text: string, trace: WriteReportResult['numberTrace']): NarrativeSegment[][] {
@@ -52,11 +48,10 @@ export function segment(text: string, trace: WriteReportResult['numberTrace']): 
 
 export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
   const g = ctx.gen.group;
-  const to = new Date();
-  // 30 days: the whole seeded month (28 days) plus slack, so the report and the seed agree.
-  const from = new Date(to.getTime() - 30 * 86_400_000);
-  const period = { from: from.toISOString(), to: new Date(to.getTime() + 60_000).toISOString() };
-  const [input, policy, sigs, confirmed] = await Promise.all([listForReport(ctx.db, g.id, period), getActivePolicy(ctx.db, g.id), signaturesByRequest(ctx.db, g.id), confirmedAtByRequest(ctx.db)]);
+  // The same query and window as /ledger and /donate (totals.ts), so every page agrees.
+  const [fund, policy, sigs, confirmed] = await Promise.all([loadFund(ctx), getActivePolicy(ctx.db, g.id), signaturesByRequest(ctx.db, g.id), confirmedAtByRequest(ctx.db)]);
+  const { input, window } = fund;
+  const { from, to, period } = window;
   const report: TransparencyReport = buildReport({ ...input, period });
   const k = report.k;
   const reqById = new Map(input.requests.map((r) => [r.id, r]));
@@ -131,7 +126,7 @@ export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
 
   return {
     generatedAt: new Date().toISOString(),
-    period: { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10), label: periodLabel(from, to) },
+    period: { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10), label: window.label },
     narrative: {
       paragraphs,
       writtenBy: written.source === 'llm' ? `Report agent (${written.trace.provider})` : `Report agent (checked template, ${ctx.agents.providers.mode} mode)`,
