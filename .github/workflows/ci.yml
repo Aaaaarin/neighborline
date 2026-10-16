@@ -47,7 +47,7 @@ jobs:
       - name: Typecheck all packages
         run: pnpm -r --if-present typecheck
 
-      - name: Unit tests (all workspace packages: core, db, agents, passkeys, paypal, approver, web, fake-paypal, dev-db)
+      - name: 'Unit tests (all workspace packages: core, db, agents, passkeys, paypal, approver, web, fake-paypal, dev-db)'
         run: pnpm -r --if-present test
 
       - name: Build @neighborline/paypal (tsup → dist)
