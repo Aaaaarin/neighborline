@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
-import { appendAudit, createDb, getGroupBySlug, listAudit, migrate, seedDemo, verifyAuditChain, type DbHandle } from '@neighborline/db';
+import { appendAudit, createDb, getActivePolicy, getGroupBySlug, listAudit, listItems, listOrganizers, listRequests, migrate, seedDemo, verifyAuditChain, type DbHandle } from '@neighborline/db';
+import { endsIdle } from './wire.js';
 import { createDevDb, type DevDb } from './index.js';
 
 let dev: DevDb;
@@ -32,6 +33,20 @@ describe('dev-db: one embedded Postgres shared by two processes over the wire pr
     );
     expect((await listAudit(b.db)).length).toBe(before + 12);
     expect((await verifyAuditChain(a.db)).ok).toBe(true);
+  });
+
+  it('many fresh pooled connections (startup + password exchange) interleaved with queries never hang', async () => {
+    const c = createDb({ url: dev.url }); // new pool: its connections authenticate while others run queries
+    const g = (await getGroupBySlug(c.db, 'eastside'))!;
+    const burst = () => Promise.all([listRequests(c.db, { groupId: g.id }), listOrganizers(c.db, g.id), getActivePolicy(c.db, g.id), listItems(c.db), getGroupBySlug(a.db, 'eastside')]);
+    for (let i = 0; i < 10; i++) await Promise.all([burst(), burst(), burst()]);
+    await c.close();
+  }, 20_000);
+
+  it('detects the idle ReadyForQuery that hands the session on', () => {
+    expect(endsIdle(Uint8Array.from([0x5a, 0, 0, 0, 5, 0x49]))).toBe(true);
+    expect(endsIdle(Uint8Array.from([0x5a, 0, 0, 0, 5, 0x54]))).toBe(false); // 'T' = in a transaction
+    expect(endsIdle(new Uint8Array(0))).toBe(false);
   });
 
   it('reset swaps in an empty database and clients reconnect', async () => {

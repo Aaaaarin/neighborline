@@ -1,9 +1,9 @@
 /**
  * A minimal Postgres wire-protocol front for one PGlite instance, safe for several concurrent
  * clients. PGlite is a single backend session, so clients take turns: a client holds the session
- * from its first message until the database is idle again (a `Sync` or simple `Query` has completed
- * and no transaction is open). Extended-protocol sequences (Parse/Bind/Execute/Sync) and whole
- * transactions therefore never interleave between clients.
+ * from its first message until the backend reports idle (a reply ending in ReadyForQuery 'I').
+ * The startup/password exchange, extended-protocol sequences (Parse/Describe/Flush/Bind/Execute/Sync)
+ * and whole transactions therefore never interleave between clients.
  *
  * (We tried @electric-sql/pglite-socket first: its multiplexer interleaves individual
  * extended-protocol messages from different clients outside transactions, which deadlocks
@@ -16,6 +16,12 @@ const SSL_REQUEST = 80877103;
 const CANCEL_REQUEST = 80877102;
 const GSSENC_REQUEST = 80877104;
 const SYNC = Uint8Array.from([0x53, 0, 0, 0, 4]); // 'S', length 4
+
+/** True when `out` ends with ReadyForQuery ('Z', length 5) and transaction status 'I' (idle). */
+export function endsIdle(out: Uint8Array): boolean {
+  const n = out.length;
+  return n >= 6 && out[n - 6] === 0x5a && out[n - 5] === 0 && out[n - 4] === 0 && out[n - 3] === 0 && out[n - 2] === 5 && out[n - 1] === 0x49;
+}
 
 /** Hands the single PGlite session to one client at a time. */
 class SessionLock {
@@ -82,8 +88,12 @@ export async function serveWire(db: PGlite, opts: { port: number; host: string }
         return;
       }
       await lock.acquire(id);
-      write(await exec(msg));
-      if ((type === null || type === 'S' || type === 'Q') && !db.isInTransaction()) lock.release(id);
+      const out = await exec(msg);
+      write(out);
+      // Hand the session on only when the backend says it is idle: the reply ends in ReadyForQuery
+      // with status 'I'. (Startup + password exchange, Sync and simple Query all end that way; inside
+      // a transaction the status is 'T' or 'E', so the client keeps the session until COMMIT/ROLLBACK.)
+      if (endsIdle(out)) lock.release(id);
     };
 
     const drain = () => {
