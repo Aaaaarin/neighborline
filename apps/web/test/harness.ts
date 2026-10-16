@@ -13,6 +13,7 @@ import { PayPalClient, PayoutsApi, WebhooksApi } from '@neighborline/paypal';
 import { silentLogger, startApproverServer, type RunningApprover } from '@neighborline/approver';
 import type { Db } from '@neighborline/db';
 import { Engine } from '../lib/server/engine/engine';
+import type { OutboundNotifier } from '../lib/server/engine/context';
 
 export const TEST_APPROVER_SECRET = 'test-approver-secret-0123456789abcdefghij';
 
@@ -25,7 +26,7 @@ export interface Harness {
   close(): Promise<void>;
 }
 
-export async function startHarness(opts: { processingDelayMs?: number; beatScale?: number } = {}): Promise<Harness> {
+export async function startHarness(opts: { processingDelayMs?: number; beatScale?: number; outbound?: OutboundNotifier | null } = {}): Promise<Harness> {
   const deliveries: Harness['deliveries'] = [];
   let engine: Engine | undefined;
   const server: Server = createServer(async (req, res) => {
@@ -67,6 +68,7 @@ export async function startHarness(opts: { processingDelayMs?: number; beatScale
       AI_MODE: 'fixture',
       NEIGHBORLINE_BEAT_SCALE: String(opts.beatScale ?? 0.02),
     },
+    ...(opts.outbound !== undefined ? { outbound: opts.outbound } : {}),
   });
   await engine.ready();
   return {

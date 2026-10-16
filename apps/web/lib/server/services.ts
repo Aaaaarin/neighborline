@@ -55,6 +55,7 @@ import type {
 } from './internal-contract';
 import type { SpeedSplit } from '../../components/stage/stage-steps';
 import { Engine } from './engine/engine';
+import type { PhoneIntake } from './voice/bridge';
 import { MockEngine } from './mock-engine';
 
 export interface AudioInput {
@@ -82,6 +83,8 @@ export interface Services {
   readonly internal?: InternalOps;
   /** Present on the real engine only: is the approver process reachable? */
   approverUp?(): Promise<boolean>;
+  /** Present on the real engine only: the phone line's intake entry point (lib/server/voice, channel 'phone'). */
+  phone?(): Promise<PhoneIntake>;
 
   /* intake (neighbor) */
   /** `id`: the route mints `req_v_<visitorTag>_…` so the visitor who started it owns it (security/visitor.ts). */

@@ -45,13 +45,14 @@ import { ui } from '../../i18n';
 
 export async function startIntake(
   ctx: Ctx,
-  input: { groupSlug: string; channel: Channel; lang?: Lang },
+  input: { groupSlug: string; channel: Channel; lang?: Lang; contact?: HelpRequest['contact'] },
   opts: { id?: string } = {},
 ): Promise<{ requestId: string }> {
   const group = await getGroupBySlug(ctx.db, input.groupSlug);
   if (!group) throw new HttpError(404, `No group "${input.groupSlug}"`);
-  const req = await createRequest(ctx.db, { ...(opts.id ? { id: opts.id } : {}), groupId: group.id, channel: input.channel, lang: input.lang ?? 'en' });
-  ctx.meta.ensure(req.id, { displayName: 'Neighbor', area: 'via web' });
+  // `contact` is set by the phone line only (the caller's number, for call-backs and household caps).
+  const req = await createRequest(ctx.db, { ...(opts.id ? { id: opts.id } : {}), groupId: group.id, channel: input.channel, lang: input.lang ?? 'en', ...(input.contact ? { contact: input.contact } : {}) });
+  ctx.meta.ensure(req.id, { displayName: 'Neighbor', area: input.channel === 'phone' ? 'by phone' : 'via web' });
   ctx.bus.emit({ type: 'request.created', at: req.createdAt, requestId: req.id, lang: req.lang, channel: req.channel }, [req.id]);
   return { requestId: req.id };
 }

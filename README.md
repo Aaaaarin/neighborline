@@ -51,6 +51,7 @@ reading and tapping, and the stopwatch shows the system's share separately (abou
 | [`/call`](http://localhost:3000/call) | The neighbor's phone. Record, type in any language, or use a sample voice note. Missing details get one question, with quick answers, in your language |
 | [`/organizer/rules`](http://localhost:3000/organizer/rules) | The group's rules in plain English. Add a line and press **Draft policy**: the AI drafts it as code with the sentence behind every cap, code shows the diff and what changes for requests already waiting, and two organizers sign to make it Policy v2 |
 | [`/trust`](http://localhost:3000/trust) | Fiscal-sponsor checklist, what each agent may do, exactly what demo mode relaxes, and what is simulated |
+| Phone line | **Built, switches on with a Twilio number** (not live yet). Call in from any phone, say what you need in any language, hear it read back, press 1; get a call back in your language when the money is sent. Recordings are deleted from Twilio after transcription. Setup and limits: [docs/PHONE.md](docs/PHONE.md) |
 
 `pnpm dev` runs with `PAYPAL_MODE=fake` and `AI_MODE=fixture`. No PayPal or model keys are needed. All recording
 URL parameters are in [docs/DEMO.md](docs/DEMO.md).
@@ -330,7 +331,8 @@ What is real and what is simulated today:
 | Speech, translation, read-back | Fixture mode replays prepared transcripts. `AI_MODE=live` calls Claude or OpenAI; the providers are tested against fake clients, and a take with real models is still to record |
 | Nightly jobs (reconcile, unclaimed follow-ups, report) | Written and tested (`workflows/`); they run once the Render Blueprint is applied. Until then, **Reconcile now** on `/ledger` |
 | Hosting | Not deployed yet. [`render.yaml`](render.yaml) defines the stack ([docs/DEPLOY.md](docs/DEPLOY.md)) |
-| SMS, WhatsApp and phone callbacks | Not built. Messages appear on the neighbor's in-browser phone |
+| Phone line and call-backs | Built and tested with simulated, signed Twilio webhooks; switches on with a Twilio number, none is connected yet ([docs/PHONE.md](docs/PHONE.md)) |
+| SMS and WhatsApp | Not built. Messages appear on the neighbor's in-browser phone (SMS goes out only once a verified sender is configured) |
 
 ## Live-mode reality
 
@@ -347,8 +349,9 @@ Running this with real money needs more than code:
   organizers alerted). With the group's manual-recording setting on, organizers can record a cash or check hand-over
   instead, with the same two passkey approvals plus a receipt note; recording never moves money
   ([`rails.ts`](apps/approver/src/rails.ts), THREAT_MODEL T36).
-- **SMS** needs carrier registration (US toll-free verification or A2P 10DLC), which takes days. This is why callbacks
-  are on the roadmap rather than in the demo.
+- **SMS** needs carrier registration (US toll-free verification or A2P 10DLC), which takes days. This is why the phone
+  line calls back by voice (no registration needed) and texts only once a verified sender is set.
+- **A Twilio number** for the phone line ([docs/PHONE.md](docs/PHONE.md)): three env vars and one webhook URL.
 - **Organizer authentication.** Passkeys with invite codes; set `DEMO_MODE=false` (the default outside fake mode) so no
   demo key can sign, and require an organizer session for `/organizer` and `/api/requests`. See
   [THREAT_MODEL.md](THREAT_MODEL.md) (residual risks R1, R9, R12, R13).
@@ -380,7 +383,7 @@ Not built yet, in rough priority order:
    role.
 4. Single-use, expiring invite codes stored hashed (today: one static code per organizer, THREAT_MODEL R13).
 5. A shared rate-limit store and bot protection on intake (today: in-memory token buckets per process).
-6. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
+6. Connect a Twilio number to the built phone line, then WhatsApp intake, then SMS once carrier registration clears.
 7. Vetted catalog text for French, Tagalog, Korean and Russian, and a native-speaker review of the Vietnamese, Spanish
    and Haitian Creole copy (today the four get a checked LLM translation or English).
 
@@ -394,6 +397,7 @@ Good first issues are listed in [docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSU
 | [docs/PAYPAL.md](docs/PAYPAL.md) | PayPal deep dive, with sources |
 | [docs/AI.md](docs/AI.md) | The structured-output pipeline, grounding, prompt injection |
 | [docs/DEMO.md](docs/DEMO.md) | Running each scenario, recording parameters |
+| [docs/PHONE.md](docs/PHONE.md) | The phone line (Twilio Voice): setup, privacy, limits, costs |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | STRIDE for the money path, residual risks |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, lanes, adding a language or a rail check |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |

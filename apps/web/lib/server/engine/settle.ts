@@ -9,6 +9,7 @@ import { formatUsd } from '@neighborline/core';
 import { getRequest, recordNotification, upsertItemFromEvent, type ItemEventOutcome } from '@neighborline/db';
 import type { BaseCtx } from './context';
 import { nowIso } from './events';
+import { errorText, log } from '../log';
 
 export async function applyItemStatus(
   ctx: BaseCtx,
@@ -41,7 +42,7 @@ export async function applyItemStatus(
   const meta = ctx.meta.ensure(req.id);
   const name = meta.displayName && meta.displayName !== 'Neighbor' ? meta.displayName : undefined;
   const n = await ctx.agents.notify.render({ key, lang: req.lang, amountCents: item.amountCents, wallet: item.wallet, ...(name ? { name } : {}) });
-  const channel: Channel = req.channel === 'sms' ? 'sms' : 'whatsapp';
+  const channel: Channel = req.channel === 'sms' ? 'sms' : req.channel === 'phone' ? 'phone' : 'whatsapp';
   const textEn = render(key, 'en', { amount: formatUsd(item.amountCents), wallet: walletName(item.wallet), ...(name ? { name } : {}) });
   ctx.meta.message(req.id, {
     from: 'line',
@@ -51,7 +52,14 @@ export async function applyItemStatus(
     textEn,
     meta: { amountCents: item.amountCents, wallet: item.wallet, receiver: item.receiver, channel, ...(item.transactionId ? { transactionId: item.transactionId } : {}) },
   });
-  await recordNotification(ctx.db, { requestId: req.id, channel, lang: req.lang, messageKey: key, text: n.text, status: 'sent' });
+  const rec = await recordNotification(ctx.db, { requestId: req.id, channel, lang: req.lang, messageKey: key, text: n.text, status: 'sent' });
+  // A neighbor who called in hears it too: a call-back in their language (lib/server/voice/outbound.ts).
+  if (ctx.outbound && req.contact?.phone) {
+    const tz = (ctx.gen.group as { timezone?: string }).timezone;
+    ctx.outbound
+      .notify({ id: rec.id, requestId: req.id, key, lang: req.lang, text: n.text, textEn, phone: req.contact.phone, ...(tz ? { timezone: tz } : {}) })
+      .catch((err) => log.warn('notify.outbound_failed', { requestId: req.id, error: errorText(err) }));
+  }
   ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: req.id, lang: req.lang, text: n.text, channel }, [req.id]);
   return out;
 }

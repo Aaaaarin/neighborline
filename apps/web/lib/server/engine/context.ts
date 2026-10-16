@@ -28,8 +28,28 @@ export interface Ctx {
   verifyPayoutsWebhook: (input: { headers: Record<string, string>; rawBody: string }) => Promise<boolean>;
   bus: EventBus;
   meta: MetaStore;
+  /** Reaches a neighbor off the web thread (phone call-back via Twilio); null when no line is configured. */
+  outbound: OutboundNotifier | null;
   /** Run `fn` after `ms` (scaled by speed and NEIGHBORLINE_BEAT_SCALE) unless the demo was reset. */
   later(ms: number, fn: () => Promise<unknown> | unknown, speed?: number): void;
+}
+
+/** A status message the engine just recorded for a neighbor who gave a phone number (lib/server/voice/outbound.ts). */
+export interface OutboundNotice {
+  /** The notification row id: delivery is idempotent per id. */
+  id: string;
+  requestId: string;
+  key: string;
+  lang: Lang;
+  text: string;
+  textEn: string;
+  phone: string;
+  /** The group's time zone (quiet hours). */
+  timezone?: string;
+}
+
+export interface OutboundNotifier {
+  notify(n: OutboundNotice): Promise<unknown>;
 }
 
 /**

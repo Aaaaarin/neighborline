@@ -12,6 +12,7 @@ import type { GroupView, NarrativeSegment, ReportView, TrustView } from '../../t
 import { categoryLabelFor, type BaseCtx } from './context';
 import { confirmedAtByRequest, manualRequestIds, signaturesByRequest } from './queries';
 import { loadFund } from './totals';
+import { displayNumber, hotlineNumber } from '../voice/config';
 
 const num = (m: Masked<number> | null | undefined): number => (typeof m === 'number' ? m : 0);
 const langLabel = (l: string) => LANGUAGE_NAMES[l as Lang]?.en ?? l;
@@ -185,6 +186,14 @@ function leastPrivilegeLine(a: ApproverStatus | null): TrustView['sandboxReality
   return { label: 'Least privilege for money movement', status: a.credentials === 'shared-fallback' ? 'simulated' : 'real', detail: base + creds + keys };
 }
 
+/** The phone line row: true about whether this server has a Twilio number (lib/server/voice, docs/PHONE.md). */
+function phoneLine(env: Record<string, string | undefined>): TrustView['sandboxReality'][number] {
+  const n = hotlineNumber(env);
+  return n
+    ? { label: 'Phone line (call in, get a call back)', status: 'real', detail: `Live on ${displayNumber(n)}: leave a voice message in any language; the line reads it back, files it after you press 1, and calls you back in your language when the money is sent. Recordings are deleted from Twilio right after transcription.` }
+    : { label: 'Phone line (call in, get a call back)', status: 'not_yet', detail: 'Phone line: built, switches on with a Twilio number. Call in, leave a voice message in any language, hear it read back, press 1 to file it, and get a call back in your language when the money is sent (docs/PHONE.md).' };
+}
+
 export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverStatus | null = null): TrustView {
   const sandbox = ctx.cfg.paypalMode === 'sandbox';
   const live = ctx.agents.providers.mode === 'live';
@@ -240,6 +249,7 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
           ? `Scheduled on Render (Render Workflows): every night each payout item is compared with ${sandbox ? 'PayPal sandbox Transaction Search' : 'the fake PayPal’s Transaction Search'}. The ledger also has a Reconcile now button.`
           : 'Scheduled on Render when deployed there (render.yaml, Render Workflows). This server isn’t on Render, so use Reconcile now on the ledger.',
       },
+      phoneLine(ctx.env),
       {
         label: 'If the sponsor’s PayPal is restricted',
         status: 'simulated',
@@ -247,9 +257,9 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
           'A payout PayPal refuses because of the sponsor’s account (SENDER_RESTRICTED, SENDER_LOCKED, AUTHORIZATION_ERROR and similar) is marked FAILED_RAIL: nothing was sent and organizers get an alert. If the group turned on manual recording, an organizer can record a cash or check hand-over instead; it needs the same two passkey approvals plus a receipt note, and it records only, never moving money. Tested against the local fake with PayPal’s documented error names; not yet seen from the real sandbox.',
       },
       {
-        label: 'Messages back by SMS, WhatsApp or phone call',
+        label: 'Messages back by SMS or WhatsApp',
         status: 'not_yet',
-        detail: 'Texting neighbors needs carrier sender registration (A2P 10DLC) and a WhatsApp Business number. Today Neighborline messages the neighbor back in their thread on the web line, in their language.',
+        detail: 'Texting neighbors needs carrier sender registration (A2P 10DLC or toll-free verification) and a WhatsApp Business number. Today Neighborline messages the neighbor back in their thread on the web line, in their language, and calls back neighbors who phoned in once the line is on.',
       },
       {
         label: 'Charity status confirmation',

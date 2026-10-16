@@ -48,6 +48,9 @@ import { playScenario } from './scenario-runner';
 import { applyItemStatus } from './settle';
 import { getRequestView, getThread, groupView, listRequestViews } from './views';
 import { handleWebhook } from './webhooks';
+import type { OutboundNotifier } from './context';
+import { phoneBridge, type PhoneIntake } from '../voice/bridge';
+import { createTwilioOutbound } from '../voice/outbound';
 
 interface GenState {
   ctx: Ctx;
@@ -62,6 +65,8 @@ interface GenState {
 export interface EngineOptions {
   env?: Env;
   agents?: Agents;
+  /** Phone call-backs (lib/server/voice/outbound.ts). Default: from TWILIO_* env, null when unset. */
+  outbound?: OutboundNotifier | null;
 }
 
 export class Engine implements Services {
@@ -73,6 +78,7 @@ export class Engine implements Services {
   private readonly paypal: PublicPayPal;
   private readonly fake: FakePayPalControl | null;
   private readonly approvals: ApprovalService;
+  private readonly outbound: OutboundNotifier | null;
   private state: Promise<GenState>;
   private resetting: Promise<void> | null = null;
 
@@ -83,6 +89,7 @@ export class Engine implements Services {
     this.paypal = createPublicPayPal(this.env);
     this.fake = this.cfg.paypalMode === 'fake' ? new FakePayPalControl(this.cfg.fakePaypalUrl) : null;
     this.approvals = new ApprovalService(this.env);
+    this.outbound = opts.outbound !== undefined ? opts.outbound : createTwilioOutbound(this.env, { tts: this.agents.providers.tts });
     this.modes = { paypalMode: this.cfg.paypalMode, aiMode: this.agents.providers.mode, engine: 'real' };
     this.state = openGeneration(this.cfg, 1).then((g) => this.makeState(g));
     // Retained recordings (AUDIO_RETENTION=24h) expire even across restarts.
@@ -118,6 +125,7 @@ export class Engine implements Services {
       verifyPayoutsWebhook: (input) => this.approvals.approver.verifyPayoutsWebhook(input),
       bus: this.bus,
       meta: new MetaStore(),
+      outbound: this.outbound,
       later: (ms, fn, speed = 1) => {
         if (st.dead) return;
         const t = setTimeout(() => {
@@ -166,6 +174,11 @@ export class Engine implements Services {
 
   async confirmIntake(requestId: string, input: { confirmed: boolean; corrections?: string }) {
     return intake.confirmIntake(await this.base(), requestId, input);
+  }
+
+  /** The phone line's way in (lib/server/voice): channel 'phone' intake on the narrowed context, no approvals. */
+  async phone(): Promise<PhoneIntake> {
+    return phoneBridge(await this.base());
   }
 
   async getThread(requestId: string) {
