@@ -68,14 +68,14 @@ one carries its message even without the caption field. Paste the same caption i
 |---|---|---|---|
 | 1 | **Hero** | The thumbnail itself (1500×1000) | "A Vietnamese voice note becomes Venmo cash, approved by two neighbors. 0:{T} from voice note to PayPal SUCCESS." |
 | 2 | **The whole loop** | `/demo?scenario=lan&speed=1&autoplay=1` at 1920×1080, captured after the stopwatch freezes, so the frozen time equals `{T}` and the rail shows the batch id, the verified webhook and the callback. `apps/web/screenshots/demo-1920-lan-done.png` is now taken at `speed=1` and shows the people/system split under the frozen time; re-shoot only if `{T}` differs | "One request, start to finish: read back in Vietnamese, $150 from the group's rules, two approvals, one Payouts batch, a signature-verified SUCCESS webhook." |
-| 3 | **Unclaimed, then rescued** | `/demo?scenario=rosa&speed=1&autoplay=1` after SUCCESS. **Re-shoot at speed 1.** The existing `demo-1920-rosa-rescued.png` is at speed 3 | "Rosa's PayPal email had no account yet. PayPal reported UNCLAIMED; Neighborline explained how to claim it, in Spanish. Then SUCCESS." |
+| 3 | **Unclaimed, then rescued** | `/demo?scenario=rosa&speed=1&autoplay=1` after SUCCESS. `apps/web/screenshots/demo-1920-rosa-done.png` (speed 1) | "Rosa's PayPal email had no account yet. PayPal reported UNCLAIMED; Neighborline explained how to claim it, in Spanish. Then SUCCESS." |
 | 4 | **Impersonator blocked** | `apps/web/screenshots/demo-1920-blocked-done.png` (speed 1; "Lookalike handle blocked" and "Approve disabled" on both phones). Usable as is | "'@eastside-mutuaiaid' is one letter from the group's handle. Approve is disabled on every phone; no money moves." |
 | 5 | **Know your agent** | `/trust` at 1920 wide, DPR 2, clipped to the "Know your agent: who can do what" section: the dashed "Cannot move money" box and the chain down to the dark approval-service card. Use `shot.mjs` with a clip, or crop `trust-1920.png` (full page, about y 950–1930 at 1×) | "The AI agents that talk to neighbors can't move money. Code computes amounts; two humans approve; webhooks are verified." |
 
 **Alternates** (use one if a slot above looks weak once it is re-shot):
 - `apps/web/screenshots/call-390-readback.png`, a phone-only view of the Spanish read-back with "Sí, correcto". Caption: "Nothing is filed until the neighbor hears it back in their language and says yes."
 - `/report`, top section, with the "Every number checked against the ledger" chip. It **must** carry "Seeded demo data" in the caption, because the figures are fixtures.
-- `demo-1920-lan-paid-dark.png`, re-shot at speed 1: the "blackout night" palette.
+- `demo-1920-lan-done-dark.png`, re-shot at speed 1: the "blackout night" palette.
 
 **Never in the gallery:**
 - `/donate`: the PayPal SDK buttons render official PayPal and Venmo marks.
