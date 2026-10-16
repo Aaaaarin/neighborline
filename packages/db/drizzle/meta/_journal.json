@@ -29,6 +29,13 @@
       "when": 1792178021468,
       "tag": "0003_security_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792190606884,
+      "tag": "0004_organizer_invites",
+      "breakpoints": true
     }
   ]
 }

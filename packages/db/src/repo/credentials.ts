@@ -9,6 +9,7 @@ import type { Executor } from '../client.js';
 import { approvalAssertions, organizerCredentials, organizers } from '../schema.js';
 import { RepoError, inTx, iso, isoOrNull } from '../util.js';
 import { appendAudit } from './audit.js';
+import { consumeOrganizerInvite } from './invites.js';
 
 export type CredentialKind = 'passkey' | 'demo_key';
 
@@ -42,10 +43,21 @@ const toCredential = (r: Row): OrganizerCredential => ({
   lastUsedAt: isoOrNull(r.lastUsedAt),
 });
 
-/** Store a verified credential. Idempotent for the same id + organizer; another organizer's id is a conflict. */
+/**
+ * Store a verified credential. Idempotent for the same id + organizer; another organizer's id is a
+ * conflict. With `inviteCode`, the code is spent in the same transaction (single use, unexpired, this
+ * organizer's; RepoError 'INVALID' otherwise), so no passkey is stored without spending it.
+ */
 export async function addOrganizerCredential(
   ex: Executor,
-  input: Omit<OrganizerCredential, 'createdAt' | 'lastUsedAt' | 'counter' | 'transports' | 'backedUp' | 'boundTo'> & { counter?: number; transports?: string[]; backedUp?: boolean; boundTo?: string | null; actor?: string },
+  input: Omit<OrganizerCredential, 'createdAt' | 'lastUsedAt' | 'counter' | 'transports' | 'backedUp' | 'boundTo'> & {
+    counter?: number;
+    transports?: string[];
+    backedUp?: boolean;
+    boundTo?: string | null;
+    actor?: string;
+    inviteCode?: string;
+  },
 ): Promise<OrganizerCredential> {
   return inTx(ex, async (tx) => {
     const [org] = await tx.select({ id: organizers.id }).from(organizers).where(eq(organizers.id, input.organizerId));
@@ -55,6 +67,7 @@ export async function addOrganizerCredential(
       if (existing.organizerId !== input.organizerId) throw new RepoError('CONFLICT', 'credential belongs to another organizer');
       return toCredential(existing);
     }
+    if (input.inviteCode !== undefined) await consumeOrganizerInvite(tx, { organizerId: input.organizerId, code: input.inviteCode, credentialId: input.id });
     const [row] = await tx
       .insert(organizerCredentials)
       .values({

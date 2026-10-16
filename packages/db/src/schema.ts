@@ -168,6 +168,29 @@ export const organizerCredentials = pgTable(
 );
 
 /**
+ * Single-use, expiring invite codes for enrolling an organizer's first passkey (THREAT_MODEL R13).
+ * Only sha256(normalized code) is stored: the code itself is printed once by the CLI that created it
+ * (`pnpm --filter @neighborline/web organizer-invite`). Enrollment consumes it in the same transaction
+ * that stores the passkey (used_at, used_credential_id), so a code works once, for one organizer,
+ * before it expires.
+ */
+export const organizerInvites = pgTable(
+  'organizer_invites',
+  {
+    id: text('id').primaryKey(),
+    organizerId: text('organizer_id').notNull().references(() => organizers.id),
+    /** sha256 hex of the normalized code (uppercase, no separators). */
+    codeHash: text('code_hash').notNull().unique(),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    expiresAt: ts('expires_at').notNull(),
+    usedAt: ts('used_at'),
+    usedCredentialId: text('used_credential_id'),
+  },
+  (t) => [index('organizer_invites_org_idx').on(t.organizerId)],
+);
+
+/**
  * One verified WebAuthn assertion per (approval hash, organizer): the organizer's signature over
  * exactly what will be paid. Keyed by hash (not approval id) so it can be recorded before the
  * approval row exists and re-attached if an identical approval is re-created.
@@ -301,6 +324,7 @@ export const schema = {
   approvals,
   approvalSignatures,
   organizerCredentials,
+  organizerInvites,
   approvalAssertions,
   payoutBatches,
   payoutItems,

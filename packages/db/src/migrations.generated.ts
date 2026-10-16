@@ -15,5 +15,9 @@ export const MIGRATIONS: ReadonlyArray<{ tag: string; sql: string }> = [
   {
     "tag": "0003_security_hardening",
     "sql": "CREATE TABLE \"reconcile_runs\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"at\" timestamp with time zone NOT NULL,\n\t\"simulated\" boolean DEFAULT false NOT NULL,\n\t\"summary\" jsonb NOT NULL,\n\t\"items\" jsonb NOT NULL\n);\n--> statement-breakpoint\nDROP INDEX \"approvals_live_hash_uq\";--> statement-breakpoint\nALTER TABLE \"approval_assertions\" ADD COLUMN \"server_nonce\" text;--> statement-breakpoint\nALTER TABLE \"organizer_credentials\" ADD COLUMN \"bound_to\" text;--> statement-breakpoint\nCREATE UNIQUE INDEX \"approvals_open_hash_uq\" ON \"approvals\" USING btree (\"hash\") WHERE \"approvals\".\"status\" in ('pending', 'complete');"
+  },
+  {
+    "tag": "0004_organizer_invites",
+    "sql": "CREATE TABLE \"organizer_invites\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"organizer_id\" text NOT NULL,\n\t\"code_hash\" text NOT NULL,\n\t\"created_by\" text NOT NULL,\n\t\"created_at\" timestamp with time zone DEFAULT now() NOT NULL,\n\t\"expires_at\" timestamp with time zone NOT NULL,\n\t\"used_at\" timestamp with time zone,\n\t\"used_credential_id\" text,\n\tCONSTRAINT \"organizer_invites_code_hash_unique\" UNIQUE(\"code_hash\")\n);\n--> statement-breakpoint\nALTER TABLE \"organizer_invites\" ADD CONSTRAINT \"organizer_invites_organizer_id_organizers_id_fk\" FOREIGN KEY (\"organizer_id\") REFERENCES \"public\".\"organizers\"(\"id\") ON DELETE no action ON UPDATE no action;--> statement-breakpoint\nCREATE INDEX \"organizer_invites_org_idx\" ON \"organizer_invites\" USING btree (\"organizer_id\");"
   }
 ];
