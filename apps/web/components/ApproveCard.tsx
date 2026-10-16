@@ -87,9 +87,15 @@ export function ApproveCard({
         </span>
       </header>
 
-      <p className={cx('mt-2 font-display text-ink', dense ? 'text-[1.06rem] leading-[1.45]' : 'text-[1.2rem] leading-[1.5]')}>
+      <p
+        className={cx('mt-2 font-display text-ink', dense ? 'text-[1.06rem] leading-[1.45]' : 'text-[1.2rem] leading-[1.5]')}
+        {...(view.summaryUntranslated ? { lang: r.lang, dir: dirOf(r.lang) } : {})}
+      >
         {r.extracted?.summaryEn ?? r.englishText}
       </p>
+      {view.summaryUntranslated && (
+        <p className="mt-1 text-[0.8rem] leading-snug text-ink-3">English summary unavailable in offline mode (no live AI): above are the neighbor’s own words, in {lang.en}.</p>
+      )}
 
       {view.aiTrace && !dense && (
         <p className="mt-1.5 flex items-center gap-1.5 text-[0.78rem] text-ink-3" title="The AI output was validated against a schema before anyone saw it">
@@ -100,7 +106,7 @@ export function ApproveCard({
       {view.redacted && (
         <p className="mt-1.5 text-[0.8rem] leading-snug text-ink-3">Sign in as an organizer to see the full request. Visitors see a summary, never a neighbor’s words or payout account.</p>
       )}
-      {r.lang !== 'en' && r.originalText && (
+      {r.lang !== 'en' && r.originalText && !(view.summaryUntranslated && r.originalText.replace(/\s+/g, ' ').trim() === r.extracted?.summaryEn) && (
         <details className="group mt-2">
           <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-[0.85rem] text-ink-2 [&::-webkit-details-marker]:hidden">
             <ChevronDown size={15} className="transition-transform group-open:rotate-180" aria-hidden />

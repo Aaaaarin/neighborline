@@ -16,6 +16,7 @@ import { categoryLabelFor, type BaseCtx as Ctx } from './context';
 import { PAYOUT_PURPOSE } from './constants';
 import { listAlerts } from './queries';
 import { DECLINE_REASON_EN, questionFor } from './conversation';
+import { splitUntranslated } from '../../untranslated';
 
 export function organizerView(o: DomainOrganizer): Organizer {
   const handle = o.handles.find((h) => h.startsWith('@')) ?? o.handles[0] ?? '';
@@ -98,8 +99,11 @@ export async function requestView(ctx: Ctx, r: HelpRequest, cache: { policy?: Po
   const items = await listItemsForRequest(ctx.db, r.id);
   const item = items.at(-1);
   const batch = item ? (await getBatch(ctx.db, item.batchId))?.batch : undefined;
+  // Offline mode could not translate: show the neighbor's words without the marker, and say so beside them.
+  const summary = splitUntranslated(r.extracted?.summaryEn);
   return {
-    request: r,
+    request: summary.untranslated && r.extracted ? { ...r, extracted: { ...r.extracted, summaryEn: summary.text } } : r,
+    ...(summary.untranslated ? { summaryUntranslated: true } : {}),
     requester: { displayName: meta?.displayName ?? seeded?.displayName ?? 'Neighbor', ...((meta?.area ?? seeded?.area) ? { area: meta?.area ?? seeded?.area } : {}) },
     categoryLabel: categoryLabelFor(policy, r.computed?.ruleKey ?? r.extracted?.category),
     ...(meta?.audioSeconds ? { audioSeconds: meta.audioSeconds } : {}),

@@ -3,6 +3,7 @@
  * request → confirm → code computes the amount (core.computeAmount) and checks the rail
  * (core.checkRail) → awaiting_approval. The intake agent has no tools: nothing here can pay.
  */
+import { splitUntranslated } from '../../untranslated';
 import {
   redactPII,
   checkRail,
@@ -248,8 +249,10 @@ function destinationFrom(x: IntakeExtraction | null, nameOnFile: string | undefi
   return { ...x.payout, ...(nameOnFile ? { nameOnFile } : {}) };
 }
 
+/** The read-back in English for organizers and judges; the neighbor's own read-back when no translation exists (offline mode). */
 function englishReadBack(x: IntakeExtraction | null, fallback: string): string {
-  return x ? composeReadBack({ summaryNative: x.summaryEn, ...(x.payout ? { payout: x.payout } : {}) }, 'en') : fallback;
+  if (!x || splitUntranslated(x.summaryEn).untranslated) return fallback;
+  return composeReadBack({ summaryNative: x.summaryEn, ...(x.payout ? { payout: x.payout } : {}) }, 'en');
 }
 
 async function applyIntake(ctx: Ctx, req: HelpRequest, policy: Policy, result: AgentIntake, simulated: boolean): Promise<IntakeResult> {

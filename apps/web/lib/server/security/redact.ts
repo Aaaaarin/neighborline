@@ -56,7 +56,8 @@ function redactRequest(r: HelpRequest, categoryLabel: string): HelpRequest {
 }
 
 export function redactRequestView(v: RequestView): RequestView {
-  const { decline, appeal, ...rest } = v;
+  // The redacted summary is a generic English line, so the offline-translation hint no longer applies.
+  const { decline, appeal, summaryUntranslated: _u, ...rest } = v;
   return {
     ...rest,
     request: redactRequest(v.request, v.categoryLabel),
