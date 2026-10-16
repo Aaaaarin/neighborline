@@ -62,10 +62,19 @@ Playwright tests pass on `main`.
 ## Still open (no human needed)
 - ☐ Re-record the video takes with the current build (Lan now freezes at about 0:22.5) and re-cut Draft 1; then VO
   once the OpenAI key arrives
-- ☐ Single-use, expiring invite codes stored hashed (QA P2-13, THREAT_MODEL R13)
 - ☐ Shared rate-limit store and bot protection before any real deployment (R9)
-- ☐ Venmo `note` and email subject in the neighbor's language; translate the organizer's free-text decline note (QA P3)
 - ☐ Stop `next build` with a custom `NEXT_DIST_DIR` from rewriting `apps/web/next-env.d.ts` and `tsconfig.json` (QA P3)
+
+## Eval findings, invite codes, neighbor-language payouts ✅
+- ✅ EVAL findings 1–7 fixed with tests and measured dev vs held-out (docs/EVAL.md): phones grounded as E.164, French
+  "point", CJK amounts, no fallback to a different destination; per-language spoken symbols (zh/ko/ru) and fillers (tl);
+  homoglyphs latinized before stripping; injection rules for role-play, notes to the AI, short base64, authority claims;
+  amount mentions flag only when a payment verb orders them; categories scored by need words; CI bars one case below
+- ✅ `cancel-item` needs an organizer session (or the visitor's own demo run in DEMO_MODE); the approver re-checks (T42)
+- ✅ Single-use, expiring invite codes stored as SHA-256 (`organizer-invite <id> [--ttl 72h]`; THREAT_MODEL R13 mitigated)
+- ✅ Venmo/PayPal note and payout email subject in the neighbor's language (core `payoutCopy`, PayPal length limits);
+  the organizer's decline note translated with a back-translation check, or sent as written with a line in their
+  language
 
 ## Judge panel 2: consistency and fallback rail ✅
 - ✅ #3 one fiscal sponsor name (db seed); the seeded month has one genuinely unclaimed 25-day-old payout, so the day-25
