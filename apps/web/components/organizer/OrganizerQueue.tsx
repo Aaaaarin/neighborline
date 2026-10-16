@@ -91,6 +91,8 @@ export function OrganizerQueue({
       await load();
     } catch (err) {
       setErrors((e) => ({ ...e, [v.request.id]: passkeyErrorMessage(err) }));
+      // A refusal can raise an alert (PayPal refused at the account level): refresh the queue and alerts.
+      void load();
     } finally {
       setBusy(null);
     }
@@ -179,7 +181,15 @@ export function OrganizerQueue({
                       {v.requester.displayName} · {v.categoryLabel} · <span lang={v.request.lang}>{LANGUAGE_NAMES[v.request.lang].native}</span>
                     </p>
                     <p className="text-[0.82rem] text-ink-3">
-                      {v.payout ? `${walletLabel(v.payout.item.wallet)} · ${clockTime(v.payout.item.lastEventAt)}` : v.decline ? `Declined · ${clockTime(v.decline.at)}` : ''}
+                      {v.payout?.batch.status === 'MANUAL'
+                        ? `Recorded by hand · ${clockTime(v.payout.item.lastEventAt)}`
+                        : v.payout?.batch.status === 'FAILED_RAIL'
+                          ? 'PayPal refused it (sponsor account) · see the alert above'
+                          : v.payout
+                            ? `${walletLabel(v.payout.item.wallet)} · ${clockTime(v.payout.item.lastEventAt)}`
+                            : v.decline
+                              ? `Declined · ${clockTime(v.decline.at)}`
+                              : ''}
                     </p>
                   </div>
                   <span
@@ -188,7 +198,19 @@ export function OrganizerQueue({
                       st === 'SUCCESS' ? 'bg-lamp-wash text-ink' : st === 'declined' ? 'bg-sunk text-ink-2' : 'border border-rule-strong text-ink-2',
                     )}
                   >
-                    {st === 'SUCCESS' ? `${money(v.payout!.item.amountCents)} landed` : st === 'UNCLAIMED' ? 'Unclaimed' : st === 'PENDING' ? 'Sending' : st === 'declined' ? 'Declined' : String(st)}
+                    {v.payout?.batch.status === 'MANUAL'
+                      ? `${money(v.payout.item.amountCents)} by hand`
+                      : v.payout && (v.payout.batch.status === 'FAILED_RAIL' || v.payout.batch.status === 'FAILED') && st === 'PENDING'
+                        ? 'Not sent'
+                        : st === 'SUCCESS'
+                          ? `${money(v.payout!.item.amountCents)} landed`
+                          : st === 'UNCLAIMED'
+                            ? 'Unclaimed'
+                            : st === 'PENDING'
+                              ? 'Sending'
+                              : st === 'declined'
+                                ? 'Declined'
+                                : String(st)}
                   </span>
                 </li>
               );
