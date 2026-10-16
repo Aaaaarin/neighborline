@@ -47,6 +47,7 @@ import type {
   UnclaimedSweepRequest,
   UnclaimedSweepResponse,
 } from './internal-contract';
+import type { SpeedSplit } from '../../components/stage/stage-steps';
 import { Engine } from './engine/engine';
 import { MockEngine } from './mock-engine';
 
@@ -137,6 +138,9 @@ export interface Services {
   subscribe(listener: (msg: StreamMessage) => void): () => void;
   /** past messages touching a request, for reconnects and page reloads */
   replay(requestId: string): StreamMessage[];
+
+  /** People vs system time of the most recent paid run on this server (null = none yet). */
+  lastRunSpeed(): SpeedSplit | null;
 
   /* demo stage only (DEMO_MODE=true) */
   playScenario(input: { scenario: ScenarioId; mode: PlayMode; speed?: number }): Promise<ScenarioRun>;

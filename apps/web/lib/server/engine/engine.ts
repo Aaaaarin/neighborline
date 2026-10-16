@@ -35,6 +35,7 @@ import { readConfig, type EngineConfig, type Env } from './env';
 import { EventBus, nowIso } from './events';
 import * as intake from './intake';
 import * as passkeys from './passkeys';
+import { splitFrom } from '../../../components/stage/stage-steps';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
 import { MetaStore } from './meta';
 import { buildTrust } from './report';
@@ -376,6 +377,11 @@ export class Engine implements Services {
 
   replay(requestId: string) {
     return this.bus.replay(requestId);
+  }
+
+  lastRunSpeed() {
+    const events = this.bus.latestPaid();
+    return events ? splitFrom(events.map((event) => ({ event, at: Date.parse(event.at) })), Date.now()) : null;
   }
 
   /* ---------------- demo stage ---------------- */

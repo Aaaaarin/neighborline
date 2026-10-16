@@ -11,7 +11,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: { default: 'Neighborline — a hotline for mutual aid', template: '%s · Neighborline' },
   description:
-    'Leave a voice note in any language. Two neighbors approve. The money lands in PayPal or Venmo in about 90 seconds.',
+    'Leave a voice note in any language. Two neighbors approve, each with a passkey. The money lands in PayPal or Venmo in minutes, not days.',
 };
 
 export const viewport: Viewport = {

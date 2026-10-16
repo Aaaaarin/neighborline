@@ -13,7 +13,7 @@ import { OrganizerPhone } from './OrganizerPhone';
 import { RailTimeline } from './RailTimeline';
 import { RequesterPhone } from './RequesterPhone';
 import { Stopwatch } from './Stopwatch';
-import { buildSteps, clockFrom } from './stage-steps';
+import { buildSteps, clockFrom, splitFrom } from './stage-steps';
 import { useStage } from './useStage';
 
 export interface ScenarioOption {
@@ -108,7 +108,7 @@ export function Stage({
               ? `Unclaimed — waiting for ${active.title} to claim it`
               : `Unclaimed — helping ${active.title} claim it`
             : 'Running',
-    paid: `Stopped when PayPal reported SUCCESS · ${s.view?.payout?.item.wallet === 'VENMO' ? 'Venmo' : 'PayPal'}`,
+    paid: `Stopped at the verified SUCCESS webhook · ${s.view?.payout?.item.wallet === 'VENMO' ? 'Venmo' : 'PayPal'}`,
     blocked: 'Stopped · blocked before any money moved',
   };
 
@@ -208,7 +208,7 @@ export function Stage({
 
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-x-10 lg:gap-y-10 stage:grid-cols-[392px_808px_minmax(0,1fr)] stage:gap-x-12">
           <section id="panel-requester" role="tabpanel" aria-labelledby="tab-requester" className={cx(tab !== 'requester' && 'hidden', 'lg:block')}>
-            <PhoneCaption title={PHONE_OWNER[active.id]} sub={active.sms ? 'Text message' : `Neighbor · voice note`} />
+            <PhoneCaption title={PHONE_OWNER[active.id]} sub={active.sms ? 'Text message (simulated SMS)' : 'Neighbor · voice note'} />
             <div className="mx-auto max-w-[360px] stage:max-w-[392px]">
               <RequesterPhone
                 label={PHONE_OWNER[active.id]}
@@ -275,7 +275,7 @@ export function Stage({
               <div className="border-b border-rule pb-6 lg:border-b-0 stage:border-b">
                 <h2 className="font-sans text-[0.95rem] font-medium tracking-normal text-ink-2">{active.sms ? 'Message to decision' : 'Voice note to cash'}</h2>
                 <div className="mt-2">
-                  <Stopwatch clock={clock} skewMs={s.skew.current} caption={captions} />
+                  <Stopwatch clock={clock} skewMs={s.skew.current} caption={captions} splitAt={(t) => splitFrom(s.events, t)} />
                 </div>
                 {modes.paypalMode === 'sandbox' && s.view?.request.status === 'unclaimed' && s.view.payout && (
                   <SandboxUnclaimed name={active.title} batchId={s.view.payout.batch.id} itemId={s.view.payout.item.id} />

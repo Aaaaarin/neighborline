@@ -38,6 +38,15 @@ export class EventBus {
     return this.log.filter((m) => m.requestIds.includes(requestId)).map((m) => m.event);
   }
 
+  /** Events of the most recent request that reached SUCCESS (for the measured speed on /). */
+  latestPaid(): StageEvent[] | null {
+    for (let i = this.log.length - 1; i >= 0; i--) {
+      const m = this.log[i]!;
+      if (m.event.type === 'payout.item_updated' && m.event.status === 'SUCCESS' && m.requestIds[0]) return this.eventsFor(m.requestIds[0]);
+    }
+    return null;
+  }
+
   clear(): void {
     this.log = [];
   }

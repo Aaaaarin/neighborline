@@ -8,10 +8,10 @@ import { services } from '@/lib/server/services';
 export const metadata: Metadata = { title: 'Donate', description: 'Give once or monthly with PayPal, Venmo or Pay Later. See exactly where the money goes.' };
 export const dynamic = 'force-dynamic';
 
-const FLOW = [
+const flow = (sponsor: string) => [
   {
     title: 'You give through PayPal',
-    body: 'Cascadia Community Fund, Eastside’s fiscal sponsor, receives it and emails your tax receipt.',
+    body: `${sponsor}, Eastside’s fiscal sponsor, receives it and is responsible for your receipt. (In this demo the sponsor is fictional.)`,
   },
   {
     title: 'It waits in the sponsor’s PayPal Business account',
@@ -22,8 +22,8 @@ const FLOW = [
     body: 'The group’s written rules — public on this site — set the amount. Code applies them; AI never decides who deserves help.',
   },
   {
-    title: 'Two organizers approve, on two phones',
-    body: 'Only then can the approval service send a PayPal Payout, tagged as a donation, to the neighbor’s PayPal or Venmo.',
+    title: 'Two organizers approve, each with a passkey',
+    body: 'Only then can the approval service, a separate process, send a PayPal Payout marked as neither goods nor services to the neighbor’s PayPal or Venmo.',
   },
   {
     title: 'It shows up in the public report',
@@ -32,7 +32,8 @@ const FLOW = [
 ];
 
 export default async function DonatePage() {
-  const report = await services().getReport();
+  const [report, group] = await Promise.all([services().getReport(), services().getGroup()]);
+  const FLOW = flow(group.fiscalSponsor.name);
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || null;
   return (
     <PageShell>

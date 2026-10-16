@@ -452,6 +452,9 @@ export class MockEngine implements Services {
   async passkeySignIn(): Promise<OrganizerSession> {
     throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
   }
+  lastRunSpeed() {
+    return null;
+  }
   async approvalChallenge(): Promise<ApprovalChallenge> {
     throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
   }

@@ -3,6 +3,8 @@ import { HeroPhone } from '@/components/HeroPhone';
 import { PageShell } from '@/components/PageShell';
 import { SCENARIOS } from '@/lib/server/fixtures/scenarios';
 import * as tpl from '@/lib/server/fixtures/templates';
+import { services } from '@/lib/server/services';
+import { stopwatch } from '@/lib/format';
 import type { ThreadView } from '@/lib/types';
 
 const lan = SCENARIOS.lan;
@@ -54,8 +56,8 @@ const STORY: Array<{ t: string; title: string; body: string; lang?: string; quot
   },
   {
     t: '0:18',
-    title: 'Two organizers approve from their phones',
-    body: 'Dana and Marcus each see the request in English with the original attached, the rule, and the rail checks. Two people, two devices.',
+    title: 'Two organizers approve, each with a passkey',
+    body: 'Dana and Marcus each see the request in English with the original attached, the rule and the rail checks. Each tap is signed on their own device over the exact amount and destination. In the demo they tap on cue; in real life this step takes as long as two people need.',
   },
   {
     t: '0:26',
@@ -65,7 +67,7 @@ const STORY: Array<{ t: string; title: string; body: string; lang?: string; quot
   {
     t: '0:31',
     title: 'She hears back in her language',
-    body: 'A message from a vetted template, in Vietnamese. If the money can’t be claimed, the callback explains how — Rosa’s did, in Spanish.',
+    body: 'A message in her thread, from a vetted template, in Vietnamese. If the money can’t be claimed, the message explains how — Rosa’s did, in Spanish.',
     lang: 'vi',
     quote: 'Đã gửi $150 vào Venmo của bạn.',
   },
@@ -78,7 +80,7 @@ const REFUSALS = [
   },
   {
     title: 'The agent that talks to neighbors can’t move money.',
-    body: 'Only a separate approval service holds PayPal credentials, and it acts only on a record signed by two different organizers.',
+    body: 'Only a separate approval service holds PayPal credentials, and it pays only on a record signed with the passkeys of two different organizers.',
   },
   {
     title: 'We protect the rail, not suspect the person.',
@@ -86,17 +88,21 @@ const REFUSALS = [
   },
 ];
 
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
+  const speed = services().lastRunSpeed();
+  const paypal = services().modes.paypalMode;
   return (
     <PageShell>
       <section className="mx-auto grid max-w-[1200px] grid-cols-[minmax(0,1fr)] items-center gap-14 px-4 pb-20 pt-12 sm:px-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-20 lg:pt-20">
         <div>
           <p className="text-[0.95rem] text-ink-2">A mutual-aid hotline for Eastside, and for anywhere after a storm</p>
           <h1 className="mt-5 max-w-[16ch] text-[2.6rem] leading-[1.06] text-ink sm:text-h1 lg:text-display lg:leading-[1.02]">
-            Ask in your own language. Cash in about 90 seconds.
+            Ask in your own language. Cash in minutes, not days.
           </h1>
           <p className="mt-7 max-w-[56ch] text-lead text-ink-2">
-            Leave a voice note in any language. Two neighbors approve from their phones, and PayPal sends the money to your PayPal or Venmo — then we call you back in your language. No app, no forms, no English required.
+            Leave a voice note in any language. Two neighbors approve from their phones, PayPal sends the money to your PayPal or Venmo, and Neighborline messages you back in your thread, in your language. No app, no forms, no English required.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Link href="/demo" className="inline-flex h-13 items-center rounded-full bg-ink px-7 text-[1.05rem] font-semibold text-raised transition-transform active:scale-[0.98]">
@@ -106,8 +112,11 @@ export default function Home() {
               Donate
             </Link>
           </div>
-          <p className="mt-5 text-[0.9rem] text-ink-3">
-            The demo runs a real flow end to end on a PayPal stand-in. No microphone needed.
+          <p className="mt-5 max-w-[56ch] text-[0.9rem] text-ink-3">
+            {speed
+              ? `Last run on this server: ${stopwatch(speed.machineMs)} of system time, plus ${stopwatch(speed.humanMs)} while people read, listened and approved. `
+              : 'The demo times every run live, and shows system time and the time people spend deciding separately. '}
+            {paypal === 'sandbox' ? 'It runs end to end against the PayPal sandbox.' : 'It runs end to end on a local PayPal stand-in (Sandbox: simulated).'} No microphone needed.
           </p>
         </div>
         <div className="mx-auto w-full max-w-[380px]">
@@ -122,7 +131,7 @@ export default function Home() {
               The morning after the ice storm
             </h2>
             <p className="mt-5 max-w-[42ch] serif-copy text-ink-2">
-              Eastside had no power for three days. This is one request, start to finish, timed from the voice note to the PayPal transaction id.
+              Eastside had no power for three days. This is one request, start to finish, from a demo run at real pace. The organizers tapped on cue; everything between their taps is the system, and it takes seconds.
             </p>
             <Link href="/demo" className="mt-6 inline-flex min-h-11 items-center text-[1rem] font-semibold text-ink underline decoration-ink/30 underline-offset-[6px] hover:decoration-ink">
               Watch it happen live

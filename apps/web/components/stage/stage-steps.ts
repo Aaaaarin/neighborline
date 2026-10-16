@@ -66,7 +66,7 @@ export function buildSteps(input: {
   ghost('claimhelp', `Claim help sent in ${langName}`);
   ghost('webhook2', 'Webhook verified');
   ghost('success', 'Item SUCCESS');
-  ghost('callback', `Callback sent in ${langName}`);
+  ghost('callback', `Messaged back in ${langName}`);
   ghost('flag_lookalike', 'Rail protection checks the payout handle');
   ghost('flag_injection', 'Instructions inside the message');
   ghost('disabled', 'Approve buttons');
@@ -88,7 +88,7 @@ export function buildSteps(input: {
           atMs,
           detail:
             e.channel === 'sms'
-              ? 'SMS from an unknown number'
+              ? 'From an unknown number · the SMS channel is simulated in this demo'
               : `${LANGUAGE_NAMES[e.lang].en}${view?.audioSeconds ? ` · 0:${String(view.audioSeconds).padStart(2, '0')}` : ''} · web voice line`,
         });
         break;
@@ -117,14 +117,17 @@ export function buildSteps(input: {
         }
         set('disabled', { state: 'blocked', atMs, title: 'Approve disabled on every phone', detail: 'The approval service refuses to build a batch for a blocked destination.' });
         break;
-      case 'approval.added':
+      case 'approval.added': {
+        const signer = view?.approvals.find((a) => a.organizerId === e.organizerId)?.signer;
+        const signed = signer ? (signer.kind === 'passkey' ? `Signed with passkey on ${signer.deviceLabel}` : `Signed with ${input.organizerName(e.organizerId)}’s demo key`) : 'Signature over the approval hash';
         set(e.count >= 2 ? 'approval2' : 'approval1', {
           state: 'done',
           atMs,
           title: `Approval ${Math.min(e.count, 2)} of 2 · ${input.organizerName(e.organizerId)}`,
-          detail: e.count >= 2 ? 'Two different people, two different phones' : 'Waiting for a second organizer',
+          detail: e.count >= 2 ? `${signed}. Two different organizers, two different keys` : `${signed}. Waiting for a second organizer`,
         });
         break;
+      }
       case 'payout.batch_created':
         set('batch', {
           state: 'done',
@@ -163,8 +166,8 @@ export function buildSteps(input: {
           set('reply', { state: 'done', atMs, title: 'Reply sent · no money moved', detail: 'The sender is asked to describe their own need, in their own words.' });
           break;
         }
-        if (scenario === 'rosa' && notifies === 1) set('claimhelp', { state: 'done', atMs, detail: 'How to open a PayPal account with that email, step by step' });
-        else set('callback', { state: 'done', atMs, title: `Callback sent in ${LANGUAGE_NAMES[e.lang].en}`, detail: 'From a vetted template, slots filled by code' });
+        if (scenario === 'rosa' && notifies === 1) set('claimhelp', { state: 'done', atMs, detail: 'In her thread: how to open a PayPal account with that email, step by step' });
+        else set('callback', { state: 'done', atMs, title: `Messaged back in ${LANGUAGE_NAMES[e.lang].en}`, detail: 'In the neighbor’s thread, from a vetted template; code fills the amount and wallet' });
         break;
       default:
         break;
@@ -190,4 +193,45 @@ export function clockFrom(events: TimedEvent[]): ClockState {
   const flagged = events.find((e) => e.event.type === 'request.flagged' && e.event.flags.some((f) => f.severity === 'block'));
   if (flagged) return { kind: 'stopped', ms: flagged.at - start.at, reason: 'blocked' };
   return { kind: 'running', startAt: start.at };
+}
+
+/**
+ * Honest speed: split the clock into time people spent deciding and time the system spent.
+ * People: the neighbor listening to the read-back and saying yes (readback → confirmed), the
+ * organizers looking at the card (confirmed → second approval), and a neighbor claiming an
+ * UNCLAIMED payout (UNCLAIMED → SUCCESS). Everything else — upload, speech-to-text, checks,
+ * the Payouts call, PayPal processing, the webhook — is system time.
+ */
+export interface SpeedSplit {
+  totalMs: number;
+  humanMs: number;
+  machineMs: number;
+  /** a person is deciding right now */
+  humanNow: boolean;
+}
+
+export function splitFrom(events: TimedEvent[], nowMs: number): SpeedSplit | null {
+  const start = events.find((e) => e.event.type === 'request.created')?.at;
+  if (start === undefined) return null;
+  const clock = clockFrom(events);
+  const end = clock.kind === 'stopped' ? start + clock.ms : Math.max(start, nowMs);
+  const at = (pred: (e: TimedEvent['event']) => boolean) => events.find((e) => pred(e.event))?.at;
+  const readback = at((e) => e.type === 'request.readback');
+  const confirmed = at((e) => e.type === 'request.confirmed');
+  const approved = at((e) => e.type === 'approval.added' && e.count >= 2);
+  const unclaimed = at((e) => e.type === 'payout.item_updated' && e.status === 'UNCLAIMED');
+  const success = at((e) => e.type === 'payout.item_updated' && e.status === 'SUCCESS');
+  let humanMs = 0;
+  let humanNow = false;
+  const span = (a: number | undefined, b: number | undefined) => {
+    if (a === undefined) return;
+    const stop = Math.min(b ?? end, end);
+    if (b === undefined && clock.kind === 'running') humanNow = true;
+    humanMs += Math.max(0, stop - a);
+  };
+  span(readback, confirmed);
+  span(confirmed, approved);
+  span(unclaimed, success);
+  const totalMs = end - start;
+  return { totalMs, humanMs, machineMs: Math.max(0, totalMs - humanMs), humanNow };
 }

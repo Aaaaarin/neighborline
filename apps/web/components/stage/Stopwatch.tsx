@@ -2,19 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { cx, stopwatch } from '@/lib/format';
-import type { ClockState } from './stage-steps';
+import type { ClockState, SpeedSplit } from './stage-steps';
 
 export function Stopwatch({
   clock,
   skewMs,
   size = 'lg',
   caption,
+  splitAt,
 }: {
   clock: ClockState;
   /** client clock minus server clock */
   skewMs: number;
   size?: 'lg' | 'sm';
   caption: { idle: string; running: string; paid: string; blocked: string };
+  /** people vs system time at a given server time (large stopwatch only) */
+  splitAt?: (serverNowMs: number) => SpeedSplit | null;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -27,6 +30,7 @@ export function Stopwatch({
   const text = stopwatch(ms);
   const paid = clock.kind === 'stopped' && clock.reason === 'paid';
   const blocked = clock.kind === 'stopped' && clock.reason === 'blocked';
+  const split = size === 'lg' && splitAt ? splitAt(now - skewMs) : null;
   const status = clock.kind === 'idle' ? caption.idle : clock.kind === 'running' ? caption.running : paid ? caption.paid : caption.blocked;
 
   return (
@@ -58,6 +62,36 @@ export function Stopwatch({
         />
         {status}
       </p>
+      {split && split.totalMs > 0 && <Split split={split} />}
+    </div>
+  );
+}
+
+/** Two segments on one track: time people spent deciding, and time the system took. */
+function Split({ split }: { split: SpeedSplit }) {
+  const human = Math.min(100, (split.humanMs / split.totalMs) * 100);
+  return (
+    <div className="mt-4 max-w-[30rem]">
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-sunk" aria-hidden>
+        <span className="h-full bg-frost-ink/45 transition-[width] duration-100" style={{ width: `${human}%` }} />
+        <span className="h-full flex-1 bg-ink" />
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-3 text-[0.88rem]">
+        <div>
+          <dt className="flex items-center gap-1.5 text-ink-2">
+            <span aria-hidden className="inline-block size-2.5 rounded-full bg-frost-ink/45" />
+            Neighbors deciding
+          </dt>
+          <dd className={cx('tabular text-[1.15rem] font-medium', split.humanNow ? 'text-ink' : 'text-ink-2')}>{stopwatch(split.humanMs)}</dd>
+        </div>
+        <div>
+          <dt className="flex items-center gap-1.5 text-ink-2">
+            <span aria-hidden className="inline-block size-2.5 rounded-full bg-ink" />
+            System
+          </dt>
+          <dd className="tabular text-[1.15rem] font-medium text-ink">{stopwatch(split.machineMs)}</dd>
+        </div>
+      </dl>
     </div>
   );
 }

@@ -3,7 +3,7 @@
  * number in the narrative traced to a fact) → ReportView. /trust: real provider and PayPal modes.
  */
 import { MASK, buildReport, percentile, type Lang, type Masked, type TransparencyReport } from '@neighborline/core';
-import { FixtureInflowSource, PayPalToolkitInflowSource, type WriteReportResult } from '@neighborline/agents';
+import { PayPalToolkitInflowSource, type WriteReportResult } from '@neighborline/agents';
 import { getActivePolicy, listForReport } from '@neighborline/db';
 import { LANGUAGE_NAMES } from '../../format';
 import type { GroupView, NarrativeSegment, ReportView, TrustView } from '../../types';
@@ -102,14 +102,16 @@ export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
     .sort((a, b) => b.n - a.n);
 
   const categoryLabels = Object.fromEntries((policy?.categories ?? []).map((c) => [c.key, c.label.en ?? c.key]));
+  // Only a real PayPal sandbox has inflows worth quoting. In fake mode the fixture inflows would
+  // contradict the seeded donations on this page, so the narrative sticks to the ledger.
   const inflowSource =
     ctx.cfg.paypalMode === 'sandbox' && ctx.env.PAYPAL_CLIENT_ID && ctx.env.PAYPAL_CLIENT_SECRET
       ? new PayPalToolkitInflowSource({ clientId: ctx.env.PAYPAL_CLIENT_ID, clientSecret: ctx.env.PAYPAL_CLIENT_SECRET, sandbox: true })
-      : new FixtureInflowSource();
+      : null;
   const range = { startDate: from.toISOString().replace(/\.\d{3}Z$/, 'Z'), endDate: to.toISOString().replace(/\.\d{3}Z$/, 'Z') };
   let written: WriteReportResult;
   try {
-    written = await ctx.agents.report.write({ report, groupName: g.name, categoryLabels, inflowSource, inflowRange: range });
+    written = await ctx.agents.report.write({ report, groupName: g.name, categoryLabels, ...(inflowSource ? { inflowSource, inflowRange: range } : {}) });
   } catch {
     written = await ctx.agents.report.write({ report, groupName: g.name, categoryLabels });
   }
@@ -152,7 +154,7 @@ export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
     approvalParity,
     kAnonymity: {
       k,
-      note: `Any group with fewer than ${k} people is shown as “fewer than ${k}” or merged into “Other languages”, and payout lines never show language, name or neighborhood — so no one can be picked out of this page.`,
+      note: `Any group with fewer than ${k} people is shown as “fewer than ${k}” or merged into “Other languages”, and payout lines never show language, name or neighborhood. Why ${k} and not 2 or 3: on one street, three people who asked for a heater the same week can still be recognised by their neighbors; ${k} makes that guess much harder.`,
     },
     lines,
   };
@@ -219,9 +221,23 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
           : `No sandbox client id configured; the simulated button still creates and captures an Orders v2 order on the ${sandbox ? 'sandbox' : 'local fake PayPal'}.`,
       },
       {
-        label: 'Callbacks by SMS and phone',
+        label: 'Organizer passkeys',
+        status: 'real',
+        detail: ctx.env.DEMO_MODE !== 'false'
+          ? 'Every approval is a WebAuthn signature over the approval hash. Real passkeys work here; the fictional organizers’ scripted taps use server-held demo keys, labelled “demo key” on every card and in the audit log.'
+          : 'Every approval is a WebAuthn signature over the approval hash, made with the organizer’s own passkey. Demo keys are switched off.',
+      },
+      {
+        label: 'Nightly reconcile against Transaction Search',
+        status: ctx.env.RENDER ? (sandbox ? 'real' : 'simulated') : 'not_yet',
+        detail: ctx.env.RENDER
+          ? `Scheduled on Render (Render Workflows): every night each payout item is compared with ${sandbox ? 'PayPal sandbox Transaction Search' : 'the fake PayPal’s Transaction Search'}. The ledger also has a Reconcile now button.`
+          : 'Scheduled on Render when deployed there (render.yaml, Render Workflows). This server isn’t on Render, so use Reconcile now on the ledger.',
+      },
+      {
+        label: 'Messages back by SMS, WhatsApp or phone call',
         status: 'not_yet',
-        detail: 'Texting neighbors needs carrier sender registration (A2P 10DLC). Until then, callbacks appear in the web and WhatsApp-style thread.',
+        detail: 'Texting neighbors needs carrier sender registration (A2P 10DLC) and a WhatsApp Business number. Today Neighborline messages the neighbor back in their thread on the web line, in their language.',
       },
       {
         label: 'Charity status confirmation',
