@@ -125,7 +125,8 @@ export default async function TrustPage() {
               ['Changing the rules', 'The AI drafts new rules from the organizers’ own words, quoting the sentence behind every cap. A new policy version goes live only when two different organizers sign the hash of that exact draft; code then re-prices requests still waiting.'],
               [
                 'In this demo',
-                'Dana, Marcus and Priya are fictional, so the scripted taps are signed with server-held demo keys. They sign the same way, but no person unlocks them, and every card they sign says “demo key”. When you approve as Marcus, your own device signs with a real passkey if it has one.',
+                trust.inThisDemo?.text ??
+                  'Dana, Marcus and Priya are fictional, so the scripted taps are signed with server-held demo keys. They sign the same way, but no person unlocks them, and every card they sign says “demo key”.',
               ],
             ].map(([k, v]) => (
               <div key={k} className="py-4">

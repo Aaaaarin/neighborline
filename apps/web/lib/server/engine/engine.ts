@@ -36,6 +36,7 @@ import { readConfig, type EngineConfig, type Env } from './env';
 import { EventBus, nowIso } from './events';
 import * as intake from './intake';
 import * as passkeys from './passkeys';
+import { demoModeOn } from '../passkeys/demo-signer';
 import * as policyEditor from './policy-editor';
 import { splitFrom } from '../../../components/stage/stage-steps';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
@@ -245,7 +246,7 @@ export class Engine implements Services {
   async compilePolicy(input: { sourceText: string; session: OrganizerSession | null }) {
     const ctx = await this.base();
     const actor = await passkeys.liveSession(ctx, input.session);
-    if (!actor && this.env.DEMO_MODE === 'false') throw new HttpError(401, 'Sign in with your passkey to draft new rules.');
+    if (!actor && !demoModeOn(this.env)) throw new HttpError(401, 'Sign in with your passkey to draft new rules.');
     return policyEditor.compileDraft(ctx, { sourceText: input.sourceText, actor });
   }
 

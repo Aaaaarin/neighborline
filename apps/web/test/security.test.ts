@@ -7,6 +7,7 @@ import { assertJson, crossSiteProblem, readCapped } from '../lib/server/security
 import { RateLimiter, clientIp, enforceLimit, limiter } from '../lib/server/security/rate-limit';
 import { redactRequestView, redactText, streamMessageFor, viewsFor } from '../lib/server/security/redact';
 import { accessTo, ownsAll, type Viewer } from '../lib/server/security/viewer';
+import { demoDisclosure } from '../lib/server/security/demo-disclosure';
 import { decodeVisitor, demoRunId, encodeVisitor, ownerTagOf, visitorRequestId, visitorTag } from '../lib/server/security/visitor';
 import type { RequestView, StreamMessage } from '../lib/types';
 import { startHarness, waitFor, type Harness } from './harness';
@@ -128,6 +129,20 @@ describe('redacted views (redact.ts)', () => {
   });
 });
 
+describe('/trust "In this demo" disclosure', () => {
+  it('says exactly what is relaxed when demo mode is on, and that nothing is when it is off', () => {
+    const on = demoDisclosure({}, 'fake');
+    expect(on.on).toBe(true);
+    expect(on.relaxed).toHaveLength(3);
+    expect(on.text).toContain('no real money moves');
+    expect(on.text).toContain('Either one signs only the runs you started yourself');
+    expect(on.text).toContain('invite code');
+    const off = demoDisclosure({ PAYPAL_MODE: 'sandbox' }, 'sandbox');
+    expect(off).toMatchObject({ on: false, relaxed: [] });
+    expect(off.text).toContain('no demo keys');
+  });
+});
+
 let h: Harness;
 describe('engine end to end', () => {
   beforeAll(async () => {
@@ -185,6 +200,11 @@ describe('engine end to end', () => {
     expect(taps.filter((t) => t.status === 'rejected')).toEqual([]);
     const ids = new Set(taps.map((t) => (t as PromiseFulfilledResult<{ batchId?: string }>).value.batchId));
     expect(ids.size).toBe(1);
+  });
+
+  it('the trust view carries the disclosure', async () => {
+    const t = await h.engine.getTrust();
+    expect(t.inThisDemo?.on).toBe(true);
   });
 
   it('a reset is broadcast to open streams so a stage can offer a replay', async () => {

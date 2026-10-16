@@ -2,6 +2,8 @@
  * /report: db rows → core.buildReport (aggregate-only, k-anonymous) → agents.report.write (every
  * number in the narrative traced to a fact) → ReportView. /trust: real provider and PayPal modes.
  */
+import { demoModeOn } from '@neighborline/passkeys';
+import { demoDisclosure } from '../security/demo-disclosure';
 import { MASK, buildReport, percentile, type Lang, type Masked, type TransparencyReport } from '@neighborline/core';
 import { PayPalToolkitInflowSource, type WriteReportResult } from '@neighborline/agents';
 import { getActivePolicy, listForReport } from '@neighborline/db';
@@ -188,6 +190,7 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
   return {
     group,
     modes: { paypalMode: ctx.cfg.paypalMode, aiMode: live ? 'live' : 'fixture', engine: 'real' },
+    inThisDemo: demoDisclosure(ctx.env, ctx.cfg.paypalMode),
     sandboxReality: [
       {
         label: 'Payouts to PayPal accounts',
@@ -224,7 +227,7 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
       {
         label: 'Organizer passkeys',
         status: 'real',
-        detail: ctx.env.DEMO_MODE !== 'false'
+        detail: demoModeOn(ctx.env)
           ? 'Every approval is a WebAuthn signature over the approval hash. Real passkeys work here; the fictional organizers’ scripted taps use server-held demo keys, labelled “demo key” on every card and in the audit log.'
           : 'Every approval is a WebAuthn signature over the approval hash, made with the organizer’s own passkey. Demo keys are switched off.',
       },

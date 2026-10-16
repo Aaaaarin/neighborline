@@ -383,6 +383,8 @@ export interface RuntimeModes {
 export interface TrustView {
   group: GroupView;
   modes: RuntimeModes;
+  /** The "In this demo" disclosure, derived from DEMO_MODE / PAYPAL_MODE (lib/server/security/demo-disclosure.ts). */
+  inThisDemo?: { on: boolean; text: string; relaxed: string[]; unchanged: string[] };
   sandboxReality: Array<{ label: string; status: 'real' | 'simulated' | 'not_yet'; detail: string }>;
 }
 

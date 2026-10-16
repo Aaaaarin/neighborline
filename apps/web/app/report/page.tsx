@@ -4,6 +4,7 @@ import { PageShell } from '@/components/PageShell';
 import { Bars, ChartFrame, Columns, Dots } from '@/components/report/Charts';
 import { duration, money, shortDate, shortId } from '@/lib/format';
 import { services } from '@/lib/server/services';
+import { demoModeOn } from '@neighborline/passkeys';
 
 export const metadata: Metadata = {
   title: 'Transparency report',
@@ -17,7 +18,7 @@ export default async function ReportPage() {
   const svc = services();
   const r = await svc.getReport();
   const sandbox = svc.modes.paypalMode === 'sandbox';
-  const demo = process.env.DEMO_MODE !== 'false';
+  const demo = demoModeOn(process.env);
   const t = r.totals;
   const medianBucket = r.timeToCash.findIndex((b) => t.medianSecondsToCash >= b.fromSec && (b.toSec === null || t.medianSecondsToCash < b.toSec));
   const overallApproval =
