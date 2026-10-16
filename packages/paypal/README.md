@@ -8,7 +8,7 @@ It ships with **`neighborline-payouts-mcp`**, an MCP server that adds the Payout
 token.
 
 Built for [Neighborline](../../README.md), a mutual-aid hotline where two organizers approve and cash lands in PayPal
-or Venmo in about 90 seconds. MIT licensed.
+or Venmo a few seconds of system time later. MIT licensed.
 
 - **Money is integer cents.** `toPayPalValue(15000) → "150.00"`. Floats are rejected, never rounded.
 - **Idempotent payouts.**
@@ -116,11 +116,15 @@ const tiers = await paypal.subscriptions.ensureDonationTiers({ product: { id: 'N
 
 ```ts
 const txns = await paypal.reporting.searchTransactions({ startDate: since, endDate: new Date() }); // >31 days is chunked for you
-const report = reconcile(localItems, txns); // matched / amountMismatch / missingAtPayPal / missingLocally / pendingLag
+const report = reconcile(localItems, txns);
+// matched / amountMismatch / currencyMismatch / statusDrift / missingAtPayPal / missingLocally / pendingLag /
+// noTransactionId / stuckPending
 ```
 
 Transaction Search shows data **up to 3 hours late**. Items younger than that land in `pendingLag`, not
-`missingAtPayPal`.
+`missingAtPayPal`. `statusDrift` compares PayPal's `transaction_status` (`S`, `P`, `D`, `V`) with your item status, so
+a reversal or refund after `SUCCESS` is caught. `stuckPending` lists `PENDING`/`ONHOLD` items with no transaction id
+after `stuckAfterMs` (default 24 h): usually a lost webhook, so poll the batch.
 
 ## The MCP server: payouts for agents, with two humans in the loop
 

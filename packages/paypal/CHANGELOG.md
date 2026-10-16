@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Reconcile
+- `reconcile()` adds three buckets: `currencyMismatch`, `statusDrift` (PayPal's `transaction_status` S/P/D/V checked
+  against the local item status) and `stuckPending`
+  (`PENDING`/`ONHOLD` with no transaction id after `stuckAfterMs`, default 24 h).
+
+### Errors
+- `isAmbiguousPayPalError(err)`: true for timeouts, network errors, 5xx, 408, 429 and a `DuplicateBatchError`
+  without a link, where PayPal may have accepted (or certainly accepted) a write.
+  Callers should keep the batch in an unknown state and re-send with the same `sender_batch_id` instead of marking it
+  failed.
+
 ## 0.1.0 — 2026-10-16
 
 First release. Every name below is an export of `@neighborline/paypal` (or a method on one).
