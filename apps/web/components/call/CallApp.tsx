@@ -209,7 +209,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
             busy={busy}
           />
           {simulated && (
-            <p className="mx-4 mb-2 rounded-xl border border-dashed border-rule-strong px-3 py-2 text-[0.78rem] leading-snug text-ink-2">
+            <p lang="en" dir="ltr" className="mx-4 mb-2 rounded-xl border border-dashed border-rule-strong px-3 py-2 text-[0.78rem] leading-snug text-ink-2">
               Offline demo: no live speech-to-text is configured, so a sample transcript stands in for your recording.
             </p>
           )}

@@ -80,7 +80,9 @@ export function OrganizerQueue({
     ? `Your device asks for Face ID, a fingerprint or your PIN, then signs this exact payout.`
     : demoAs
       ? `Signs with ${me.name}’s demo key, held by this demo server.`
-      : undefined;
+      : roster.demoMode
+        ? 'Sign in with a passkey above, or pick a demo key, to approve.'
+        : 'Sign in with your passkey above to approve.';
 
   const waiting = items.filter((v) => v.request.status === 'awaiting_approval');
   const mine = waiting.filter((v) => !v.approvals.some((a) => a.organizerId === me.id) && !v.request.railFlags.some((f) => f.severity === 'block'));

@@ -110,7 +110,11 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
   const mine = m.from === 'neighbor';
   const t = ui(lang);
   const en = translated && m.textEn && m.textEn !== m.text && m.lang !== 'en' ? m.textEn : null;
-  const time = <span className={cx('mt-1 block text-end text-[0.68rem] tabular', mine ? 'text-frost-ink' : 'text-ink-3')}>{clockTime(m.at)}</span>;
+  const time = (
+    <span className={cx('mt-1 block text-end text-[0.68rem] tabular', mine ? 'text-frost-ink' : 'text-ink-3')}>
+      <bdi dir="ltr">{clockTime(m.at)}</bdi>
+    </span>
+  );
 
   if (m.kind === 'paid') {
     return (
@@ -123,7 +127,7 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
             </span>
           </p>
           <p lang={m.lang} dir={dirOf(m.lang)} className="mt-2 text-[0.92rem] leading-snug text-ink">
-            {m.text.replace(m.meta?.transactionId ?? '§', shortId(m.meta?.transactionId, 6, 4))}
+            <Isolated text={m.text.replace(m.meta?.transactionId ?? '§', shortId(m.meta?.transactionId, 6, 4))} />
           </p>
           {en && <Translation text={en.replace(m.meta?.transactionId ?? '§', shortId(m.meta?.transactionId, 6, 4))} />}
           {time}
@@ -154,7 +158,7 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
             <span className="sr-only">{t.voiceNote}</span>
             {m.text ? (
               <p lang={m.lang} dir={dirOf(m.lang)} className="mt-2 border-t border-frost-ink/15 pt-2 text-[0.88rem] leading-snug">
-                {m.text}
+                <Isolated text={m.text} />
               </p>
             ) : (
               <p className="mt-2 border-t border-frost-ink/15 pt-2 text-[0.82rem] italic animate-breathe" lang={lang}>
@@ -168,7 +172,7 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
           </p>
         ) : (
           <p lang={m.lang} dir={dirOf(m.lang)} className="whitespace-pre-line text-[0.92rem] leading-snug">
-            {m.text}
+            <Isolated text={m.text} />
           </p>
         )}
         {m.kind === 'readback' && (
@@ -194,5 +198,28 @@ function Translation({ text, onDark = false }: { text: string; onDark?: boolean 
       <span className="me-1 rounded bg-sunk px-1 text-[0.68rem] font-semibold text-ink-2">EN</span>
       {text}
     </p>
+  );
+}
+
+/**
+ * Handles, emails and ids are left-to-right islands inside right-to-left text: without isolation an
+ * Arabic sentence shows "@samira-haddad" as "samira-haddad@".
+ */
+const LTR_RUN = /([@#]?[A-Za-z0-9][\w.+-]*@[\w.-]+\.[A-Za-z]{2,}|@[\w-]+(?:\.[\w-]+)*|\$\d[\d,.]*|[A-Z0-9]{6,}…?[A-Z0-9]*)/g;
+function Isolated({ text }: { text: string }) {
+  const parts = text.split(LTR_RUN);
+  if (parts.length === 1) return <>{text}</>;
+  return (
+    <>
+      {parts.map((p, i) =>
+        i % 2 === 1 ? (
+          <bdi key={i} dir="ltr">
+            {p}
+          </bdi>
+        ) : (
+          p
+        ),
+      )}
+    </>
   );
 }
