@@ -17,6 +17,13 @@ export { ZERO_USAGE } from './providers/types.js';
 export { BaseLLM, ProviderError, SchemaValidationError } from './providers/base.js';
 export { AnthropicLLM, DEFAULT_ANTHROPIC_MODEL, type AnthropicLLMOptions } from './providers/anthropic.js';
 export { OpenAILLM, DEFAULT_OPENAI_MODEL, type OpenAILLMOptions } from './providers/openai-llm.js';
+export {
+  OpenAICompatibleLLM,
+  COMPAT_STRUCTURED_MODES,
+  schemaInstruction,
+  type OpenAICompatibleLLMOptions,
+  type CompatStructuredMode,
+} from './providers/openai-compatible.js';
 export { OpenAISTT, OpenAITTS, DEFAULT_STT_MODEL, DEFAULT_TTS_MODEL, DEFAULT_TTS_VOICE } from './providers/openai-audio.js';
 export { FixtureLLM, ScriptedLLM, type Responder, type ScriptStep } from './providers/fixture-llm.js';
 export { FixtureSTT, FixtureTTS, fixtureAudioBytes, silentWav, FIXTURE_MARKER } from './providers/fixture-audio.js';

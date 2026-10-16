@@ -8,7 +8,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "make-demo-audio": "tsx scripts/make-demo-audio.ts"
+    "make-demo-audio": "tsx scripts/make-demo-audio.ts",
+    "eval": "tsx eval/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

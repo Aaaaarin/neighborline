@@ -138,7 +138,7 @@ break out of the data block. The `inject_en` fixture and the `blocked` stage sce
 
 | | `AI_MODE=fixture` (default) | `AI_MODE=live` |
 |---|---|---|
-| LLM | `FixtureLLM`: scenario answers matched by transcript; otherwise a conservative keyword extractor (categories, household size and quick-answer labels in all ten contract languages) that never extracts an amount and asks the specific missing question; policy text → offline parser; translations from `fixtures/translations.json` or identity; report → template | Claude (`claude-sonnet-5-5`) or OpenAI (`gpt-5.4-mini`), chosen by `LLM_PROVIDER`, falling back to whichever key exists, then to fixtures with a warning |
+| LLM | `FixtureLLM`: scenario answers matched by transcript; otherwise a conservative keyword extractor (categories, household size and quick-answer labels in all ten contract languages) that never extracts an amount and asks the specific missing question; policy text → offline parser; translations from `fixtures/translations.json` or identity; report → template | Claude (`claude-sonnet-5-5`) or OpenAI (`gpt-5.4-mini`), chosen by `LLM_PROVIDER`, falling back to whichever key exists, then to fixtures with a warning. Or a model on your own machine: `LLM_PROVIDER=openai-compatible` (below) |
 | STT | `FixtureSTT`: recognizes fixture audio by marker or by sha256 in `fixtures/audio/manifest.json`. An unknown recording transcribes as `lan_vi` unless `AI_FIXTURE_DEFAULT_AUDIO=none` | OpenAI `gpt-4o-transcribe` (needs `OPENAI_API_KEY`) |
 | TTS | Fixture (browser speech in the UI) | OpenAI `gpt-4o-mini-tts`, voice `coral` |
 | Fallback | — | `AI_FALLBACK=fixture` sends model errors to fixtures and logs it |
@@ -148,6 +148,65 @@ break out of the data block. The `inject_en` fixture and the `blocked` stage sce
 Fixture scenarios ([`fixtures/scenarios`](../packages/agents/fixtures/scenarios)): `lan_vi`, `rosa_es`, `jean_ht`,
 `walter_en`, `inject_en`, `missing_payout_es`. To record real demo audio:
 `OPENAI_API_KEY=… pnpm --filter @neighborline/agents make-demo-audio`.
+
+## Running intake on a local model
+
+Some groups cannot send a neighbor's words to a cloud API: the people calling may be undocumented,
+in a domestic-violence situation, or simply did not agree to it. For them, intake can run on a
+model on the group's own laptop or server, through any server that speaks the OpenAI Chat
+Completions API: [Ollama](https://ollama.com), llama.cpp's `llama-server`, vLLM or LM Studio
+([`providers/openai-compatible.ts`](../packages/agents/src/providers/openai-compatible.ts)).
+
+```bash
+# 1. Start a local model (Ollama shown; pick an instruction-tuned model that fits your machine)
+ollama pull qwen2.5:7b-instruct
+ollama serve                                   # serves http://localhost:11434/v1
+
+# 2. Point Neighborline at it
+AI_MODE=live
+LLM_PROVIDER=openai-compatible                 # alias: ollama
+OPENAI_COMPAT_BASE_URL=http://localhost:11434/v1   # llama-server: http://localhost:8080/v1
+OPENAI_COMPAT_MODEL=qwen2.5:7b-instruct
+OPENAI_COMPAT_STRUCTURED=json_schema           # json_schema | json_object | prompt
+# OPENAI_COMPAT_API_KEY=…                      # only if your server requires one (vLLM --api-key)
+# Leave OPENAI_API_KEY unset to keep audio local too (see below)
+
+# 3. Measure it on the eval set before you trust it
+pnpm --filter @neighborline/agents eval --mode live --provider openai-compatible \
+  --base-url http://localhost:11434/v1 --model qwen2.5:7b-instruct --concurrency 1
+```
+
+How it behaves:
+
+- **Structured output.** With `json_schema` (the default) the server receives the zod-derived JSON
+  Schema as `response_format` and, if it supports it, constrains decoding to it. Older servers can
+  use `json_object` (valid JSON, schema in the prompt) or `prompt` (schema in the prompt only; the
+  lenient parser strips code fences and prose). In every mode the same zod parse, grounding checks
+  and single repair call decide what is accepted, so a weaker model produces more clarifying
+  questions, not more wrong payouts. Temperature is 0.
+- **No silent cloud fallback.** If the base URL or model is missing, the LLM falls back to the
+  offline fixtures with a warning, never to Claude or OpenAI, even when those keys are set.
+  `AI_FALLBACK=fixture` behaves the same way.
+- **Audio.** Speech-to-text and text-to-speech still use OpenAI when `OPENAI_API_KEY` is set, and
+  `/trust` says so. To keep everything on the machine, leave that key unset: voice notes then go
+  through the fixture STT, so use typed intake (`/call` text) until a local Whisper is wired in.
+- **What is tested.** The wire format, the three structured-output modes, the repair loop over HTTP
+  and the provider selection are tested against a mock server
+  ([`openai-compatible.test.ts`](../packages/agents/src/providers/openai-compatible.test.ts)), and
+  the eval tests send 107 dataset requests (en, es, vi, ko) through it over a mock HTTP server on
+  every CI run. **No local model's accuracy has been measured.** Run the eval above with your model
+  and read the per-language table before using it with real neighbors, starting with the
+  lower-resource languages (Haitian Creole, Tagalog) and the spoken-handle rows.
+
+## Evaluation
+
+[`EVAL.md`](EVAL.md) measures the pipeline on 208 labeled requests in ten languages (120 intake
+cases, 53 attacks, 35 benign controls): field accuracy per language, schema-valid / repaired /
+re-asked rates, payout hallucination (must be 0), injection catch rate and false positives,
+lookalike-handle catch rate and false positives, latency and tokens. So far it measures the offline
+extractor and a gold-label oracle; the live runner is ready for API keys. CI fails if the
+injection or impersonation rates fall below the thresholds in
+[`eval/thresholds.json`](../packages/agents/eval/thresholds.json).
 
 ## What we deliberately do not do
 

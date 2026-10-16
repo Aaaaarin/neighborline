@@ -1,0 +1,2 @@
+# Dry runs measure a mock model; keep them out of the committed results.
+results/dryrun/

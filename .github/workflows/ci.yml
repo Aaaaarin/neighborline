@@ -50,6 +50,12 @@ jobs:
       - name: 'Unit tests (all workspace packages: core, db, agents, passkeys, paypal, approver, web, fake-paypal, dev-db)'
         run: pnpm -r --if-present test
 
+      # Intake eval in fixture mode (docs/EVAL.md): fails if the injection catch rate, the benign
+      # false-positive rate or the impersonation rates cross eval/thresholds.json, or if any payout
+      # destination is ungrounded or any amount exceeds its cap.
+      - name: AI eval gate (fixture mode, thresholds in packages/agents/eval/thresholds.json)
+        run: pnpm --filter @neighborline/agents eval --no-write --check --quiet
+
       - name: Build @neighborline/paypal (tsup → dist)
         run: pnpm --filter @neighborline/paypal build
 
