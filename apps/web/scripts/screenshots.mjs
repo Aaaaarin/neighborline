@@ -1,5 +1,7 @@
 // Regenerates apps/web/screenshots/*.png against a running server (default http://localhost:3000).
 // Usage: BASE_URL=http://localhost:3100 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scripts/screenshots.mjs [name-filter]
+// Organizer passkey shots need the server's NEIGHBORLINE_SESSION_SECRET (invite codes); alert shots its
+// NEIGHBORLINE_INTERNAL_SECRET; the payout-rail shots FAKE_PAYPAL_URL (the fake PayPal's control plane).
 // Every /demo run is played at real pace (speed=1), so the stopwatch and its people/system split are
 // what a judge would see. Passkey shots use Chromium's virtual WebAuthn authenticator (CDP).
 import { createHmac } from 'node:crypto';
@@ -28,6 +30,20 @@ async function withPasskeyDevice(page) {
   await cdp.send('WebAuthn.addVirtualAuthenticator', {
     options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
+}
+
+/**
+ * Enroll a passkey for an organizer seat on /organizer. Real seats need an invite code, demo or not
+ * (HMAC of the organizer id with the server's NEIGHBORLINE_SESSION_SECRET, as scripts/organizer-invite.mjs).
+ */
+async function enroll(p, name, organizerId) {
+  const secret = process.env.NEIGHBORLINE_SESSION_SECRET;
+  if (!secret) throw new Error('set NEIGHBORLINE_SESSION_SECRET to the server’s to enroll organizer passkeys');
+  await p.getByRole('button', { name: 'First time here? Set up a passkey' }).click();
+  await p.getByRole('radio', { name: new RegExp(name) }).check();
+  await p.getByLabel('Invite code').fill(createHmac('sha256', Buffer.from(secret, 'utf8')).update(`invite:${organizerId}`).digest('base64url').slice(0, 12));
+  await p.getByRole('button', { name: new RegExp(`Create passkey for ${name}`) }).click();
+  await p.getByText('Signed in as').waitFor({ timeout: 15_000 });
 }
 
 /** A Spanish request this visitor filed and an organizer declined; /call opens on that thread. */
@@ -130,10 +146,7 @@ const shots = [
     full: true,
     before: withPasskeyDevice,
     run: async (p) => {
-      await p.getByRole('button', { name: 'First time here? Set up a passkey' }).click();
-      await p.getByRole('radio', { name: /Marcus/ }).check();
-      await p.getByRole('button', { name: /Create passkey for Marcus/ }).click();
-      await p.getByText('Signed in as').waitFor({ timeout: 15_000 });
+      await enroll(p, 'Marcus', 'org_marcus');
       await p.getByRole('article', { name: /^Ana/ }).getByRole('button', { name: /^Approve \$/ }).click();
       await p.getByText(/Signed with passkey/).first().waitFor({ timeout: 20_000 });
       await p.waitForTimeout(1500);
@@ -185,6 +198,7 @@ async function internalPost(secret, path, body) {
 
 const DAY = 86_400_000;
 const usd = (cents) => `$${(cents / 100).toFixed(2)}`;
+const LANG_NAME = { en: 'English', es: 'Spanish', vi: 'Vietnamese', ht: 'Haitian Creole', zh: 'Chinese', ar: 'Arabic', fr: 'French', tl: 'Tagalog', ko: 'Korean', ru: 'Russian' };
 /**
  * Stand in for the scheduler, honestly: run the same unclaimed sweep the nightly job runs and raise the
  * day-25 alert only for items that really are unclaimed and 25+ days old, with the job's own wording
@@ -201,15 +215,17 @@ async function raiseAlerts() {
     const deadline = new Date(created + 30 * DAY).toISOString();
     if (now.getTime() - created < 25 * DAY || now.toISOString() >= deadline || item.organizerAlertedAt) continue;
     const wallet = item.wallet === 'VENMO' ? 'Venmo' : 'PayPal';
+    const day = new Date(deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' });
+    const nudges = item.nudgeCount === 1 ? '1 follow-up' : `${item.nudgeCount} follow-ups`;
     await internalPost(secret, '/api/internal/organizer-alert', {
       kind: 'unclaimed_day25',
       idempotencyKey: `unclaimed_day25:${item.itemId}`,
       itemIds: [item.itemId],
       deadline,
       summary:
-        `${usd(item.amountCents)} ${wallet} payout for request ${item.requestId} is still unclaimed after 25 days ` +
-        `(${item.nudgeCount} follow-up(s) sent in ${item.lang}). PayPal returns it on ${deadline}. ` +
-        `Please reach the neighbor directly, or cancel the item and re-send to a destination they can use.`,
+        `${usd(item.amountCents)} ${wallet} payout is still unclaimed after 25 days ` +
+        `(${nudges} sent in ${LANG_NAME[item.lang] ?? item.lang}). PayPal returns it on ${day}. ` +
+        `Reach the neighbor directly, or cancel it and re-send to a destination they can use.`,
     });
   }
   return true;
@@ -265,9 +281,56 @@ async function rulesFlow(tag, vp) {
   }
 }
 
+/**
+ * The payout-rail fallback on /organizer at 390 px: Marcus signs in with a passkey, turns on manual
+ * recording, the fake PayPal refuses the next batch the way a restricted sponsor account does
+ * (SENDER_RESTRICTED, via /__fake/faults), the alert appears, and he records a cash hand-over.
+ * Needs FAKE_PAYPAL_URL (the fake's control plane). Changes shared state (Minh's request), so serial.
+ */
+async function railFlow() {
+  const fakeUrl = process.env.FAKE_PAYPAL_URL;
+  if (!fakeUrl) return console.log('skipped organizer-390-rail (set FAKE_PAYPAL_URL to the fake PayPal)');
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2 });
+  const p = await ctx.newPage();
+  try {
+    await withPasskeyDevice(p);
+    await p.goto(`${base}/organizer`, { waitUntil: 'load' });
+    await p.evaluate(() => document.fonts.ready);
+    await enroll(p, 'Marcus', 'org_marcus');
+    await p.getByText('If PayPal is unavailable', { exact: true }).click();
+    // The switch is controlled: it flips once the server saved the setting (it may already be on).
+    if (!(await p.getByRole('switch', { name: /switch to manual recording/ }).isChecked())) {
+      await p.getByText('If PayPal is unavailable or the account is restricted, switch to manual recording').click();
+    }
+    await p.getByRole('switch', { name: /switch to manual recording/, checked: true }).waitFor({ state: 'attached', timeout: 10_000 });
+    await fetch(`${fakeUrl}/__fake/faults`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pathPrefix: '/v1/payments/payouts', status: 422, count: 1, name: 'SENDER_RESTRICTED' }) });
+    await p.getByRole('article', { name: /^Minh/ }).getByRole('button', { name: /^Approve \$/ }).click();
+    const alert = p.getByText('PayPal refused a payout');
+    await alert.waitFor({ timeout: 20_000 });
+    await alert.evaluate((el) => el.closest('section')?.scrollIntoView({ block: 'start' }));
+    await p.waitForTimeout(600);
+    await p.screenshot({ path: `${out}organizer-390-rail-refused.png` });
+    console.log('saved', 'organizer-390-rail-refused');
+    await p.getByText('Cash', { exact: true }).click();
+    await p.getByLabel('Receipt note').fill('$80 cash to Minh at the Montavilla warming center, 4:10 pm. Dana witnessed.');
+    await p.getByRole('button', { name: 'Record manual payment' }).click();
+    await p.getByText(/Resolved: recorded by hand/).waitFor({ timeout: 15_000 });
+    await p.getByText(/Resolved: recorded by hand/).evaluate((el) => el.closest('section')?.scrollIntoView({ block: 'start' }));
+    await p.waitForTimeout(600);
+    await p.screenshot({ path: `${out}organizer-390-rail-recorded.png` });
+    console.log('saved', 'organizer-390-rail-recorded');
+  } catch (err) {
+    console.error('FAILED', 'organizer-390-rail', err instanceof Error ? err.message.split('\n')[0] : err);
+    process.exitCode = 1;
+  } finally {
+    await ctx.close();
+  }
+}
+
 const serial = [
   { name: 'rules-1920', run: () => rulesFlow('1920', DESKTOP) },
   { name: 'rules-390', run: () => rulesFlow('390', PHONE) },
+  { name: 'organizer-390-rail', run: railFlow },
   {
     name: 'alerts',
     run: async () => {
@@ -289,10 +352,7 @@ const serial = [
         vp: PHONE,
         before: withPasskeyDevice,
         run: async (p) => {
-          await p.getByRole('button', { name: 'First time here? Set up a passkey' }).click();
-          await p.getByRole('radio', { name: /Dana/ }).check();
-          await p.getByRole('button', { name: /Create passkey for Dana/ }).click();
-          await p.getByText('Signed in as').waitFor({ timeout: 15_000 });
+          await enroll(p, 'Dana', 'org_dana');
           await p.getByText('Devices that can sign').click();
           await p.getByRole('button', { name: 'Revoke', exact: true }).first().click();
           await p.getByRole('button', { name: /^Revoke Dana/ }).scrollIntoViewIfNeeded();

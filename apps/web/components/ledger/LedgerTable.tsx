@@ -150,7 +150,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
                 <td className="px-4 py-3">
                   <span
                     className={cx(
-                      'inline-flex rounded-full px-2.5 py-0.5 text-[0.8rem] font-medium',
+                      'inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[0.8rem] font-medium',
                       r.rail === 'refused'
                         ? 'bg-signal-wash text-signal'
                         : r.rail === 'manual'

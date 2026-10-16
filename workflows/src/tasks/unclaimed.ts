@@ -41,12 +41,17 @@ function usd(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+const LANG_NAME: Record<string, string> = { en: 'English', es: 'Spanish', vi: 'Vietnamese', ht: 'Haitian Creole', zh: 'Chinese', ar: 'Arabic', fr: 'French', tl: 'Tagalog', ko: 'Korean', ru: 'Russian' };
+
+/** One plain line for organizers (no internal ids: the alert links the ledger row, which names the request). */
 function escalationSummary(item: UnclaimedItem, deadline: string): string {
   const wallet = item.wallet === 'VENMO' ? 'Venmo' : 'PayPal';
+  const day = new Date(deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' });
+  const nudges = item.nudgeCount === 1 ? '1 follow-up' : `${item.nudgeCount} follow-ups`;
   return (
-    `${usd(item.amountCents)} ${wallet} payout for request ${item.requestId} is still unclaimed after ${ORGANIZER_ALERT_DAY} days ` +
-    `(${item.nudgeCount} follow-up(s) sent in ${item.lang}). PayPal returns it on ${deadline}. ` +
-    `Please reach the neighbor directly, or cancel the item and re-send to a destination they can use.`
+    `${usd(item.amountCents)} ${wallet} payout is still unclaimed after ${ORGANIZER_ALERT_DAY} days ` +
+    `(${nudges} sent in ${LANG_NAME[item.lang] ?? item.lang}). PayPal returns it on ${day}. ` +
+    `Reach the neighbor directly, or cancel it and re-send to a destination they can use.`
   );
 }
 
