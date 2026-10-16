@@ -1,11 +1,13 @@
 /**
  * Transparency report aggregation. Aggregate-only, k-anonymous: any group describing fewer than
- * k (default 3) distinct people/donors is reported as "<3" — counts, sums and rates alike.
+ * k (default 5) distinct people/donors is reported as "<k" — counts, sums and rates alike. Five, not
+ * three: in a neighborhood-sized group, three people who asked for a heater the same week can still
+ * be recognised by their neighbors.
  */
 import type { PayoutItemStatus, RequestStatus, Wallet } from './schemas.js';
 
-export const K_ANON_MIN = 3;
-export const MASK = '<3' as const;
+export const K_ANON_MIN = 5;
+export const MASK = '<k' as const;
 export type Masked<T> = T | typeof MASK;
 
 export interface ReportRequestRow {

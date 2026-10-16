@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MASK, buildReport, percentile, type ReportDonationRow, type ReportItemRow, type ReportRequestRow } from './report.js';
+import { K_ANON_MIN, MASK, buildReport, percentile, type ReportDonationRow, type ReportItemRow, type ReportRequestRow } from './report.js';
 import type { RequestStatus } from './schemas.js';
 
 const T0 = Date.parse('2026-10-01T12:00:00Z');
@@ -64,7 +64,8 @@ describe('percentile (nearest rank)', () => {
 });
 
 describe('buildReport', () => {
-  const r = buildReport(fixture());
+  // The fixture is sized for k = 3; the default (5) is tested separately below.
+  const r = buildReport({ ...fixture(), k: 3 });
 
   it('totals money in and out', () => {
     expect(r.totals.inCents).toBe(5 * 10000 + 3 * 2500 + 99900);
@@ -117,25 +118,25 @@ describe('buildReport', () => {
     expect(r.unclaimed).toEqual({ items: 8, everUnclaimed: MASK, claimedAfterHelp: MASK, rate: MASK });
     const f = fixture();
     f.items = f.items.map((i) => ({ ...i, wasUnclaimed: true }));
-    const r2 = buildReport(f);
+    const r2 = buildReport({ ...f, k: 3 });
     expect(r2.unclaimed).toEqual({ items: 8, everUnclaimed: 8, claimedAfterHelp: 7, rate: 1 });
   });
 
   it('shows an unmasked 0 rate when nobody was unclaimed', () => {
     const f = fixture();
     f.items = f.items.filter((i) => i.status !== 'UNCLAIMED').map((i) => ({ ...i, wasUnclaimed: false }));
-    expect(buildReport(f).unclaimed.rate).toBe(0);
+    expect(buildReport({ ...f, k: 3 }).unclaimed.rate).toBe(0);
   });
 
   it('never outputs a number describing fewer than k people anywhere', () => {
-    const json = JSON.stringify(buildReport(fixture()));
+    const json = JSON.stringify(buildReport({ ...fixture(), k: 3 }));
     expect(json).not.toContain('"h7"');
     expect(json).not.toContain('TX7');
   });
 
   it('filters by period', () => {
     const f = fixture();
-    const r3 = buildReport({ ...f, period: { from: at(2500), to: at(6500) } }); // r3..r6
+    const r3 = buildReport({ ...f, k: 3, period: { from: at(2500), to: at(6500) } }); // r3..r6
     expect(r3.totals.paidPayouts).toBe(4);
     expect(r3.period).toEqual({ from: at(2500), to: at(6500) });
     expect(r3.totals.inCents).toBe(MASK); // donations at t0 excluded → 0 donors
@@ -149,6 +150,14 @@ describe('buildReport', () => {
     expect(e.timeToCash).toEqual({ samples: MASK, p50Seconds: null, p90Seconds: null });
     expect(e.byCategory).toEqual([]);
     expect(e.approvalParity).toEqual({ overallRate: MASK, rows: [] });
+  });
+
+  it('defaults to k = 5: a language with 3 households is masked', () => {
+    expect(K_ANON_MIN).toBe(5);
+    const d = buildReport(fixture());
+    expect(d.k).toBe(5);
+    expect(d.byLanguage.find((g) => g.key === 'vi')).toEqual({ key: 'vi', people: MASK, payouts: MASK, amountCents: MASK });
+    expect(d.totals.peopleHelped).toBe(7);
   });
 
   it('supports a custom k and validates it', () => {

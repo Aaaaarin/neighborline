@@ -14,8 +14,6 @@ export interface Fact {
 }
 
 const isNum = (v: Masked<number> | null | undefined): v is number => typeof v === 'number';
-const count = (v: Masked<number>, unit: string): string => (isNum(v) ? `${v} ${unit}` : `fewer than 3 ${unit}`);
-const money = (v: Masked<number>): string => (isNum(v) ? formatUsd(v) : 'not shown (fewer than 3 people)');
 const pct = (v: number): string => `${Math.round(v * 100)}%`;
 const duration = (s: number): string => (s < 90 ? `${s} seconds` : `${s} seconds (about ${Math.round(s / 6) / 10} minutes)`);
 const human = (key: string): string => key.replace(/_/g, ' ');
@@ -23,6 +21,9 @@ const human = (key: string): string => key.replace(/_/g, ' ');
 export function buildFacts(report: TransparencyReport, opts: { groupName?: string; inflows?: InflowSummary; categoryLabels?: Record<string, string> } = {}): Fact[] {
   const f: Fact[] = [];
   const add = (key: string, label: string, value: string): void => void f.push({ key, label, value });
+  // Masked cells say "fewer than k" with the report's own k (core default 5).
+  const count = (v: Masked<number>, unit: string): string => (isNum(v) ? `${v} ${unit}` : `fewer than ${report.k} ${unit}`);
+  const money = (v: Masked<number>): string => (isNum(v) ? formatUsd(v) : `not shown (fewer than ${report.k} people)`);
   const t = report.totals;
   if (opts.groupName) add('group', 'Group', opts.groupName);
   if (report.period.from || report.period.to) add('period', 'Period', `${report.period.from?.slice(0, 10) ?? 'start'} to ${report.period.to?.slice(0, 10) ?? 'today'}`);
@@ -46,9 +47,9 @@ export function buildFacts(report: TransparencyReport, opts: { groupName?: strin
   if (isNum(report.approvalParity.overallRate)) add('approval_rate', 'Requests approved (all languages)', pct(report.approvalParity.overallRate));
   const u = report.unclaimed;
   if (isNum(u.everUnclaimed) && u.everUnclaimed > 0) {
-    add('unclaimed', 'Payments not claimed at first', `${u.everUnclaimed}; ${isNum(u.claimedAfterHelp) ? u.claimedAfterHelp : 'fewer than 3'} claimed after a volunteer helped`);
+    add('unclaimed', 'Payments not claimed at first', `${u.everUnclaimed}; ${isNum(u.claimedAfterHelp) ? u.claimedAfterHelp : `fewer than ${report.k}`} claimed after a volunteer helped`);
   }
-  // A masked count may be zero, so it is left out rather than shown as "fewer than 3".
+  // A masked count may be zero, so it is left out rather than shown as "fewer than k".
   if (opts.inflows) {
     add('paypal_inflows', 'Completed donations reported by PayPal (Agent Toolkit list_transactions)', `${formatUsd(opts.inflows.totalCents)} in ${opts.inflows.count} transactions`);
   }
