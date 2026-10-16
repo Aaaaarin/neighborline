@@ -44,6 +44,7 @@ import * as policyEditor from './policy-editor';
 import { splitFrom } from '../../../components/stage/stage-steps';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
 import { MetaStore } from './meta';
+import { localizeDeclineNote } from './decline-note';
 import * as rail from './rail';
 import { buildTrust } from './report';
 import { playScenario } from './scenario-runner';
@@ -337,7 +338,8 @@ export class Engine implements Services {
     // Idempotent: a second tap, or a second organizer, gets the decision that was already sent. No second message.
     const already = () => {
       const d = meta.decline ?? { reasonCode: input.reasonCode, note: input.note };
-      return { status: 'declined' as RequestStatus, message: { ...tpl.declined(r.lang, d.reasonCode, d.note, { final: !!meta.appeal }), lang: r.lang }, alreadyDeclined: true };
+      const noteLocal = meta.decline ? meta.declineNoteLocal : undefined;
+      return { status: 'declined' as RequestStatus, message: { ...tpl.declined(r.lang, d.reasonCode, d.note, { final: !!meta.appeal, ...(noteLocal ? { noteLocal } : {}) }), lang: r.lang }, alreadyDeclined: true };
     };
     if (r.status === 'declined') return already();
     if ((await listItemsForRequest(ctx.db, r.id)).length) throw new HttpError(409, 'Already sent to PayPal; it can no longer be declined.');
@@ -345,6 +347,8 @@ export class Engine implements Services {
     if (appeal && appeal.firstDecline.organizerId === org.id) {
       throw new HttpError(409, 'You declined this request the first time, and the neighbor asked for a different organizer to look again.');
     }
+    // The organizer's note in the neighbor's language (checked translation, or the original with a line saying so).
+    const noteLocal = await localizeDeclineNote(ctx, r.lang, input.note);
     try {
       await updateRequest(ctx.db, r.id, { status: 'declined' }, { actor: org.id });
     } catch (err) {
@@ -354,8 +358,10 @@ export class Engine implements Services {
       }
       throw err;
     }
-    const m = tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal });
+    const m = tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal, ...(noteLocal ? { noteLocal } : {}) });
     meta.decline = { organizerId: org.id, reasonCode: input.reasonCode, ...(input.note ? { note: input.note } : {}), at: nowIso() };
+    if (noteLocal) meta.declineNoteLocal = noteLocal;
+    else delete meta.declineNoteLocal;
     if (appeal) appeal.closed = true;
     ctx.meta.message(r.id, { from: 'line', kind: 'declined', lang: r.lang, text: m.text, textEn: m.textEn });
     const channel: Channel = r.channel === 'sms' ? 'sms' : 'whatsapp';
@@ -368,7 +374,9 @@ export class Engine implements Services {
     const ctx = await this.base();
     const r = await this.loadReq(ctx, input.requestId);
     const appeal = ctx.meta.get(r.id)?.appeal;
-    return { ...tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal && !appeal.closed }), lang: r.lang };
+    // The preview refreshes as the organizer types: it never calls a model (live mode says "translated on send").
+    const noteLocal = await localizeDeclineNote(ctx, r.lang, input.note, { translate: false });
+    return { ...tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal && !appeal.closed, ...(noteLocal ? { noteLocal } : {}) }), lang: r.lang };
   }
 
   async cancelPayoutItem(input: { batchId: string; itemId: string; actor: PayoutActor }) {

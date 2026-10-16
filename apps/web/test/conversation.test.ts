@@ -117,4 +117,19 @@ describe('decline: idempotent, honest, with a real appeal', () => {
     expect(t.question).toBeNull();
     await expect(h.engine.submitText(id, { text: 'REVIEW' })).rejects.toMatchObject({ status: 409 });
   });
+
+  it('a note to a Chinese-speaking neighbor (fixture mode, no translator): the original plus a line in Chinese saying it is in English', async () => {
+    const id = await typed('我家停电两天了，需要买一个取暖器。我们家有三口人。我的 Venmo 是 @note-test-zh1', 'zh');
+    await h.engine.confirmIntake(id, { confirmed: true });
+    const note = 'Please send a photo of the bill to organizers@eastside-mutualaid.org.';
+    const preview = await h.engine.previewDecline({ requestId: id, reasonCode: 'needs_info', note });
+    const sent = await h.engine.decline({ requestId: id, organizerId: 'org_dana', reasonCode: 'needs_info', note });
+    expect(sent.message.text).toBe(preview.text);
+    expect(sent.message.text).toContain('组织者用英文写了这条留言');
+    expect(sent.message.text).toContain(`“${note}”`);
+    expect(sent.message.textEn).toContain(`“${note}”`);
+    expect(sent.message.textEn).toMatch(/No checked Chinese translation/);
+    const again = await h.engine.decline({ requestId: id, organizerId: 'org_marcus', reasonCode: 'needs_info', note });
+    expect(again.message.text).toBe(sent.message.text);
+  });
 });

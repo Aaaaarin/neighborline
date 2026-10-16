@@ -7,6 +7,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Lang } from '@neighborline/core';
 import type { ScenarioId, RequestView, ThreadMessage } from '../../types';
+import type { LocalizedNote } from '../fixtures/templates';
 import { nowIso } from './events';
 
 export interface RequestMeta {
@@ -16,6 +17,8 @@ export interface RequestMeta {
   aiTrace?: NonNullable<RequestView['aiTrace']>;
   breakdown?: RequestView['amountBreakdown'];
   decline?: RequestView['decline'];
+  /** The decline note as the neighbor got it (translated, or the original with a line saying so). */
+  declineNoteLocal?: LocalizedNote;
   /** The neighbor asked for another look after a decline (one appeal per request). */
   appeal?: { at: string; text: string; textEn?: string; firstDecline: NonNullable<RequestView['decline']>; closed?: boolean };
   /** The clarifying question last asked, in the neighbor's language (the agent may have translated it). */

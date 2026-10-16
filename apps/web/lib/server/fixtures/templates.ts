@@ -141,11 +141,79 @@ const OTHER_NO_NOTE: Record<L, string> = {
   ar: 'لم يتمكن المنظّمون من الموافقة عليه هذه المرة',
 };
 
+/** The organizer's free-text note in the neighbor's language (agents translateWithCheck, back-translation checked). */
+export interface LocalizedNote {
+  text: string;
+  /** False: no checked translation (fixture mode, or the check failed), so the original is sent with a line explaining it. */
+  translated: boolean;
+  backTranslation?: string;
+  /** The organizer already wrote it in the neighbor's language: send it as written, no label. */
+  alreadyInLanguage?: boolean;
+  /** Preview only (live mode): the translation runs when the organizer sends. */
+  pending?: boolean;
+}
+
+/** Every intake language, not only the five with full templates: the note is the part that is free text. */
+const NOTE_TRANSLATED: Record<Lang, string> = {
+  en: 'Note from the organizer:',
+  es: 'Nota de la persona del grupo (traducida automáticamente):',
+  vi: 'Ghi chú của người duyệt (dịch tự động):',
+  ht: 'Nòt òganizatè a (tradui otomatikman):',
+  zh: '组织者的留言（自动翻译）：',
+  ar: 'ملاحظة المنظّم (مترجمة آليًا):',
+  fr: 'Note de l’organisateur (traduite automatiquement) :',
+  tl: 'Tala mula sa organizer (awtomatikong isinalin):',
+  ko: '운영자의 메모 (자동 번역):',
+  ru: 'Комментарий организатора (автоматический перевод):',
+};
+const NOTE_ORIGINAL: Record<Lang, string> = {
+  en: 'Note from the organizer:',
+  es: 'La persona del grupo escribió esta nota en inglés. Si necesita ayuda para entenderla, responda aquí.',
+  vi: 'Người duyệt viết ghi chú này bằng tiếng Anh. Nếu cần giúp đọc, bạn cứ trả lời tin nhắn này.',
+  ht: 'Òganizatè a ekri nòt sa a an angle. Si w bezwen èd pou li l, reponn isit la.',
+  zh: '组织者用英文写了这条留言。如需帮助理解，请直接回复。',
+  ar: 'كتب المنظّم هذه الملاحظة بالإنجليزية. إذا احتجت إلى مساعدة في فهمها، ردّ هنا.',
+  fr: 'L’organisateur a écrit cette note en anglais. Si vous avez besoin d’aide pour la lire, répondez ici.',
+  tl: 'Isinulat ng organizer ang talang ito sa Ingles. Kung kailangan mo ng tulong sa pagbasa nito, sumagot dito.',
+  ko: '운영자가 이 메모를 영어로 작성했습니다. 읽는 데 도움이 필요하시면 여기로 답장해 주세요.',
+  ru: 'Организатор написал этот комментарий по-английски. Если нужна помощь с переводом, ответьте на это сообщение.',
+};
+const LANG_EN: Record<Lang, string> = { en: 'English', es: 'Spanish', vi: 'Vietnamese', ht: 'Haitian Creole', zh: 'Chinese', ar: 'Arabic', fr: 'French', tl: 'Tagalog', ko: 'Korean', ru: 'Russian' };
+
+/**
+ * The note lines under a decline. English neighbors (and notes already in their language, `translated`
+ * false with the same text) get the note as written. Otherwise a checked translation with a label in
+ * their language, or, when there is none, the original with a line in their language saying it is in
+ * English and offering help. The organizer's twin (`textEn`) always shows the note as written plus what
+ * was sent.
+ */
+function noteLines(lang: Lang, note: string, local?: LocalizedNote): { text: string; textEn: string } {
+  const asWritten = `\n\n“${note}”`;
+  if (lang === 'en' || local?.alreadyInLanguage) return { text: asWritten, textEn: asWritten };
+  if (local?.translated && local.text.trim()) {
+    const back = local.backTranslation ? ` Back-translation: “${local.backTranslation}”` : '';
+    return {
+      text: `\n\n${NOTE_TRANSLATED[lang]}\n“${local.text.trim()}”`,
+      textEn: `${asWritten}\n(Sent to them in ${LANG_EN[lang]}, translated automatically.${back})`,
+    };
+  }
+  if (local?.pending) {
+    return {
+      text: `\n\n${NOTE_ORIGINAL[lang]}\n“${note}”`,
+      textEn: `${asWritten}\n(When you send, this note is translated into ${LANG_EN[lang]} and checked by back-translation. If the check fails, they get it in English with a line in ${LANG_EN[lang]} offering help, as shown.)`,
+    };
+  }
+  return {
+    text: `\n\n${NOTE_ORIGINAL[lang]}\n“${note}”`,
+    textEn: `${asWritten}\n(No checked ${LANG_EN[lang]} translation was available, so they got it in English with a line in ${LANG_EN[lang]} offering help.)`,
+  };
+}
+
 /**
  * The decline the neighbor receives. The first one offers an appeal (reply REVIEW → a different organizer
  * looks again). `final`: a second organizer already looked again, so no further appeal is promised.
  */
-export function declined(lang: Lang, code: DeclineReasonCode, note?: string, opts: { final?: boolean } = {}) {
+export function declined(lang: Lang, code: DeclineReasonCode, note?: string, opts: { final?: boolean; noteLocal?: LocalizedNote } = {}) {
   const reason = code === 'other' && !note ? OTHER_NO_NOTE : REASONS[code];
   const r = (l: L) => reason[l];
   const by: Record<L, string> = opts.final
@@ -163,8 +231,8 @@ export function declined(lang: Lang, code: DeclineReasonCode, note?: string, opt
         ht: `Fwa sa a nou pa ka voye lajan an: ${r('ht')}. Si ou panse se yon erè, reponn REVIZE epi yon lòt òganizatè ap gade l ankò nan 24 èdtan.`,
         ar: `لا نستطيع إرسال المال هذه المرة: ${r('ar')}. إن كنت ترى أن هذا خطأ، ردّ بكلمة مراجعة وسيراجع منظّم آخر طلبك خلال 24 ساعة.`,
       };
-  const suffix = note ? `\n\n“${note}”` : '';
-  return { text: by[pick(lang)] + suffix, textEn: by.en + suffix };
+  const n = note?.trim() ? noteLines(lang, note.trim(), opts.noteLocal) : { text: '', textEn: '' };
+  return { text: by[pick(lang)] + n.text, textEn: by.en + n.textEn };
 }
 
 export function quickReplies(lang: Lang): { yes: string; fix: string } {
