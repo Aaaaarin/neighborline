@@ -24,10 +24,12 @@ import {
   getRailHandles,
   getRequest,
   getTodaySpentCents,
+  listOrganizers,
   seedTransactionId,
   updateRequest,
   upsertItemFromEvent,
   type Db,
+  type Executor,
 } from '@neighborline/db';
 import { demoModeOn, demoSign } from '../passkeys/demo-signer';
 
@@ -100,7 +102,7 @@ const QUEUE: QueueSeed[] = [
 ];
 for (const q of QUEUE) QUEUE_PEOPLE[q.id] = { displayName: q.displayName, area: q.area };
 
-async function file(db: Db, policy: Policy, q: { id: string; createdAt: Date; lang: Lang; channel: QueueSeed['channel']; original: string; english: string; extraction?: IntakeExtraction; category: string; requestedCents?: number; dest: PayoutDestination }) {
+async function file(db: Executor, policy: Policy, q: { id: string; createdAt: Date; lang: Lang; channel: QueueSeed['channel']; original: string; english: string; extraction?: IntakeExtraction; category: string; requestedCents?: number; dest: PayoutDestination }) {
   await createRequest(db, {
     id: q.id,
     groupId: policy.groupId,
@@ -128,13 +130,24 @@ async function file(db: Db, policy: Policy, q: { id: string; createdAt: Date; la
 }
 
 /** Seeded approvals are signed with the organizers' labelled demo keys (DEMO_MODE), like /demo taps. */
-async function signSeeded(db: Db, groupId: string, organizerId: string, approvalHash: string, at?: Date) {
+async function signSeeded(db: Executor, groupId: string, organizerId: string, approvalHash: string, at?: Date) {
   if (demoModeOn(process.env)) await demoSign(db, process.env, { groupId, organizerId, approvalHash, ...(at ? { at } : {}) });
 }
 
+/**
+ * One transaction: a crash or a concurrent boot never leaves half a queue (e.g. Ana's earlier payout
+ * without Minh), and a second process that loses the race sees the rows and does nothing.
+ */
 export async function seedDemoQueue(db: Db, s: { group: Group; policy: Policy; organizers: Organizer[] }): Promise<void> {
   if (await getRequest(db, QUEUE[0]!.id)) return;
-  if (!s.organizers.some((o) => o.id === PRIYA.id)) await createOrganizer(db, { ...PRIYA, groupId: s.group.id });
+  await db.transaction(async (tx) => {
+    if (await getRequest(tx, QUEUE[0]!.id)) return;
+    await seedQueueRows(tx, s);
+  });
+}
+
+async function seedQueueRows(db: Executor, s: { group: Group; policy: Policy; organizers: Organizer[] }): Promise<void> {
+  if (!s.organizers.some((o) => o.id === PRIYA.id) && !(await listOrganizers(db, s.group.id)).some((o) => o.id === PRIYA.id)) await createOrganizer(db, { ...PRIYA, groupId: s.group.id });
   const now = Date.now();
 
   // Ana's email was paid 9 days ago under a different name → DUP_DESTINATION_DIFF_NAME (review, not block).

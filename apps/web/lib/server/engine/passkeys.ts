@@ -15,6 +15,7 @@ import {
   listOrganizers,
   recordApprovalAssertion,
   RepoError,
+  revokeOrganizerCredential,
   touchOrganizerCredential,
 } from '@neighborline/db';
 import { expectedFor, hexToBytes, relyingParty, toB64url, verifyApprovalAssertion } from '@neighborline/passkeys';
@@ -61,7 +62,7 @@ export async function roster(ctx: Ctx): Promise<PasskeyRoster> {
       orgs.map(async (o) => ({
         id: o.id,
         name: o.name,
-        passkeys: (await listOrganizerCredentials(ctx.db, o.id, { kind: 'passkey' })).map((c) => ({ deviceLabel: c.deviceLabel, createdAt: c.createdAt })),
+        passkeys: (await listOrganizerCredentials(ctx.db, o.id, { kind: 'passkey' })).map((c) => ({ id: c.id, deviceLabel: c.deviceLabel, createdAt: c.createdAt, lastUsedAt: c.lastUsedAt })),
       })),
     ),
   };
@@ -194,16 +195,7 @@ export async function currentApprovalHash(ctx: Ctx, requestIds: string[]): Promi
 
 export async function approvalChallenge(ctx: Ctx, input: { requestIds: string[]; origin: string | null; organizerId?: string; credentialIds?: string[] }): Promise<ApprovalChallenge> {
   const hash = await currentApprovalHash(ctx, input.requestIds);
-  const rp = relyingParty(ctx.env, input.origin);
-  let allow: Array<{ id: string; transports?: string[] }> | undefined;
-  if (input.organizerId) allow = (await listOrganizerCredentials(ctx.db, input.organizerId, { kind: 'passkey' })).map((c) => ({ id: c.id, transports: c.transports }));
-  if (input.credentialIds?.length) allow = [...(allow ?? []), ...input.credentialIds.map((id) => ({ id }))];
-  const optionsJSON = await generateAuthenticationOptions({
-    rpID: rp.rpId,
-    challenge: hexToBytes(hash),
-    userVerification: 'required',
-    ...(allow?.length ? { allowCredentials: allow } : {}),
-  });
+  const optionsJSON = await challengeOptionsFor(ctx, hash, input);
   return { approvalHash: hash, optionsJSON: optionsJSON as unknown as ApprovalChallenge['optionsJSON'] };
 }
 
@@ -220,10 +212,21 @@ export async function signTap(ctx: Ctx, input: ApproveInput & { origin: string |
     await organizer(ctx, organizerId);
     return { organizerId, assertion: await demoSign(ctx.db, ctx.env, { groupId: ctx.gen.group.id, organizerId, approvalHash: hash }) };
   }
-  const a = input.signer.assertion;
+  const { organizerId, assertion } = await verifyPasskeyOver(ctx, input.signer.assertion, hash, input.organizerId);
+  const stored = await recordApprovalAssertion(ctx.db, { organizerId, assertion });
+  return { organizerId, assertion: stored.assertion };
+}
+
+/**
+ * Verify a browser's WebAuthn assertion over `hash` (its challenge must be the hash's 32 bytes),
+ * with user verification, from an allowed origin, by a registered, unrevoked passkey. Returns the
+ * organizer who owns the credential (never the one the body claims) and the assertion to store.
+ * Used for Approve taps (payout approval hash) and policy activation (policy draft hash).
+ */
+export async function verifyPasskeyOver(ctx: Ctx, a: PasskeyAssertionJSON, hash: string, claimedOrganizerId?: string): Promise<{ organizerId: string; assertion: ApproverAssertion }> {
   const cred = await getOrganizerCredential(ctx.db, a.id);
   if (!cred || cred.kind !== 'passkey') throw new HttpError(401, 'This passkey isn’t registered here.');
-  if (input.organizerId && input.organizerId !== cred.organizerId) throw new HttpError(403, 'That passkey belongs to a different organizer.');
+  if (claimedOrganizerId && claimedOrganizerId !== cred.organizerId) throw new HttpError(403, 'That passkey belongs to a different organizer.');
   await organizer(ctx, cred.organizerId);
   const clientOrigin = (() => {
     try {
@@ -242,9 +245,47 @@ export async function signTap(ctx: Ctx, input: ApproveInput & { origin: string |
     ...(a.response.userHandle ? { userHandle: a.response.userHandle } : {}),
   };
   const v = await verifyApprovalAssertion({ assertion: parts, approvalHash: hash, credential: { id: cred.id, publicKey: cred.publicKey, counter: cred.counter, kind: 'passkey' }, ...exp });
-  if (!v.ok) throw new HttpError(409, `The signature doesn’t match this request as it is now (${v.reason}). Review it again.`);
+  if (!v.ok) throw new HttpError(409, `The signature doesn’t cover what’s on screen now (${v.reason}). Review it again.`);
   await touchOrganizerCredential(ctx.db, cred.id, v.newCounter);
   const assertion: ApproverAssertion = { v: 1, kind: 'passkey', ...parts, rpId: v.rpId, origin: v.origin, approvalHash: hash, deviceLabel: cred.deviceLabel, verifiedAt: new Date().toISOString() };
-  const stored = await recordApprovalAssertion(ctx.db, { organizerId: cred.organizerId, assertion });
-  return { organizerId: cred.organizerId, assertion: stored.assertion };
+  return { organizerId: cred.organizerId, assertion };
+}
+
+/** WebAuthn request options whose challenge is `hash` (32 bytes), optionally limited to one organizer's passkeys. */
+export async function challengeOptionsFor(ctx: Ctx, hash: string, input: { origin: string | null; organizerId?: string; credentialIds?: string[] }) {
+  const rp = relyingParty(ctx.env, input.origin);
+  let allow: Array<{ id: string; transports?: string[] }> | undefined;
+  if (input.organizerId) allow = (await listOrganizerCredentials(ctx.db, input.organizerId, { kind: 'passkey' })).map((c) => ({ id: c.id, transports: c.transports }));
+  if (input.credentialIds?.length) allow = [...(allow ?? []), ...input.credentialIds.map((id) => ({ id }))];
+  return generateAuthenticationOptions({
+    rpID: rp.rpId,
+    challenge: hexToBytes(hash),
+    userVerification: 'required',
+    ...(allow?.length ? { allowCredentials: allow } : {}),
+  });
+}
+
+/* ---------------- sessions + revocation ---------------- */
+
+/** A session cookie is only as good as its credential: a revoked passkey signs nobody in. */
+export async function liveSession(ctx: Ctx, s: OrganizerSession | null): Promise<OrganizerSession | null> {
+  if (!s) return null;
+  const cred = await getOrganizerCredential(ctx.db, s.credentialId);
+  return cred && cred.organizerId === s.organizerId ? s : null;
+}
+
+/**
+ * Revoke a passkey (lost phone, someone leaves). Any signed-in organizer of the group may revoke any
+ * organizer's passkey, and the audit row names who did. From then on the credential cannot sign in,
+ * approve or sign a policy draft, and signatures it made that are not yet acted on stop counting.
+ */
+export async function revokePasskey(ctx: Ctx, input: { credentialId: string; session: OrganizerSession | null }): Promise<{ organizerId: string; deviceLabel: string; signedOut: boolean }> {
+  const me = await liveSession(ctx, input.session);
+  if (!me) throw new HttpError(401, 'Sign in with a passkey to revoke a device.');
+  const cred = await getOrganizerCredential(ctx.db, input.credentialId);
+  if (!cred) throw new HttpError(404, 'That device was already revoked, or was never registered.');
+  if (cred.kind !== 'passkey') throw new HttpError(400, 'Demo keys belong to this demo server and can’t be revoked here.');
+  const owner = await organizer(ctx, cred.organizerId);
+  await revokeOrganizerCredential(ctx.db, { id: cred.id, actor: me.organizerId, reason: owner.id === me.organizerId ? 'revoked by its owner' : `revoked by ${me.name}` });
+  return { organizerId: owner.id, deviceLabel: cred.deviceLabel, signedOut: cred.id === me.credentialId };
 }

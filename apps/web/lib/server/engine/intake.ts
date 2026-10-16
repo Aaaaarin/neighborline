@@ -187,14 +187,14 @@ function placeholderExtraction(lang: Lang, text: string): IntakeExtraction {
   return { lang, summaryEn: s, summaryNative: s, category: 'other', urgency: 'today', requestedItems: [], missing: ['payout', 'category'], confidence: 0 };
 }
 
-interface Rail {
+export interface Rail {
   flags: RailFlag[];
   computed: Extract<ReturnType<typeof computeAmount>, { ok: true }>['computed'] | null;
   breakdown: AmountBreakdown | null;
 }
 
 /** core.computeAmount + core.checkRail with db history (demo rehearsals excluded) and the group's handles. */
-async function railFor(ctx: Ctx, req: HelpRequest, policy: Policy, dest: PayoutDestination): Promise<Rail> {
+export async function railFor(ctx: Ctx, req: HelpRequest, policy: Policy, dest: PayoutDestination): Promise<Rail> {
   const now = new Date();
   const phone = req.contact?.phone ?? req.contact?.whatsapp;
   const history = (await getHistoryForDestination(ctx.db, dest, 30, { groupId: req.groupId, ...(phone ? { phone } : {}) })).filter((h) => !isDemoId(h.requestId));

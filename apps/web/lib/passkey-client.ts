@@ -11,7 +11,7 @@ import {
   startRegistration,
 } from '@simplewebauthn/browser';
 import { api, ApiError } from './api';
-import type { ApprovalResult, OrganizerSession, PasskeyAssertionJSON } from './types';
+import type { ApprovalResult, OrganizerSession, PasskeyAssertionJSON, PolicySignResult } from './types';
 
 type RequestOptions = Parameters<typeof startAuthentication>[0]['optionsJSON'];
 type CreationOptions = Parameters<typeof startRegistration>[0]['optionsJSON'];
@@ -80,6 +80,13 @@ export async function approveWithPasskey(input: { requestIds: string[]; organize
     ...(input.organizerId ? { organizerId: input.organizerId } : {}),
     signer: { kind: 'passkey', assertion: assertion as unknown as PasskeyAssertionJSON },
   });
+}
+
+/** Ask the device to sign a policy draft's hash, then send the signature. */
+export async function signPolicyWithPasskey(input: { draftHash: string; organizerId?: string }): Promise<PolicySignResult> {
+  const ch = await api.policyChallenge(input);
+  const assertion = await startAuthentication({ optionsJSON: ch.optionsJSON as unknown as RequestOptions });
+  return api.signPolicy({ draftHash: input.draftHash, ...(input.organizerId ? { organizerId: input.organizerId } : {}), signer: { kind: 'passkey', assertion: assertion as unknown as PasskeyAssertionJSON } });
 }
 
 const VISITOR_KEY = 'nl_demo_visitor_credential';

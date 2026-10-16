@@ -7,6 +7,9 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { HelpRequest, Lang, PayoutBatch, PayoutItem, PayoutItemStatus, RequestStatus, StageEvent } from '@neighborline/core';
 import type {
   ApprovalChallenge,
+  CompilePolicyOutcome,
+  PolicyEditorView,
+  PolicySignResult,
   ApprovalResult,
   ApproveInput,
   OrganizerSession,
@@ -457,6 +460,25 @@ export class MockEngine implements Services {
   }
   async approvalChallenge(): Promise<ApprovalChallenge> {
     throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
+  }
+  async liveSession(): Promise<OrganizerSession | null> {
+    return null;
+  }
+  async revokePasskey(): Promise<{ organizerId: string; deviceLabel: string; signedOut: boolean }> {
+    throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
+  }
+  /* The rules editor needs the real engine (policy versions live in the database). */
+  async policyEditor(): Promise<PolicyEditorView> {
+    throw new HttpError(501, 'The rules editor needs the real engine (unset ENGINE=mock).');
+  }
+  async compilePolicy(): Promise<CompilePolicyOutcome> {
+    throw new HttpError(501, 'The rules editor needs the real engine (unset ENGINE=mock).');
+  }
+  async policyChallenge(): Promise<ApprovalChallenge> {
+    throw new HttpError(501, 'The rules editor needs the real engine (unset ENGINE=mock).');
+  }
+  async signPolicy(): Promise<PolicySignResult> {
+    throw new HttpError(501, 'The rules editor needs the real engine (unset ENGINE=mock).');
   }
 
   async approve(input: ApproveInput): Promise<ApprovalResult> {

@@ -12,6 +12,7 @@ import type {
   ApproveInput,
   OrganizerSession,
   PasskeyAssertionJSON,
+  PolicySignInput,
   DeclineReasonCode,
   DonationSource,
   PlayMode,
@@ -35,6 +36,7 @@ import { readConfig, type EngineConfig, type Env } from './env';
 import { EventBus, nowIso } from './events';
 import * as intake from './intake';
 import * as passkeys from './passkeys';
+import * as policyEditor from './policy-editor';
 import { splitFrom } from '../../../components/stage/stage-steps';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
 import { MetaStore } from './meta';
@@ -222,6 +224,36 @@ export class Engine implements Services {
 
   async approvalChallenge(input: { requestIds: string[]; origin: string | null; organizerId?: string; credentialIds?: string[] }) {
     return passkeys.approvalChallenge(await this.base(), input);
+  }
+
+  async liveSession(session: OrganizerSession | null) {
+    return passkeys.liveSession(await this.base(), session);
+  }
+
+  async revokePasskey(input: { credentialId: string; session: OrganizerSession | null }) {
+    return passkeys.revokePasskey(await this.base(), input);
+  }
+
+  /* ---------------- rules editor (policy versions) ---------------- */
+
+  async policyEditor() {
+    return policyEditor.editorView(await this.base());
+  }
+
+  /** Drafting needs a signed-in organizer (a live passkey session), except in DEMO_MODE. */
+  async compilePolicy(input: { sourceText: string; session: OrganizerSession | null }) {
+    const ctx = await this.base();
+    const actor = await passkeys.liveSession(ctx, input.session);
+    if (!actor && this.env.DEMO_MODE === 'false') throw new HttpError(401, 'Sign in with your passkey to draft new rules.');
+    return policyEditor.compileDraft(ctx, { sourceText: input.sourceText, actor });
+  }
+
+  async policyChallenge(input: { draftHash: string; origin: string | null; organizerId?: string }) {
+    return policyEditor.policyChallenge(await this.base(), input);
+  }
+
+  async signPolicy(input: PolicySignInput & { origin?: string | null }) {
+    return policyEditor.signDraft(await this.base(), { ...input, origin: input.origin ?? null });
   }
 
   /** "Two neighbors said yes — sending now" to each requester; in sandbox, poll as a webhook safety net. */

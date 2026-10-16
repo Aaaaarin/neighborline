@@ -117,7 +117,7 @@ export interface OrganizerSession {
 export interface PasskeyRoster {
   demoMode: boolean;
   inviteRequired: boolean;
-  organizers: Array<{ id: string; name: string; passkeys: Array<{ deviceLabel: string; createdAt: string }> }>;
+  organizers: Array<{ id: string; name: string; passkeys: Array<{ id: string; deviceLabel: string; createdAt: string; lastUsedAt: string | null }> }>;
 }
 
 export interface RequestView {
@@ -344,4 +344,128 @@ export interface TrustView {
   group: GroupView;
   modes: RuntimeModes;
   sandboxReality: Array<{ label: string; status: 'real' | 'simulated' | 'not_yet'; detail: string }>;
+}
+
+/* ---------- rules editor (policy versions) ---------- */
+
+/** A group-wide limit or a category cap, with the line of the rules it came from. */
+export interface PolicyLimitView {
+  field: 'householdCapPer30dCents' | 'dailyBudgetCents' | 'maxRequestsPerDestinationPer30d';
+  label: string;
+  /** Formatted value ("$400", "2 times") */
+  value: string;
+  before?: string;
+  quote: string | null;
+}
+
+export interface PolicyCategoryDraftView {
+  key: string;
+  label: string;
+  /** Labels per language code (neighbors see their own). */
+  labels: Record<string, string>;
+  maxCents: number;
+  perHouseholdPer30dCents: number;
+  requiresPhoto?: boolean;
+  /** The organizers' sentence this rule was compiled from (validated: copied from the text). */
+  quote: string | null;
+  change: 'added' | 'changed' | 'same';
+  before?: { maxCents: number; perHouseholdPer30dCents: number; label: string };
+}
+
+export interface PolicyChangeView {
+  kind: 'added' | 'removed' | 'changed';
+  path: string;
+  before?: string;
+  after?: string;
+  text: string;
+}
+
+/** One request now waiting for approval, priced under the active policy and under the draft (code only). */
+export interface QueueImpactRow {
+  requestId: string;
+  displayName: string;
+  lang: Lang;
+  categoryNow: string;
+  categoryDraft: string | null;
+  currentCents: number | null;
+  draftCents: number | null;
+  outcome: 'same' | 'more' | 'less' | 'recategorized' | 'blocked';
+  /** One English line: what changes and why. */
+  note: string;
+  /** Organizers whose approval covers the old amounts and must be given again. */
+  approvalsToRedo: string[];
+}
+
+export interface PolicySignatureView {
+  organizerId: string;
+  name: string;
+  kind: SignerKind;
+  deviceLabel: string;
+  at: string;
+  /** false when the device was revoked after signing (the signature no longer counts). */
+  counts: boolean;
+}
+
+export interface PolicyDraftView {
+  draftHash: string;
+  groupId: string;
+  version: number;
+  basePolicyId: string | null;
+  baseVersion: number | null;
+  sourceText: string;
+  createdAt: string;
+  createdBy: string;
+  categories: PolicyCategoryDraftView[];
+  removed: Array<{ key: string; label: string; maxCents: number; perHouseholdPer30dCents: number }>;
+  limits: PolicyLimitView[];
+  changes: PolicyChangeView[];
+  ambiguities: string[];
+  warnings: string[];
+  /** The validate → repair pipeline behind the compiled draft (agents' StructuredTrace). */
+  trace: { status: string; summary: string; attempts: number; repairedFields: string[]; provider: string; latencyMs: number };
+  queue: QueueImpactRow[];
+  signatures: PolicySignatureView[];
+  required: number;
+  status: 'open' | 'activated' | 'superseded' | 'stale';
+  activatedPolicyId?: string;
+}
+
+export interface PolicyVersionView {
+  id: string;
+  version: number;
+  status: 'active' | 'retired';
+  activatedAt: string | null;
+  approvedBy: string[];
+}
+
+export interface PolicyEditorView {
+  groupName: string;
+  demoMode: boolean;
+  aiMode: 'fixture' | 'live';
+  active: {
+    id: string;
+    version: number;
+    sourceText: string;
+    categories: PolicyCategoryView[];
+    limits: PolicyLimitView[];
+    approvedBy: string[];
+  };
+  /** The open draft waiting for signatures, or the one just activated. */
+  draft: PolicyDraftView | null;
+  versions: PolicyVersionView[];
+}
+
+export type CompilePolicyOutcome =
+  | { ok: true; draft: PolicyDraftView }
+  | { ok: false; errors: Array<{ path: string; message: string }>; trace: { status: string; summary: string; attempts: number } };
+
+/** What a policy signature tap sends: a passkey assertion over the draft hash, or (DEMO_MODE) a demo key. */
+export type PolicySignInput =
+  | { draftHash: string; signer: { kind: 'passkey'; assertion: PasskeyAssertionJSON }; organizerId?: string }
+  | { draftHash: string; signer: { kind: 'demo_key' }; organizerId: string };
+
+export interface PolicySignResult {
+  draft: PolicyDraftView;
+  /** Set when this signature completed the set and the new version is now active. */
+  activated: { policyId: string; version: number; repriced: number } | null;
 }

@@ -6,7 +6,7 @@
  */
 import { challengeForApprovalHash, createSoftwareAuthenticator, expectedFor, relyingParty, verifyApprovalAssertion, type SoftwareAuthenticator } from '@neighborline/passkeys';
 import type { ApproverAssertion } from '@neighborline/core';
-import { addOrganizerCredential, listOrganizers, recordApprovalAssertion, type Db } from '@neighborline/db';
+import { addOrganizerCredential, listOrganizers, recordApprovalAssertion, type Executor } from '@neighborline/db';
 import { HttpError } from '../errors';
 
 type Env = Record<string, string | undefined>;
@@ -31,7 +31,16 @@ function signerFor(organizerId: string): SoftwareAuthenticator {
 export const demoKeyLabel = (name: string): string => `${name}’s phone (demo key)`;
 
 /** Sign `approvalHash` as `organizerId` with the demo key and store the assertion. */
-export async function demoSign(db: Db, env: Env, input: { groupId: string; organizerId: string; approvalHash: string; at?: Date }): Promise<ApproverAssertion> {
+export async function demoSign(db: Executor, env: Env, input: { groupId: string; organizerId: string; approvalHash: string; at?: Date }): Promise<ApproverAssertion> {
+  const assertion = await demoAssert(db, env, input);
+  return (await recordApprovalAssertion(db, { organizerId: input.organizerId, assertion })).assertion;
+}
+
+/**
+ * Sign any 32-byte hash (a payout approval hash or a policy draft hash) with the organizer's demo
+ * key and verify it with the real verifier. Does not store it: the caller decides where it goes.
+ */
+export async function demoAssert(db: Executor, env: Env, input: { groupId: string; organizerId: string; approvalHash: string; at?: Date }): Promise<ApproverAssertion> {
   if (!demoModeOn(env)) throw new HttpError(403, 'Demo keys are off (DEMO_MODE=false). Sign with your passkey.');
   const org = (await listOrganizers(db, input.groupId)).find((o) => o.id === input.organizerId);
   if (!org) throw new HttpError(403, 'Unknown organizer');
@@ -44,7 +53,7 @@ export async function demoSign(db: Db, env: Env, input: { groupId: string; organ
   const exp = expectedFor(rp, env)!;
   const ok = await verifyApprovalAssertion({ assertion: parts, approvalHash: input.approvalHash, credential: { id: signer.credentialId, publicKey: signer.publicKey, kind: 'demo_key' }, expectedOrigin: exp.expectedOrigin, expectedRpId: exp.expectedRpId });
   if (!ok.ok) throw new Error(`demo key signature did not verify: ${ok.reason}`);
-  const assertion: ApproverAssertion = {
+  return {
     v: 1,
     kind: 'demo_key',
     ...parts,
@@ -54,5 +63,4 @@ export async function demoSign(db: Db, env: Env, input: { groupId: string; organ
     deviceLabel,
     verifiedAt: (input.at ?? new Date()).toISOString(),
   };
-  return (await recordApprovalAssertion(db, { organizerId: org.id, assertion })).assertion;
 }

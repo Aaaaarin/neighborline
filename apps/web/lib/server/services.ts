@@ -12,7 +12,11 @@ import type {
   ApprovalChallenge,
   ApprovalResult,
   ApproveInput,
+  CompilePolicyOutcome,
   OrganizerSession,
+  PolicyEditorView,
+  PolicySignInput,
+  PolicySignResult,
   PasskeyAssertionJSON,
   PasskeyRoster,
   DeclineReasonCode,
@@ -106,6 +110,17 @@ export interface Services {
   passkeySignInOptions(input: { origin: string | null }): Promise<{ optionsJSON: unknown }>;
   passkeySignIn(input: { response: PasskeyAssertionJSON }): Promise<OrganizerSession>;
   approvalChallenge(input: { requestIds: string[]; origin: string | null; organizerId?: string; credentialIds?: string[] }): Promise<ApprovalChallenge>;
+  /** The session if its passkey still exists (null once that device is revoked). */
+  liveSession(session: OrganizerSession | null): Promise<OrganizerSession | null>;
+  /** Revoke an organizer's passkey; needs a live session of an organizer of the group. */
+  revokePasskey(input: { credentialId: string; session: OrganizerSession | null }): Promise<{ organizerId: string; deviceLabel: string; signedOut: boolean }>;
+
+  /* rules editor: AI drafts the policy, two organizers sign to activate it */
+  policyEditor(): Promise<PolicyEditorView>;
+  compilePolicy(input: { sourceText: string; session: OrganizerSession | null }): Promise<CompilePolicyOutcome>;
+  policyChallenge(input: { draftHash: string; origin: string | null; organizerId?: string }): Promise<ApprovalChallenge>;
+  signPolicy(input: PolicySignInput & { origin?: string | null }): Promise<PolicySignResult>;
+
   decline(input: {
     requestId: string;
     organizerId: string;

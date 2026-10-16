@@ -4,5 +4,8 @@ import { services } from '@/lib/server/services';
 
 export const dynamic = 'force-dynamic';
 
-/** Who is signed in on this browser (if anyone) + which organizers have passkeys (labels only). */
-export const GET = route(async (req: Request) => ({ session: readSessionFromRequest(req), roster: await services().passkeyRoster() }));
+/** Who is signed in on this browser (if their passkey still exists) + which organizers have passkeys (labels only). */
+export const GET = route(async (req: Request) => {
+  const svc = services();
+  return { session: await svc.liveSession(readSessionFromRequest(req)), roster: await svc.passkeyRoster() };
+});

@@ -7,7 +7,11 @@ import type {
   ApprovalChallenge,
   ApprovalResult,
   ApproveInput,
+  CompilePolicyOutcome,
   OrganizerSession,
+  PolicyEditorView,
+  PolicySignInput,
+  PolicySignResult,
   PasskeyAssertionJSON,
   PasskeyRoster,
   DeclineReasonCode,
@@ -85,6 +89,13 @@ export const api = {
   signInOptions: () => post<{ optionsJSON: unknown }>('/api/organizer/signin/options'),
   signIn: (response: PasskeyAssertionJSON) => post<{ session: OrganizerSession }>('/api/organizer/signin', { response }),
   signOut: () => post<{ ok: true }>('/api/organizer/signout'),
+  revokePasskey: (credentialId: string) => post<{ organizerId: string; deviceLabel: string; signedOut: boolean }>('/api/organizer/passkeys/revoke', { credentialId }),
+
+  /* rules editor */
+  policy: () => call<PolicyEditorView>('/api/policy'),
+  draftPolicy: (sourceText: string) => post<CompilePolicyOutcome>('/api/policy/draft', { sourceText }),
+  policyChallenge: (input: { draftHash: string; organizerId?: string }) => post<ApprovalChallenge>('/api/policy/challenge', input),
+  signPolicy: (input: PolicySignInput) => post<PolicySignResult>('/api/policy/sign', input),
   decline: (id: string, input: { organizerId: string; reasonCode: DeclineReasonCode; note?: string }) =>
     post<{ status: RequestStatus; message: { text: string; textEn: string; lang: Lang } }>(`/api/requests/${id}/decline`, input),
   previewDecline: (id: string, input: { reasonCode: DeclineReasonCode; note?: string }) =>
