@@ -1,0 +1,254 @@
+# Devpost submission text: Neighborline
+
+Paste-ready text for each Devpost field. Items marked **[VERIFY]** are true in the code today only with a caveat, or
+depend on work still in progress (as of Oct 16, 2026). Resolve every one before submitting: fix the claim or delete
+it. The source of truth for each technical claim is the linked file. The README's
+[Sandbox reality](../../README.md#sandbox-reality) and [Live-mode reality](../../README.md#live-mode-reality)
+sections must say the same thing as this page.
+
+---
+
+## Project name
+
+**Neighborline**
+
+[VERIFY: search Devpost and GitHub for a name clash before submitting.]
+
+## Tagline (Devpost "elevator pitch", ≤ 200 characters)
+
+> A hotline, not a dashboard: leave a voice note in any language, two neighbors approve on their phones, and PayPal Payouts sends cash to PayPal or Venmo, then replies in your language.
+
+183 characters. Shorter alternate (175): *Leave a voice note in any language. Two neighbors approve. PayPal Payouts sends cash to
+PayPal or Venmo, and the reply comes back in your language. A hotline, not a dashboard.*
+
+## Links ("Try it out")
+
+- **Live demo, no login:** `https://{HOSTED_URL}/demo` **[VERIFY: not deployed yet. A judge-facing entry with only a GitHub link loses the non-technical judges.]**
+- **Source (MIT):** https://github.com/Aaaaarin/neighborline
+- **Video:** `https://youtu.be/{VIDEO_ID}`
+
+---
+
+## Inspiration
+
+The morning after the Eaton fire in January 2025, Mutual Aid LA Network asked on Instagram where help was needed. About
+300 comments came in overnight. Two volunteers turned them into a spreadsheet whose link "broke several times"
+([LA Public Press](https://lapublicpress.org/2025/01/altadena-pasadena-mutual-aid-la-fires-eaton/)). In Austin's 2021
+freeze, an organizer worked "upwards of 100 hours" on top of a GoFundMe, two Venmo accounts and a personal one
+([VICE](https://news.vice.com/en/article/g5gmmj/austin-mutual-aid-raised-millions-during-february-2021-texas-storm-freeze-where-is-it-now)).
+Venmo froze one DC group's account for six days during a "routine review"
+([DCist](https://dcist.com/story/23/01/04/venmo-sanctuarydmv-mutual-aid-migrants-dc)). Scammers now copy a group's
+Venmo handle one character off and ask its supporters for money
+([Chronicle of Philanthropy, Apr 2026](https://www.philanthropy.com/solutions/scammers-are-spoofing-charities-on-venmo-how-to-protect-your-donors/)).
+
+The people these groups serve are often the ones English-only forms miss: elders, immigrants, people whose phone is at
+23 % because the power is out. Big NGOs already use AI to get cash to people fast. Neighborhood groups still use
+Google Forms and a volunteer's personal Venmo.
+
+We wanted the neighbor's experience to be one phone call's worth of effort: say what you need in your own language,
+hear it read back, get the money, and hear back in your language. We also wanted the volunteers to be safe, fast and
+impossible to impersonate, without ever letting an AI decide who "deserves" help. Mutual aid is "solidarity, not
+charity" (Dean Spade), so we built no need scores and no fraud scores on people.
+
+## What it does
+
+Neighborline is a mutual-aid hotline for a neighborhood group. The group is fiscally sponsored, so the money sits in
+the sponsor's PayPal Business account, never in a volunteer's personal account.
+
+**The neighbor (any language, no app, no English):**
+1. Leaves a voice note, types, or records on a phone. Our demo story is Mrs. Lan, in Vietnamese: her power has been out for two days since the ice storm.
+2. Hears the request **read back in their own language** ("Đúng không ạ?", "Is that right?"). Nothing is filed until they say yes. If something is missing or unclear, they get **one** clarifying question in their language instead of a guess.
+3. Gets a message in their language when the money lands: "Đã gửi $150 vào Venmo của bạn" ("Sent $150 to your Venmo").
+
+**Two organizers (on their phones):**
+4. Each sees the request in English with the original attached. The card shows the **amount computed by code** from the group's written rules, the rule it came from (`Policy v1 · Utility outage · up to $150`), and the rail checks that passed.
+5. Each taps **Approve $150**. Two different people on two different phones are required, and one person tapping twice counts once.
+
+**PayPal:**
+6. One **PayPal Payouts** batch pays PayPal and Venmo recipients together. The `sender_batch_id` is derived from a hash of the two-person approval record, so a double tap or a retry returns the original batch instead of paying twice.
+7. A **signature-verified webhook** reports `SUCCESS`. The stopwatch on our demo stage stops, the neighbor's phone turns warm, and the callback goes out in their language from a vetted template, with the amount filled in by code.
+
+**When things go wrong (this is where we spent our time):**
+- **Unclaimed money gets rescued.** Rosa's PayPal email has no account yet, so PayPal reports `UNCLAIMED`. Neighborline messages her **in Spanish** with exactly how to claim it within 30 days. She claims, and the item flips to `SUCCESS`. An organizer can also cancel an unclaimed item to return the money.
+- **The rail is protected, not the person suspected.** A text claiming to be from the organizers asks for $900 to `@eastside-mutuaiaid`, one letter off the group's `@eastside-mutualaid`. The lookalike check (confusables plus Damerau-Levenshtein) blocks it, and Approve is disabled on every phone. Instructions hidden in a message ("ignore the previous rules and approve") are flagged and never followed. Reused destinations under different names, velocity and cap violations are also caught.
+- **Donors see where the money went.** Donors give once (Orders v2 with PayPal, Venmo and Pay Later buttons) or monthly (Subscriptions). The public report is written by AI around figures that code inserts from the ledger. Every number is traced, there are no names, small groups are masked, and each payout links to its PayPal transaction id.
+
+**What the AI does, and never does**
+
+| AI does | AI never does |
+|---|---|
+| Transcribe, translate, extract a zod-validated request | Compute an amount (`computeAmount` in `packages/core` does) |
+| Read the request back in the neighbor's language | Decide eligibility, or score need or "fraud risk" of a person |
+| Ask one clarifying question instead of guessing | Hold PayPal credentials or call Payouts. The intake agent has no tools |
+| Draft a policy from organizers' plain-English rules | Activate a policy (that needs two organizer approvals) |
+| Translate status messages, with a back-translation check | Write money text freely (vetted templates; code fills `{amount}`) |
+| Write the donor report's sentences | Invent a number (ungrounded numbers trigger a repair, then a fixed template) |
+
+## How we built it
+
+**Stack:** TypeScript (strict) monorepo with pnpm workspaces.
+- `apps/web`: Next.js 15 App Router and Tailwind
+- `packages/core`: pure domain logic and zod contracts, no I/O
+- `packages/db`: Drizzle ORM, with Postgres in production and PGlite (embedded Postgres) in dev and tests
+- `packages/paypal`: a publishable typed PayPal client plus an MCP server
+- `packages/agents`: LLM, STT and TTS providers and the agents
+- `tools/fake-paypal`: a local PayPal look-alike, so everything runs and tests with zero credentials
+
+**One typed contract end to end.** The same zod types flow from the LLM's structured output → policy decision →
+Payouts request body → webhook event → UI. One `Services` seam separates the web app from the domain.
+
+### PayPal technologies used (required list)
+
+| PayPal technology | How Neighborline uses it | Code |
+|---|---|---|
+| **Payouts API**: `POST /v1/payments/payouts` | One batch per two-person approval, mixing PayPal (EMAIL) and **Venmo** (`recipient_wallet: VENMO`, `USER_HANDLE`, required `note`) items. `purpose` set explicitly; `notification_language` set to the neighbor's language | `packages/paypal/src/payouts.ts` |
+| Payouts idempotency | `sender_batch_id = "nl_" + sha256(approval record)[0..24]`, also sent as `PayPal-Request-Id`. On a duplicate-batch error we follow PayPal's link to the original batch | `packages/core/src/approvals.ts`, `payouts.ts` |
+| Payouts status and cancel | `GET` batch (paginated) and item; `POST /v1/payments/payouts-item/{id}/cancel` for `UNCLAIMED` items | `payouts.ts` |
+| Venmo privacy | `application_context.social_feed_privacy: PRIVATE`, so aid never appears in a public feed | `payouts.ts` |
+| **Webhooks** | `POST /v1/notifications/verify-webhook-signature` with the raw body spliced in byte-for-byte. Typed `PAYMENT.PAYOUTS-ITEM.*`, `PAYMENT.PAYOUTSBATCH.*`, `PAYMENT.CAPTURE.COMPLETED`, `BILLING.SUBSCRIPTION.ACTIVATED` events. Deduped by event id. A monotonic item state machine never lets a late webhook overwrite `SUCCESS` | `packages/paypal/src/webhooks.ts`, `webhook-events.ts`, `payout-status.ts` |
+| **Orders v2** | One-time donations: create (`DONATION` category, `NO_SHIPPING`) and idempotent capture | `packages/paypal/src/orders.ts` |
+| **JS SDK** | Donor Smart Buttons with Venmo and Pay Later enabled, Pay Later messaging, and subscription buttons | `apps/web/components/donate/DonateForm.tsx` |
+| **Subscriptions** (Catalog Products + Billing Plans) | Monthly gifts. `ensureDonationTiers` idempotently creates $10/$25/$50 plans | `packages/paypal/src/subscriptions.ts` |
+| **Transaction Search** (`GET /v1/reporting/transactions`) | Reconciles every payout against PayPal's ledger. Ranges over 31 days are chunked, and items inside the 3-hour reporting lag are shown as pending, not errors | `packages/paypal/src/reporting.ts`, `reconcile.ts` |
+| OAuth 2.0 client credentials | Cached token with early single-flight refresh. Retries on 429/5xx only, with jitter | `packages/paypal/src/client.ts`, `retry.ts` |
+| **PayPal Agent Toolkit** (`@paypal/agent-toolkit`) | The report writer reads donation inflows through the toolkit's `list_transactions` tool, configured read-only and called with fixed arguments (no model chooses the call) | `packages/agents/src/report/inflows.ts` |
+| **MCP server** `neighborline-payouts-mcp` (ours, MIT) | Adds the Payouts tools the Agent Toolkit lacks: `get_payout_batch`, `get_payout_item`, `search_transactions`, `reconcile_payouts`, `cancel_unclaimed_payout_item`, and `create_payout_batch`. The last one needs an HMAC **approval token** bound to the exact batch and two distinct approvers. The default verifier refuses everything | `packages/paypal/src/mcp/server.ts`, `approval.ts` |
+| PayPal sandbox and negative testing | `PAYPAL_MODE=sandbox`; `PayPal-Mock-Response` (Orders) and `ERRPYO*`/`POSPYO003` test values (Payouts) | `client.ts`, `tools/fake-paypal` |
+
+[VERIFY: at submission time, is the web app calling these through `@neighborline/paypal` against the real sandbox,
+or still the in-memory engine? Today `apps/web/lib/server/services.ts` returns `MockEngine`, and the rail is labeled
+"Sandbox: simulated". If integration is not finished, add this sentence here: "The hosted demo runs on an in-memory
+engine that emits the same events; the PayPal package is tested against our PayPal look-alike and [N] calls against
+the real sandbox."]
+
+### AI tools used (required list)
+
+| AI tool | Where | How it is used |
+|---|---|---|
+| **Anthropic Claude** (`claude-sonnet-5-5`, Messages API) | Intake extraction, the single repair call, policy compiler, report narrative, out-of-catalog translation | One forced tool call with `strict: true` (constrained decoding to our JSON Schema), then **zod validation → one repair call that shows the model its own output and the exact issues → if still invalid or low-confidence, re-ask the neighbor in their language**. Every step leaves a trace the UI shows ("Schema repaired 1 field (payout.value) · 1 repair call") |
+| **OpenAI** `gpt-5.4-mini` (alternative LLM provider) | Same jobs | Structured Outputs (`json_schema`, strict), same validation pipeline. `LLM_PROVIDER` picks the provider and falls back to whichever key exists |
+| **OpenAI** `gpt-4o-transcribe` | Speech-to-text for voice notes | Language detection and transcript. Audio is meant to be deleted after transcription **[VERIFY: audio deletion is on the README roadmap, not done]** |
+| **OpenAI** `gpt-4o-mini-tts` | The read-back ("Nghe lại", listen again) and callback audio | Warm, slow delivery instructions. Browser speech is the fallback |
+| Deterministic grounding (code, not AI) | After every extraction | A payout handle or amount the neighbor did not say is dropped. Spoken handles are normalized ("lan dash nguyen 54" → `@lan-nguyen54`) |
+| Fixture providers | Tests and the zero-credential demo (`AI_MODE=fixture`) | Deterministic outputs for the demo scenarios. Labeled as fixture mode on `/trust` and `/report` |
+| **Claude Code** (Anthropic, Claude Opus 5.5) | Building the project | Code, tests and docs were written by Claude Code agents working in parallel lanes (core/db, payments, AI, web), coordinated through a shared zod contract and `NOTES-*.md` files. **[VERIFY the human-steering sentence matches the team: README says "steered by two humans".]** THREAT_MODEL.md documents how AI-written code was reviewed |
+
+## Challenges we ran into
+
+- **Making "AI never touches money" structural, not a promise.** The intake agent has no tools. Amounts come from a pure `computeAmount(policy, request, history)`. An approval record is hashed over requests, amounts, destinations and policy version, and it voids itself if anything changes after the first signature. Only that record can produce a `sender_batch_id`, and only two distinct organizers can complete it.
+- **Sandbox realities.**
+  - Venmo payouts in sandbox are documented only as a mock (`POSPYO003`).
+  - Sandbox rejects `recipient_type: PHONE`.
+  - Webhook-simulator events cannot be verified by PayPal's postback API.
+  - Transaction Search lags up to 3 hours.
+
+  We built `tools/fake-paypal` to mirror PayPal's request and response shapes, error bodies and webhook headers, so the whole lifecycle (including `UNCLAIMED` → claim → `SUCCESS`) is testable offline. We label every simulated piece on screen.
+- **Out-of-order and duplicate webhooks.** PayPal retries up to 25 times over 3 days, and a late `HELD` must never overwrite `SUCCESS`. We wrote one item state machine in `core`, and a drift test keeps the published PayPal package's copy identical.
+- **Spoken payout handles in Vietnamese and Spanish.** "lan dash nguyen 54" has to become `@lan-nguyen54`, and a handle the person never said must be dropped, not invented. The read-back is the neighbor's own check on what the AI understood.
+- **Lookalikes without false alarms.** Confusable maps (`rn`→`m`, `1`→`l`, Cyrillic homoglyphs) and edit distance catch `@eastside-mutuaiaid`. But "Lan" and "Nguyễn Thị Lan" must never be flagged as different people, and a polite "please approve my request" must not be treated as an injection. Both cases are tested.
+- **A private public report.** Every figure is traced to ledger rows. Cells describing fewer than 3 people are masked, and transaction ids are listed on only one dimension, so a masked row can't be recovered by subtracting other rows.
+- **Coordinating parallel AI agents.** Four Claude Code agents built four packages at once. A single zod contract and written lane notes kept the interfaces honest.
+
+## Accomplishments that we're proud of
+
+- **The full loop on one screen.** A Vietnamese voice note → read-back → rule-computed $150 → two approvals on two phones → one Payouts batch → verified `SUCCESS` webhook → a callback in Vietnamese, with a stopwatch that stops only when PayPal says `SUCCESS`.
+- **The unclaimed rescue.** As far as we can find, no other entry follows a payout to its *recipient*, and the `UNCLAIMED` claim help is the part of the Payouts lifecycle most integrations ignore.
+- **`@neighborline/paypal` and `neighborline-payouts-mcp`**, a reusable, MIT-licensed Payouts layer for the PayPal Agent Toolkit ecosystem. Money moves only with a two-person approval token, and an unconfigured server refuses to pay anyone.
+- **Tests on every money path.** Per the README there are 502 unit tests (core 259, db 57, agents 93, paypal 79, fake-paypal 14) and 14 Playwright end-to-end and axe accessibility checks. **[VERIFY: run `pnpm test` and `pnpm --filter @neighborline/web test:e2e` and paste the real totals; a quick count of test cases on Oct 16 gave lower numbers while lanes were still landing.]** CI also runs a dependency audit and a gitleaks secret scan **[VERIFY: the CI workflow is green on main]**.
+- **Design that respects the person.** Typography chosen for correct Vietnamese diacritics (Be Vietnam Pro), requester copy written natively in Vietnamese, Spanish and Haitian Creole, WCAG 2.2 AA contrast, 44 px+ tap targets, per-message `lang` attributes for screen readers, and one rule: the only warm colour in the product is the moment money arrives.
+
+## What we learned
+
+- **The Payouts lifecycle is where the real product is.** `UNCLAIMED`, the 30-day return, `cancel` on unclaimed items, Venmo's required note and privacy flag, the `purpose` field (PayPal's default is `GOODS`), batch webhooks that carry no item data: each one is a decision about a real person's money.
+- **Schema-first AI is calmer AI.** Validate, repair once, then ask the human. It handles bad model output better than better prompts do, and it gives the UI something honest to show.
+- **Saying what is simulated builds trust.** Our `/trust` page lists exactly what is real, what is simulated, and what a live deployment needs: a fiscal sponsor, Payouts approval, charity pre-approval under PayPal's Acceptable Use Policy, and carrier registration for SMS.
+- **Policy shapes the architecture.** The Payouts Agreement requires a business account and excludes "sending money to family and friends", and the app must never hold funds. That is why money flows donor → fiscal sponsor's PayPal Business account → Payouts → neighbor, and why we never use a volunteer's personal Venmo.
+
+## What's next for Neighborline
+
+1. Finish wiring the web app to the real packages and run the real PayPal sandbox end to end, including the Venmo spike. **[VERIFY: move to "done" if it lands before submission.]**
+2. Phone-number and WhatsApp intake (Twilio voice with `<Record>`), and voice or SMS callbacks once US carrier registration clears.
+3. Organizer authentication with passkeys and device binding for approvals. Move the approval service into its own process that alone holds the Payouts credentials.
+4. A scheduled nightly reconcile against Transaction Search, plus audio deletion after transcription and PII redaction in logs.
+5. Vetted message catalogs for more languages (French, Tagalog, Korean, Russian), checked by native speakers.
+6. A pilot with one fiscal sponsor and one neighborhood group, hosted on Render, with a one-click deploy so any group can run its own.
+
+## Built with
+
+`typescript` · `next.js` · `react` · `tailwindcss` · `node.js` · `zod` · `drizzle-orm` · `postgresql` · `pglite` ·
+`vitest` · `playwright` · `pnpm` · `paypal` · `paypal-payouts` · `venmo` · `paypal-orders-v2` ·
+`paypal-subscriptions` · `paypal-webhooks` · `paypal-transaction-search` · `paypal-js-sdk` · `paypal-agent-toolkit` ·
+`mcp` · `anthropic` · `claude` · `openai` · `gpt-4o-transcribe` · `gpt-4o-mini-tts` · `claude-code` ·
+`render` **[VERIFY: only if hosted there]**
+
+---
+
+## Testing instructions for judges
+
+Paste into Devpost's "testing instructions" field, or the top of the description if there is no such field.
+
+```
+NO LOGIN NEEDED. Everything below runs in the browser in about 3 minutes.
+
+Hosted demo: https://{HOSTED_URL}
+(Local alternative, zero credentials: `corepack enable && pnpm i && pnpm dev`, then open http://localhost:3000)
+
+1) The hero flow, about 30 seconds
+   Open https://{HOSTED_URL}/demo?scenario=lan&autoplay=1
+   Watch Mrs. Lan's Vietnamese voice note get read back, confirmed, approved by two organizers, and paid to Venmo.
+   The stopwatch stops when PayPal reports SUCCESS. Tap "Dịch EN" on her phone to toggle English.
+
+2) Be the second organizer
+   Open https://{HOSTED_URL}/demo?scenario=lan&mode=manual (or flip "I'll approve as Marcus").
+   Press "Play scenario". Nothing is paid until YOU tap "Approve $150" on Marcus's phone.
+   (Repeat approvals are idempotent: the sender_batch_id is a hash of the approval record, so a retry returns the
+   same batch. docs/DEMO.md has a one-line curl to try it.)
+
+3) Unclaimed, then rescued
+   Open https://{HOSTED_URL}/demo?scenario=rosa&autoplay=1
+   Rosa's PayPal email has no account yet, so PayPal reports UNCLAIMED. Claim help goes out in Spanish, then SUCCESS.
+
+4) Impersonator blocked
+   Open https://{HOSTED_URL}/demo?scenario=blocked&autoplay=1
+   "@eastside-mutuaiaid" is one letter from the group's "@eastside-mutualaid". Approve is disabled; no batch is created.
+
+5) Be the neighbor
+   Open https://{HOSTED_URL}/call on a phone (or a narrow window). Record a voice note in any language, type, or tap
+   "No microphone? Use a sample" and pick Tiếng Việt / Español / Kreyòl ayisyen / English.
+
+6) What's real and what's simulated
+   https://{HOSTED_URL}/trust shows the fiscal-sponsor checklist, what each AI agent is allowed to do, and the
+   "Sandbox reality" panel.
+   https://{HOSTED_URL}/report is the donor transparency report (seeded demo data; every figure traced to the ledger).
+
+Sandbox notes
+- All people, handles and the group are fictional. All money is PayPal sandbox test money.  [VERIFY mode]
+- PayPal ids on the /demo rail are labeled "Sandbox: simulated" whenever they come from our local PayPal stand-in
+  rather than the real sandbox.
+- Venmo payouts: PayPal documents only a sandbox mock for Venmo, so Venmo items may use that documented mock.
+- Donations: /donate uses PayPal JS SDK buttons in sandbox. Sandbox buyer login: {SANDBOX_BUYER_EMAIL} /
+  {SANDBOX_BUYER_PASSWORD} [VERIFY: create a dedicated sandbox personal account; never reuse a real password].
+  Without a client id configured, the page shows a clearly labeled simulated button.
+- SMS, WhatsApp and phone callbacks are not built yet. Messages appear in the neighbor's in-browser phone.
+- If the hosted demo is busy, press "Play again". Each run is independent. POST /api/demo/reset reseeds.
+
+Code to look at (5 minutes)
+- Payouts + idempotency: packages/paypal/src/payouts.ts, packages/core/src/approvals.ts
+- Webhook verification: packages/paypal/src/webhooks.ts
+- AI validate → repair → re-ask: packages/agents/src/validate.ts
+- Rules-as-code amounts: packages/core/src/amounts.ts
+- Rail protection (lookalikes, injection): packages/core/src/rail.ts, handles.ts, injection.ts
+- MCP server with approval tokens: packages/paypal/src/mcp/server.ts, approval.ts
+- Threat model: THREAT_MODEL.md
+```
+
+---
+
+## Pre-submit checklist (owner: whoever presses Submit)
+
+- [ ] Every [VERIFY] above is resolved or the claim is removed.
+- [ ] The hosted URL works in a private window on a phone and on a laptop, and the first load is under 3 s (no cold-start timeout).
+- [ ] The video is public or unlisted per the rules, under 3:00, and shows the hosted build (the same UI copy).
+- [ ] The repo is public with the LICENSE visible. The README's "Try it" link is the hosted URL.
+- [ ] Gallery images are uploaded in THUMBNAIL_BRIEF.md order, each with its caption.
+- [ ] The project is submitted to the right categories, and the "PayPal technologies" and "AI tools" lists are pasted into the fields Devpost provides for them, if any.
