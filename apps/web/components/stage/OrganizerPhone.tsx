@@ -16,6 +16,7 @@ export function OrganizerPhone({
   label,
   signHint,
   fallback,
+  time = '7:42',
 }: {
   me: Organizer;
   view: RequestView | null;
@@ -26,6 +27,7 @@ export function OrganizerPhone({
   label: string;
   signHint?: string;
   fallback?: { reason: string; label: string; onUseDemoKey: () => void };
+  time?: string;
 }) {
   const visible = view && view.request.status !== 'intake' ? view : null;
   const buzzKey = visible ? visible.request.id : 0;
@@ -52,7 +54,7 @@ export function OrganizerPhone({
   const waiting =
     visible && visible.request.status === 'awaiting_approval' && !visible.request.railFlags.some((f) => f.severity === 'block') && !visible.approvals.some((a) => a.organizerId === me.id) ? 1 : 0;
   return (
-    <PhoneFrame label={label} battery={me.id === 'org_dana' ? 58 : 71} time="7:42" buzzKey={buzzKey}>
+    <PhoneFrame label={label} battery={me.id === 'org_dana' ? 58 : 71} time={time} buzzKey={buzzKey}>
       <div className="relative flex shrink-0 items-center justify-between gap-2 border-b border-rule px-4 pb-2.5 pt-1">
         <div className="min-w-0">
           <p className="truncate text-[0.95rem] font-semibold leading-tight text-ink">Eastside Mutual Aid</p>

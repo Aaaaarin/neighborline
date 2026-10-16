@@ -53,6 +53,7 @@ export function RequesterThread({
   busy,
   className,
   emptyHint,
+  timeOf,
 }: {
   messages: ThreadMessage[];
   lang: Lang;
@@ -63,6 +64,8 @@ export function RequesterThread({
   busy?: boolean;
   className?: string;
   emptyHint?: React.ReactNode;
+  /** Clock text for a message time (the /demo stage pins it to the story's 7:42 morning). */
+  timeOf?: (iso: string) => string;
 }) {
   const t = ui(lang);
   const box = useRef<HTMLDivElement>(null);
@@ -70,16 +73,20 @@ export function RequesterThread({
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    // Scroll only this conversation, never the page around it.
-    el.scrollTo({ top: el.scrollHeight, behavior: first.current ? 'auto' : 'smooth' });
+    // Scroll only this conversation, never the page around it. Follow the newest message, but never
+    // past the neighbor's own last message: their words and our answer to them stay on screen together.
+    const bottom = el.scrollHeight - el.clientHeight;
+    const mine = [...el.querySelectorAll<HTMLElement>('[data-from="neighbor"]')].at(-1);
+    const top = mine ? Math.min(bottom, Math.max(0, mine.offsetTop - 8)) : bottom;
+    el.scrollTo({ top, behavior: first.current ? 'auto' : 'smooth' });
     first.current = false;
   }, [messages.length, messages.at(-1)?.text, awaitingConfirmation, translated]);
 
   return (
-    <div ref={box} className={cx('flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 pb-4 pt-2', className)} role="log" aria-live="polite" aria-label="Conversation" dir={dirOf(lang)}>
+    <div ref={box} className={cx('relative flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 pb-4 pt-2', className)} role="log" aria-live="polite" aria-label="Conversation" dir={dirOf(lang)}>
       {messages.length === 0 && emptyHint}
       {messages.map((m) => (
-        <Bubble key={m.id} m={m} translated={translated} lang={lang} />
+        <Bubble key={m.id} m={m} translated={translated} lang={lang} timeOf={timeOf} />
       ))}
       {awaitingConfirmation && (
         <div className="flex flex-wrap justify-end gap-2 pt-1 animate-rise" lang={lang}>
@@ -106,19 +113,19 @@ export function RequesterThread({
   );
 }
 
-function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean; lang: Lang }) {
+function Bubble({ m, translated, lang, timeOf }: { m: ThreadMessage; translated: boolean; lang: Lang; timeOf?: (iso: string) => string }) {
   const mine = m.from === 'neighbor';
   const t = ui(lang);
   const en = translated && m.textEn && m.textEn !== m.text && m.lang !== 'en' ? m.textEn : null;
   const time = (
     <span className={cx('mt-1 block text-end text-[0.68rem] tabular', mine ? 'text-frost-ink' : 'text-ink-3')}>
-      <bdi dir="ltr">{clockTime(m.at)}</bdi>
+      <bdi dir="ltr">{timeOf ? timeOf(m.at) : clockTime(m.at)}</bdi>
     </span>
   );
 
   if (m.kind === 'paid') {
     return (
-      <div className="max-w-[88%] self-start animate-rise">
+      <div className="max-w-[88%] self-start animate-rise" data-from={m.from}>
         <div className="rounded-[20px] rounded-es-md border border-lamp bg-raised p-3.5 animate-glow">
           <p className="flex items-baseline gap-2">
             <span className="text-[1.9rem] font-semibold leading-none text-ink">{m.meta?.amountCents ? money(m.meta.amountCents) : ''}</span>
@@ -137,13 +144,16 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
   }
 
   return (
-    <div className={cx('max-w-[86%] animate-rise', mine ? 'self-end' : 'self-start')}>
+    <div className={cx('max-w-[86%] animate-rise', mine ? 'self-end' : 'self-start')} data-from={m.from}>
       <div
         className={cx(
           'rounded-[20px] px-3.5 py-2.5',
-          mine ? 'rounded-ee-md bg-frost text-frost-ink' : 'rounded-es-md border border-rule bg-raised text-ink',
-          m.kind === 'claim_help' && 'border-ink/40',
-          m.kind === 'blocked' && 'border-signal/40',
+          mine
+            ? 'rounded-ee-md bg-frost text-frost-ink'
+            : cx(
+                'rounded-es-md border bg-raised text-ink',
+                m.kind === 'claim_help' || m.kind === 'question' ? 'border-frost-ink/50' : m.kind === 'blocked' ? 'border-signal/40' : 'border-rule',
+              ),
         )}
       >
         {m.kind === 'voice' ? (

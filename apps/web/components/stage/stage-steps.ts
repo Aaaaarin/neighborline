@@ -4,7 +4,7 @@
  */
 import type { StageEvent } from '@neighborline/core';
 import type { RequestView, ScenarioId } from '@/lib/types';
-import { LANGUAGE_NAMES, money } from '@/lib/format';
+import { LANGUAGE_NAMES, money, tidyQuotes } from '@/lib/format';
 
 export type StepState = 'pending' | 'done' | 'money' | 'blocked' | 'warn' | 'active';
 
@@ -115,7 +115,7 @@ export function buildSteps(input: {
         for (const f of e.flags) {
           if (f.code === 'LOOKALIKE_HANDLE' || f.code === 'DEST_IS_GROUP_HANDLE')
             set('flag_lookalike', { state: 'blocked', atMs, title: 'Lookalike handle blocked', detail: f.detail });
-          if (f.code === 'PROMPT_INJECTION') set('flag_injection', { state: 'warn', atMs, title: 'Injected instructions ignored', detail: f.detail });
+          if (f.code === 'PROMPT_INJECTION') set('flag_injection', { state: 'warn', atMs, title: 'Injected instructions ignored', detail: tidyQuotes(f.detail, view?.request.originalText) });
         }
         set('disabled', { state: 'blocked', atMs, title: 'Approve disabled on every phone', detail: 'The approval service refuses to build a batch for a blocked destination.' });
         break;
@@ -237,4 +237,21 @@ export function splitFrom(events: TimedEvent[], nowMs: number): SpeedSplit | nul
   span(unclaimed, success);
   const totalMs = end - start;
   return { totalMs, humanMs, machineMs: Math.max(0, totalMs - humanMs), humanNow };
+}
+
+/**
+ * The story's clock: every /demo run happens at 7:42 on the morning after the ice storm. Phone status
+ * bars and bubble times both read this clock, offset by the real time since the voice note arrived.
+ */
+export const STORY_START_MINUTES = 7 * 60 + 42;
+export function storyClock(startAt: number | null, opts: { ampm?: boolean } = {}): (at: string | number) => string {
+  return (at) => {
+    const ms = typeof at === 'number' ? at : Date.parse(at);
+    const elapsed = startAt === null || !Number.isFinite(ms) ? 0 : Math.max(0, ms - startAt);
+    const total = STORY_START_MINUTES + Math.floor(elapsed / 60_000);
+    const h = Math.floor(total / 60) % 24;
+    const m = String(total % 60).padStart(2, '0');
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return opts.ampm ? `${h12}:${m} ${h < 12 ? 'AM' : 'PM'}` : `${h12}:${m}`;
+  };
 }

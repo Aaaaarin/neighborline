@@ -32,6 +32,9 @@ export function RequesterPhone({
   onFix,
   busy,
   idleHint,
+  time = '7:42',
+  timeOf,
+  battery,
 }: {
   label: string;
   thread: ThreadView | null;
@@ -45,10 +48,14 @@ export function RequesterPhone({
   onFix?: () => void;
   busy?: boolean;
   idleHint?: React.ReactNode;
+  /** status-bar clock and bubble times (the stage pins both to the story's morning) */
+  time?: string;
+  timeOf?: (iso: string) => string;
+  battery?: number;
 }) {
   const t = ui(lang);
   return (
-    <PhoneFrame label={label} battery={sms ? 81 : 23} offline={!sms} warm={warm} time="7:42">
+    <PhoneFrame label={label} battery={battery ?? (sms ? 81 : 23)} offline={!sms} warm={warm} time={time}>
       <div className={cx('flex shrink-0 items-center gap-2.5 border-b px-3 pb-2.5 pt-1 transition-colors duration-1000', warm ? 'border-lamp/40' : 'border-rule')}>
         <ChevronLeft size={22} className="text-ink-3" aria-hidden />
         <LineAvatar />
@@ -84,6 +91,7 @@ export function RequesterPhone({
         onFix={onFix}
         busy={busy}
         emptyHint={idleHint}
+        timeOf={timeOf}
       />
       <div className="flex shrink-0 items-center gap-2 px-3 pb-6 pt-1" aria-hidden>
         <div className="flex h-10 flex-1 items-center rounded-full border border-rule bg-raised px-4 text-[0.85rem] text-ink-3" lang={lang} dir={dirOf(lang)}>

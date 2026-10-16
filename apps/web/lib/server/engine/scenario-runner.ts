@@ -19,7 +19,7 @@ export const BEATS = {
   listen: 7_000, // the neighbor listens to the read-back (a ~25 s voice message) and taps "yes"
   firstLook: 6_000, // the first organizer reads the card
   secondLook: 6_000, // the second organizer, on another phone
-  claimHelp: 6_000, // after the claim-help message, the neighbor opens PayPal and claims
+  claimHelp: 12_000, // after the claim-help message, she reads it, opens PayPal and claims (long enough to narrate the rescue)
 };
 
 export interface RunnerHost {

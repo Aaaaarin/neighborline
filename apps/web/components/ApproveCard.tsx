@@ -2,7 +2,7 @@
 
 import { Ban, Check, ChevronDown, Fingerprint, KeyRound, LoaderCircle, Mic, MessageCircle } from 'lucide-react';
 import type { Organizer, RequestView } from '@/lib/types';
-import { LANGUAGE_NAMES, clockTime, cx, money, shortId, walletLabel } from '@/lib/format';
+import { LANGUAGE_NAMES, clockTime, cx, money, shortId, tidyQuotes, walletLabel } from '@/lib/format';
 import { dirOf } from '@/lib/i18n';
 import { RailChips } from './RailChips';
 
@@ -115,7 +115,7 @@ export function ApproveCard({
             .filter((f) => f.severity === 'review')
             .map((f) => (
               <p key={f.code} className="rounded-xl border border-rule-strong bg-sunk px-3 py-2 text-[0.85rem] leading-snug text-ink-2">
-                <strong className="font-semibold text-ink">Worth a look:</strong> {f.detail}
+                <strong className="font-semibold text-ink">Worth a look:</strong> {tidyQuotes(f.detail, r.originalText)}
               </p>
             ))}
         {block && (

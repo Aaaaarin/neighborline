@@ -13,7 +13,7 @@ import { OrganizerPhone } from './OrganizerPhone';
 import { RailTimeline } from './RailTimeline';
 import { RequesterPhone } from './RequesterPhone';
 import { Stopwatch } from './Stopwatch';
-import { buildSteps, clockFrom, splitFrom } from './stage-steps';
+import { buildSteps, clockFrom, splitFrom, storyClock } from './stage-steps';
 import { useStage } from './useStage';
 
 export interface ScenarioOption {
@@ -39,6 +39,8 @@ const IDLE: Record<ScenarioId, [string, string]> = {
   walter: ['Walter’s oxygen battery is running low.', 'Press Play scenario and he asks for a ride to the warming center.'],
   blocked: ['Someone is pretending to be an organizer.', 'Press Play scenario and watch the rail stop them.'],
 };
+/** Each phone has its own life: Lan's is nearly flat after two days without power. */
+const BATTERY: Record<ScenarioId, number> = { lan: 23, rosa: 46, jean: 34, walter: 62, blocked: 88 };
 const NEXT: Partial<Record<ScenarioId, ScenarioId>> = { lan: 'rosa', rosa: 'blocked', blocked: 'jean', jean: 'walter' };
 
 type Tab = 'requester' | 'organizers' | 'rail';
@@ -69,6 +71,11 @@ export function Stage({
     [s.run, scenario, s.events, s.view, nameOf, modes.paypalMode],
   );
   const clock = useMemo(() => clockFrom(s.events), [s.events]);
+  // Phone clocks: 7:42 on the story's morning, advancing with the run (status bars and bubbles agree).
+  const storyStart = s.events.find((e) => e.event.type === 'request.created')?.at ?? null;
+  const lastAt = s.events.reduce((m, e) => Math.max(m, e.at), storyStart ?? 0);
+  const phoneTime = storyClock(storyStart)(lastAt);
+  const bubbleTime = useMemo(() => storyClock(storyStart, { ampm: true }), [storyStart]);
   const paid = clock.kind === 'stopped' && clock.reason === 'paid';
   const finished = clock.kind === 'stopped';
   const runningMode = s.run?.mode ?? mode;
@@ -217,6 +224,9 @@ export function Stage({
                 translated={translated}
                 onToggleTranslated={() => setTranslated((v) => !v)}
                 warm={paid}
+                time={phoneTime}
+                timeOf={bubbleTime}
+                battery={BATTERY[active.id]}
                 sms={active.sms}
                 contactLabel={active.contactLabel}
                 idleHint={
@@ -236,7 +246,7 @@ export function Stage({
               <div>
                 <PhoneCaption title="Dana’s phone" sub="Organizer" />
                 <div className="mx-auto max-w-[360px] stage:max-w-[392px]">
-                  <OrganizerPhone label="Dana’s phone, organizer" me={dana} view={s.view} onApprove={() => s.approve(dana.id)} busy={s.busy === dana.id} signHint="Signs with Dana’s demo key (held by this demo server)" />
+                  <OrganizerPhone label="Dana’s phone, organizer" time={phoneTime} me={dana} view={s.view} onApprove={() => s.approve(dana.id)} busy={s.busy === dana.id} signHint="Signs with Dana’s demo key (held by this demo server)" />
                 </div>
               </div>
               <div>
@@ -248,6 +258,7 @@ export function Stage({
                 <div className="mx-auto max-w-[360px] stage:max-w-[392px]">
                   <OrganizerPhone
                     label="Marcus’s phone, organizer"
+                    time={phoneTime}
                     me={marcus}
                     view={s.view}
                     onApprove={() => s.approve(marcus.id)}
