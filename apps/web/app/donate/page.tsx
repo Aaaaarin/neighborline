@@ -41,10 +41,10 @@ export default async function DonatePage() {
         <div>
           <h1 className="max-w-[14ch] text-h2 text-ink sm:text-h1">Keep the line warm.</h1>
           <p className="mt-5 max-w-[50ch] text-lead text-ink-2">
-            Since the ice storm, Eastside neighbors have received {money(report.totals.paidCents)}. Half of them had the money within {duration(report.totals.medianSecondsToCash)} of asking. Your gift is the next one.
+            In the last 30 days ({report.period.label}), {money(report.totals.paidCents)} landed with Eastside neighbors. Half of them had the money within {duration(report.totals.medianSecondsToCash)} of asking. Your gift is the next one.
           </p>
           <div className="mt-9">
-            <DonateForm clientId={clientId} />
+            <DonateForm clientId={clientId} sponsorName={group.fiscalSponsor.name} />
           </div>
         </div>
         <section aria-labelledby="flow" className="lg:pt-4">
@@ -64,7 +64,7 @@ export default async function DonatePage() {
           </ol>
           <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-rule pt-6">
             <div>
-              <dt className="text-[0.88rem] text-ink-3">Given since the storm</dt>
+              <dt className="text-[0.88rem] text-ink-3">Donations in, last 30 days</dt>
               <dd className="mt-1 text-[1.6rem] font-semibold text-ink">{money(report.totals.donationsCents)}</dd>
             </div>
             <div>

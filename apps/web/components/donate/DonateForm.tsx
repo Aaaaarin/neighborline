@@ -49,7 +49,8 @@ function loadSdk(clientId: string, ns: 'paypal_oneoff' | 'paypal_sub'): Promise<
   });
 }
 
-export function DonateForm({ clientId }: { clientId: string | null }) {
+/** `sponsorName`: the group's fiscal sponsor from the database (the same name /donate and /trust show). */
+export function DonateForm({ clientId, sponsorName }: { clientId: string | null; sponsorName: string }) {
   const [freq, setFreq] = useState<Freq>('once');
   const [amount, setAmount] = useState(5_000);
   const [custom, setCustom] = useState('');
@@ -142,7 +143,7 @@ export function DonateForm({ clientId }: { clientId: string | null }) {
           {done.freq === 'monthly' ? ' a month' : ''} is in the fund.
         </h2>
         <p className="mt-2 text-ink-2">
-          Cascadia Community Fund will email your receipt. You’ll see your gift reflected in the next transparency report — never your name.
+          {sponsorName} will email your receipt. You’ll see your gift reflected in the next transparency report — never your name.
         </p>
         <p className="mt-3 text-[0.85rem] text-ink-2">
           Reference <span className="id-text text-ink">{done.id}</span>
@@ -251,7 +252,7 @@ export function DonateForm({ clientId }: { clientId: string | null }) {
         )}
       </div>
       <p className="mt-5 text-[0.85rem] leading-snug text-ink-3">
-        Tax-deductible through our fiscal sponsor, Cascadia Community Fund (501(c)(3)). Monthly gifts can be cancelled any time from your PayPal account.
+        Tax-deductible through our fiscal sponsor, {sponsorName} (501(c)(3)). Monthly gifts can be cancelled any time from your PayPal account.
       </p>
     </div>
   );

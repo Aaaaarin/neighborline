@@ -79,7 +79,7 @@ export function groupView(simulatedPaypal: boolean): GroupView {
     name: 'Eastside Mutual Aid',
     payoutHandle: GROUP_HANDLE,
     fiscalSponsor: {
-      name: 'Cascadia Community Fund',
+      name: 'Eastside Community Foundation', // same as packages/db seed.ts
       checks: [
         {
           key: 'business_account',
