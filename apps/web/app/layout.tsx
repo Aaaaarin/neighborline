@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import '@fontsource-variable/literata/opsz.css';
 import '@fontsource-variable/literata/opsz-italic.css';
 import '@fontsource/be-vietnam-pro/400.css';
@@ -21,7 +22,10 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reading the request makes every page render per request, so Next.js can put this request's CSP
+  // nonce (middleware.ts) on its scripts. A prerendered page would carry no nonce and be blocked.
+  await headers();
   return (
     <html lang="en">
       <body className="min-h-dvh">{children}</body>

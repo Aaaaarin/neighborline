@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { inviteCode } from './helpers';
 
 /** Give the browser a platform passkey (Chromium virtual authenticator with user verification). */
 async function passkeyDevice(page: Page) {
@@ -83,19 +84,58 @@ test.describe('/demo stage (real engine, fake PayPal)', () => {
   });
 });
 
-test('approvals are idempotent and need two different organizers', async ({ request }) => {
+test('approvals are idempotent, need two different organizers, and a visitor only ever plays Marcus', async ({ request }) => {
   const run = await (await request.post('/api/demo/play', { data: { scenario: 'jean', mode: 'manual', speed: 20 } })).json();
+  expect(run.requestId).toMatch(/^req_demo_[0-9a-f]{12}_[0-9a-f]+$/);
   // wait for the neighbor's confirmation and Dana's scripted approval
   await expect
     .poll(async () => (await (await request.get(`/api/requests/${run.requestId}`)).json()).approvals.length, { timeout: 15_000 })
     .toBe(1);
-  const again = await (await request.post('/api/approvals', { data: { requestIds: [run.requestId], organizerId: 'org_dana', signer: { kind: 'demo_key' } } })).json();
-  expect(again).toMatchObject({ count: 1, executed: false });
-  const second = await (await request.post('/api/approvals', { data: { requestIds: [run.requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } } })).json();
-  expect(second).toMatchObject({ count: 2, executed: true });
-  expect(second.senderBatchId).toMatch(/^nl_[0-9a-f]{24}$/);
-  const third = await (await request.post('/api/approvals', { data: { requestIds: [run.requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } } })).json();
-  expect(third.batchId).toBe(second.batchId);
+  // A browser can't use Dana's demo key: Dana is the script, the visitor is Marcus.
+  const asDana = await request.post('/api/approvals', { data: { requestIds: [run.requestId], organizerId: 'org_dana', signer: { kind: 'demo_key' } } });
+  expect(asDana.status()).toBe(403);
+  // Concurrent taps all succeed with one batch.
+  const taps = await Promise.all([1, 2, 3, 4, 5].map(() => request.post('/api/approvals', { data: { requestIds: [run.requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } } })));
+  expect(taps.map((t) => t.status())).toEqual([200, 200, 200, 200, 200]);
+  const bodies = await Promise.all(taps.map((t) => t.json()));
+  expect(new Set(bodies.map((b) => b.batchId)).size).toBe(1);
+  expect(bodies[0]).toMatchObject({ count: 2, executed: true });
+  expect(bodies[0].senderBatchId).toMatch(/^nl_[0-9a-f]{24}$/);
+});
+
+test('judges are isolated: another visitor cannot see, approve or reset my run', async ({ request, playwright, baseURL }) => {
+  const run = await (await request.post('/api/demo/play', { data: { scenario: 'walter', mode: 'manual', speed: 20 } })).json();
+  const other = await playwright.request.newContext({ baseURL });
+  try {
+    expect((await other.get(`/api/requests/${run.requestId}`)).status()).toBe(404);
+    expect((await other.get(`/api/intake/${run.requestId}/thread`)).status()).toBe(404);
+    const list = await (await other.get('/api/requests')).json();
+    expect(list.some((v: { request: { id: string } }) => v.request.id === run.requestId)).toBe(false);
+    const steal = await other.post('/api/approvals', { data: { requestIds: [run.requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } } });
+    expect(steal.status()).toBe(403);
+    // the seeded queue is visible to anyone, but redacted
+    const ana = await (await other.get('/api/requests/req_seed_q_ana')).json();
+    expect(ana).toMatchObject({ redacted: true, request: { originalText: '', englishText: '' } });
+    expect(ana.request.payoutDestination.value).toContain('•');
+    // nobody resets the shared demo from the internet
+    expect((await other.post('/api/demo/reset', { data: {} })).status()).toBe(401);
+  } finally {
+    await other.dispose();
+  }
+  expect((await request.get(`/api/requests/${run.requestId}`)).status()).toBe(200);
+});
+
+test('state-changing routes refuse cross-site and non-JSON requests', async ({ request }) => {
+  const crossSite = await request.post('/api/demo/play', { data: { scenario: 'lan' }, headers: { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' } });
+  expect(crossSite.status()).toBe(403);
+  const plain = await request.post('/api/intake/start', { data: '{"groupSlug":"eastside","channel":"web_text"}', headers: { 'content-type': 'text/plain' } });
+  expect(plain.status()).toBe(415);
+  const page = await request.get('/');
+  const h = page.headers();
+  expect(h['content-security-policy']).toContain("frame-ancestors 'none'");
+  expect(h['x-content-type-options']).toBe('nosniff');
+  expect(h['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  expect(h['permissions-policy']).toContain('microphone=(self)');
 });
 
 test('an approval without a signature is refused', async ({ request }) => {
@@ -108,6 +148,8 @@ test('an organizer enrolls a passkey on /organizer and signs an approval with it
   await page.goto('/organizer');
   await page.getByRole('button', { name: 'First time here? Set up a passkey' }).click();
   await page.getByRole('radio', { name: /Marcus/ }).check();
+  // A real organizer seat needs an invite code, demo or not.
+  await page.getByLabel('Invite code').fill(inviteCode('org_marcus'));
   await page.getByRole('button', { name: /Create passkey for Marcus/ }).click();
   await expect(page.getByText('Signed in as')).toBeVisible();
   // Ana has no approvals yet, so her card stays in the queue with Marcus's signature on it.

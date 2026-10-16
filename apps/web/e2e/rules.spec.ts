@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { inviteCode } from './helpers';
 
 /**
  * Rules editor happy path: an organizer edits the plain-English rules, the (fixture) compiler drafts
@@ -17,6 +18,7 @@ test('plain English → draft → two organizers sign → Policy v2 is active', 
   await page.goto('/organizer');
   await page.getByRole('button', { name: 'First time here? Set up a passkey' }).click();
   await page.getByRole('radio', { name: /Dana/ }).check();
+  await page.getByLabel('Invite code').fill(inviteCode('org_dana'));
   await page.getByRole('button', { name: /Create passkey for Dana/ }).click();
   await expect(page.getByText('Signed in as')).toBeVisible();
 

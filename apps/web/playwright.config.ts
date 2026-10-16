@@ -8,6 +8,8 @@ const DB_PORT = Number(process.env.E2E_DEV_DB_PORT ?? 4130);
 const DATABASE_URL = `postgres://postgres@127.0.0.1:${DB_PORT}/postgres`;
 // Per-run HMAC key shared by web and approver only (the fake PayPal and the database never see it).
 const APPROVER_SECRET = (process.env.NEIGHBORLINE_APPROVER_SECRET ??= randomBytes(32).toString('hex'));
+// Per-run session/invite key for the web server; e2e computes organizer invite codes from it.
+const SESSION_SECRET = (process.env.NEIGHBORLINE_SESSION_SECRET ??= randomBytes(32).toString('hex'));
 
 /**
  * E2E against a production build running the REAL engine in fake mode (no credentials), with the same
@@ -78,6 +80,9 @@ export default defineConfig({
             DEV_DB_CONTROL_URL: `http://127.0.0.1:${DB_PORT + 1}`,
             APPROVER_URL: `http://127.0.0.1:${APPROVER_PORT}`,
             NEIGHBORLINE_APPROVER_SECRET: APPROVER_SECRET,
+            NEIGHBORLINE_SESSION_SECRET: SESSION_SECRET,
+            // Every test shares one IP (localhost); the limiter itself is unit-tested.
+            RATE_LIMITS: 'off',
             // Own build directory, so an e2e build never clobbers a running `next dev`.
             NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? '.next-e2e',
           },
