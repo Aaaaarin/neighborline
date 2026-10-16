@@ -137,6 +137,7 @@ render.yaml runs `PAYPAL_MODE=sandbox`, `AI_MODE=live`, `DEMO_MODE=true`.
 - The Venmo `note` and email subject are English only. `notification_language` isn't set for vi, ht or ar, which may be PayPal's locale limit; worth one line in PAYPAL.md.
 - The organizer's free-text decline note reaches a non-English neighbor untranslated.
 - `/report` CLS was 0.157 on the first 1920 load (0.074 on the second); charts reflow.
+- `next build` with `NEXT_DIST_DIR=.next-xyz` (the e2e and parallel-agent path) rewrites the tracked `apps/web/next-env.d.ts` (the `.next-xyz/types` reference) and reformats `apps/web/tsconfig.json` (adds `.next-xyz/types/**` includes). That leaves a dirty tree and blocks `git pull --rebase`. I reverted these after my build. Fix: include `.next*/types/**/*.ts` in tsconfig once, and gitignore `next-env.d.ts` or accept Next's generated form.
 
 ## What held up (credit where due)
 
