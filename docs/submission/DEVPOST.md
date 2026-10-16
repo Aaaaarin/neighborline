@@ -62,11 +62,11 @@ the sponsor's PayPal Business account, never in a volunteer's personal account.
 
 **Two organizers (on their phones):**
 4. Each sees the request in English with the original attached. The card shows the **amount computed by code** from the group's written rules, the rule it came from (`Policy v1 · Utility outage · up to $150`), and the rail checks that passed.
-5. Each taps **Approve $150**. Two different people on two different phones are required, and one person tapping twice counts once.
+5. Each taps **Approve $150**, and their phone asks for Face ID, a fingerprint or the screen lock: the tap is a **passkey (WebAuthn) signature over the approval hash**, the exact requests, amounts, destinations and policy version. Two different organizers' keys are required; the approver is whoever owns the key, so one person tapping twice counts once.
 
 **PayPal:**
 6. One **PayPal Payouts** batch pays PayPal and Venmo recipients together. The `sender_batch_id` is derived from a hash of the two-person approval record, so a double tap or a retry returns the original batch instead of paying twice.
-7. A **signature-verified webhook** reports `SUCCESS`. The stopwatch on our demo stage stops, the neighbor's phone turns warm, and the callback goes out in their language from a vetted template, with the amount filled in by code.
+7. A **signature-verified webhook** reports `SUCCESS`. The stopwatch on our demo stage stops and splits into the time people spent deciding and the system time (a few seconds). The neighbor's phone turns warm, and a message goes to her thread in her language from a vetted template, with the amount filled in by code.
 
 **When things go wrong (this is where we spent our time):**
 - **Unclaimed money gets rescued.** Rosa's PayPal email has no account yet, so PayPal reports `UNCLAIMED`. Neighborline messages her **in Spanish** with exactly how to claim it within 30 days. She claims, and the item flips to `SUCCESS`. An organizer can also cancel an unclaimed item to return the money.
@@ -127,7 +127,7 @@ the real sandbox."]
 |---|---|---|
 | **Anthropic Claude** (`claude-sonnet-5-5`, Messages API) | Intake extraction, the single repair call, policy compiler, report narrative, out-of-catalog translation | One forced tool call with `strict: true` (constrained decoding to our JSON Schema), then **zod validation → one repair call that shows the model its own output and the exact issues → if still invalid or low-confidence, re-ask the neighbor in their language**. Every step leaves a trace the UI shows ("Schema repaired 1 field (payout.value) · 1 repair call") |
 | **OpenAI** `gpt-5.4-mini` (alternative LLM provider) | Same jobs | Structured Outputs (`json_schema`, strict), same validation pipeline. `LLM_PROVIDER` picks the provider and falls back to whichever key exists |
-| **OpenAI** `gpt-4o-transcribe` | Speech-to-text for voice notes | Language detection and transcript. Audio is meant to be deleted after transcription **[VERIFY: audio deletion is on the README roadmap, not done]** |
+| **OpenAI** `gpt-4o-transcribe` | Speech-to-text for voice notes | Language detection and transcript. Raw audio is deleted after transcription by default (`AUDIO_RETENTION=none`; `apps/web/lib/server/audio-retention.ts`) |
 | **OpenAI** `gpt-4o-mini-tts` | The read-back ("Nghe lại", listen again) and callback audio | Warm, slow delivery instructions. Browser speech is the fallback |
 | Deterministic grounding (code, not AI) | After every extraction | A payout handle or amount the neighbor did not say is dropped. Spoken handles are normalized ("lan dash nguyen 54" → `@lan-nguyen54`) |
 | Fixture providers | Tests and the zero-credential demo (`AI_MODE=fixture`) | Deterministic outputs for the demo scenarios. Labeled as fixture mode on `/trust` and `/report` |
@@ -146,12 +146,12 @@ the real sandbox."]
 - **Out-of-order and duplicate webhooks.** PayPal retries up to 25 times over 3 days, and a late `HELD` must never overwrite `SUCCESS`. We wrote one item state machine in `core`, and a drift test keeps the published PayPal package's copy identical.
 - **Spoken payout handles in Vietnamese and Spanish.** "lan dash nguyen 54" has to become `@lan-nguyen54`, and a handle the person never said must be dropped, not invented. The read-back is the neighbor's own check on what the AI understood.
 - **Lookalikes without false alarms.** Confusable maps (`rn`→`m`, `1`→`l`, Cyrillic homoglyphs) and edit distance catch `@eastside-mutuaiaid`. But "Lan" and "Nguyễn Thị Lan" must never be flagged as different people, and a polite "please approve my request" must not be treated as an injection. Both cases are tested.
-- **A private public report.** Every figure is traced to ledger rows. Cells describing fewer than 3 people are masked, and transaction ids are listed on only one dimension, so a masked row can't be recovered by subtracting other rows.
+- **A private public report.** Every figure is traced to ledger rows. Cells describing fewer than 5 people are masked (5, because on one street three neighbors can still be recognised), and transaction ids are listed on only one dimension, so a masked row can't be recovered by subtracting other rows.
 - **Coordinating parallel AI agents.** Four Claude Code agents built four packages at once. A single zod contract and written lane notes kept the interfaces honest.
 
 ## Accomplishments that we're proud of
 
-- **The full loop on one screen.** A Vietnamese voice note → read-back → rule-computed $150 → two approvals on two phones → one Payouts batch → verified `SUCCESS` webhook → a callback in Vietnamese, with a stopwatch that stops only when PayPal says `SUCCESS`.
+- **The full loop on one screen.** A Vietnamese voice note → read-back → rule-computed $150 → two passkey-signed approvals → one Payouts batch from a separate approval service → verified `SUCCESS` webhook → a message back in Vietnamese, with a stopwatch that stops only when PayPal says `SUCCESS` and shows system time separately from human decision time.
 - **The unclaimed rescue.** As far as we can find, no other entry follows a payout to its *recipient*, and the `UNCLAIMED` claim help is the part of the Payouts lifecycle most integrations ignore.
 - **`@neighborline/paypal` and `neighborline-payouts-mcp`**, a reusable, MIT-licensed Payouts layer for the PayPal Agent Toolkit ecosystem. Money moves only with a two-person approval token, and an unconfigured server refuses to pay anyone.
 - **Tests on every money path.** Per the README there are 502 unit tests (core 259, db 57, agents 93, paypal 79, fake-paypal 14) and 14 Playwright end-to-end and axe accessibility checks. **[VERIFY: run `pnpm test` and `pnpm --filter @neighborline/web test:e2e` and paste the real totals; a quick count of test cases on Oct 16 gave lower numbers while lanes were still landing.]** CI also runs a dependency audit and a gitleaks secret scan **[VERIFY: the CI workflow is green on main]**.
@@ -168,8 +168,7 @@ the real sandbox."]
 
 1. Finish wiring the web app to the real packages and run the real PayPal sandbox end to end, including the Venmo spike. **[VERIFY: move to "done" if it lands before submission.]**
 2. Phone-number and WhatsApp intake (Twilio voice with `<Record>`), and voice or SMS callbacks once US carrier registration clears.
-3. Organizer authentication with passkeys and device binding for approvals. Move the approval service into its own process that alone holds the Payouts credentials.
-4. A scheduled nightly reconcile against Transaction Search, plus audio deletion after transcription and PII redaction in logs.
+3. Done during the hackathon: organizer passkeys with every approval signed over the approval hash; a separate approval process that alone holds the Payouts credentials and re-verifies the signatures; audio deletion after transcription; PII redaction in logs; a nightly reconcile scheduled on Render. Next: revocation and recovery of lost passkeys, and invite flows run by the fiscal sponsor.
 5. Vetted message catalogs for more languages (French, Tagalog, Korean, Russian), checked by native speakers.
 6. A pilot with one fiscal sponsor and one neighborhood group, hosted on Render, with a one-click deploy so any group can run its own.
 
@@ -196,11 +195,14 @@ Hosted demo: https://{HOSTED_URL}
 1) The hero flow, about 30 seconds
    Open https://{HOSTED_URL}/demo?scenario=lan&autoplay=1
    Watch Mrs. Lan's Vietnamese voice note get read back, confirmed, approved by two organizers, and paid to Venmo.
-   The stopwatch stops when PayPal reports SUCCESS. Tap "Dịch EN" on her phone to toggle English.
+   The stopwatch stops when PayPal reports SUCCESS and shows "Neighbors deciding" and "System" time separately.
+   The organizers' taps are scripted and signed with labelled demo keys. Tap "Dịch EN" on her phone to toggle English.
 
 2) Be the second organizer
    Open https://{HOSTED_URL}/demo?scenario=lan&mode=manual (or flip "I'll approve as Marcus").
-   Press "Play scenario". Nothing is paid until YOU tap "Approve $150" on Marcus's phone.
+   Press "Play scenario". Nothing is paid until YOU tap "Approve $150" on Marcus's phone. If your device has Face ID,
+   Touch ID or Windows Hello, it creates a demo passkey for Marcus and signs the approval with it; otherwise the page
+   offers Marcus's server-held demo key and the card says "signed with demo key".
    (Repeat approvals are idempotent: the sender_batch_id is a hash of the approval record, so a retry returns the
    same batch. docs/DEMO.md has a one-line curl to try it.)
 
@@ -229,7 +231,7 @@ Sandbox notes
 - Donations: /donate uses PayPal JS SDK buttons in sandbox. Sandbox buyer login: {SANDBOX_BUYER_EMAIL} /
   {SANDBOX_BUYER_PASSWORD} [VERIFY: create a dedicated sandbox personal account; never reuse a real password].
   Without a client id configured, the page shows a clearly labeled simulated button.
-- SMS, WhatsApp and phone callbacks are not built yet. Messages appear in the neighbor's in-browser phone.
+- SMS, WhatsApp and phone callbacks are not built yet. Neighborline messages the neighbor back in her thread on the web line.
 - If the hosted demo is busy, press "Play again". Each run is independent. POST /api/demo/reset reseeds.
 
 Code to look at (5 minutes)

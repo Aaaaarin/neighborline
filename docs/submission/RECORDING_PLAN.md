@@ -81,8 +81,8 @@ import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 const BASE = process.env.BASE_URL ?? 'http://localhost:3100';
 const OUT = new URL('./takes/', import.meta.url).pathname; mkdirSync(OUT, { recursive: true });
 const TAKES = {
-  lan:     { url: '/demo?scenario=lan&speed=1',     done: /Stopped when PayPal reported SUCCESS/, tail: 16_000 },
-  rosa:    { url: '/demo?scenario=rosa&speed=2',    done: /Stopped when PayPal reported SUCCESS/, tail: 10_000 },
+  lan:     { url: '/demo?scenario=lan&speed=1',     done: /Stopped at the verified SUCCESS webhook/, tail: 16_000 },
+  rosa:    { url: '/demo?scenario=rosa&speed=2',    done: /Stopped at the verified SUCCESS webhook/, tail: 10_000 },
   blocked: { url: '/demo?scenario=blocked&speed=1', done: /blocked before any money moved/,        tail: 8_000 },
 };
 const HIDE = `::-webkit-scrollbar{display:none} *{caret-color:transparent!important} html{scrollbar-width:none}`;

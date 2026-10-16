@@ -36,8 +36,10 @@ closes on her phone after it turns warm.
    - Read the exact value off the take and put it in `{T}` everywhere below and in the thumbnail.
    - **Do not use `speed=3` for the hero shot.** It shows 0:09.6, which is compressed time, and a judge who reads the code will notice.
 3. **The organizers tap on cue.** Say so on screen (the 0:32 lower third). The veteran-judge research is explicit: judges forgive a labelled shortcut but never a hidden one.
-4. **"Calls you back."** Phone and SMS callbacks are not built (see the `/trust` "Not yet" row). The VO therefore says "texts her" and "a message in Vietnamese", never "calls". If a Twilio voice callback ships, change line V5.
-5. **"Approval service holds the credentials."** Today the approval path is code inside the web server. A separate approval process is roadmap item 3 in the README. Line V7 uses the wording that is true today. Use the alternate only if the separate service ships.
+4. **"Calls you back."** Phone, SMS and WhatsApp messages are not built (see the `/trust` "Not yet" row). Neighborline messages the neighbor back **in her thread on the web line**. The VO therefore says "messages her" and "a message in Vietnamese", never "calls" or "texts". If a Twilio channel ships, change line V5.
+5. **"Approval service holds the credentials."** Shipped: `apps/approver` is a separate process and the only one with Payouts credentials. V7 uses the separate-service wording.
+6. **Passkeys and demo keys.** Every approval is a WebAuthn signature over the approval hash. In the hero take Dana and Marcus are scripted, so their taps are signed with **labelled demo keys** ("Dana: signed with demo key" on the card). For the 5-second passkey beat, record a take with "I'll approve as Marcus" on, on a laptop with Touch ID: the prompt appears, the card then reads "Signed with passkey · Visitor’s Mac (as Marcus)". Never call a demo-key signature a passkey on screen.
+7. **One speed framing.** The stopwatch is split into "Neighbors deciding" and "System". Quote the system time as the speed claim ("the machine part took about five seconds") and say that the people take as long as they need. Never "90 seconds". Landing copy: "minutes, not days".
 
 ---
 
@@ -76,7 +78,7 @@ Coordinates are CSS pixels on a 1920×1080 viewport. `RECORDING_PLAN.md` gives t
   - At about 0:31 Lan's phone warms from frost to amber, and the `$150 · Venmo · Tiền đã đến` (the money has arrived) bubble lands.
   - The stopwatch freezes and turns amber at **0:{T}**.
 - **VO:** silence from 0:24 to 0:32. Let the moment play. No SFX.
-- **Caption (0:25.5):** `Approval 2 of 2 · two different people, two different phones`
+- **Caption (0:25.5):** `Approval 2 of 2 · two different organizers, two different keys`
 
 ### Shot 5. Push in on her phone (0:31–0:46)
 - **Visual:** back to composition A, with the warm phone and the frozen amber stopwatch. Slow 4 % push-in (zoompan) on the paid bubble.
@@ -105,7 +107,7 @@ Coordinates are CSS pixels on a 1920×1080 viewport. `RECORDING_PLAN.md` gives t
 - **Persistent caption (1:00–1:27):** `Shown at 2× speed`
 - **On-screen translations:** under the claim-help bubble, "We sent $100, but that email has no PayPal account yet. To get it: open paypal.com, sign up with that same email… The money waits for you for 30 days." Under the success bubble, "It worked — the $100 is in your PayPal now."
 - **Lower third (1:14–1:20):** `PayPal webhook: PAYMENT.PAYOUTS-ITEM.UNCLAIMED`, then `…SUCCEEDED`
-- **VO V5:** "Rosa asks for groceries, in Spanish. Same rules, two approvals." (1:01–1:05) … "Her email has no PayPal account yet, so PayPal reports the payout unclaimed." (1:13–1:18) … "Most systems stop there. Neighborline texts her, in Spanish, exactly how to claim it." (1:18–1:23) … "She does. Success." (1:23–1:25)
+- **VO V5:** "Rosa asks for groceries, in Spanish. Same rules, two approvals." (1:01–1:05) … "Her email has no PayPal account yet, so PayPal reports the payout unclaimed." (1:13–1:18) … "Most systems stop there. Neighborline messages her, in Spanish, exactly how to claim it." (1:18–1:23) … "She does. Success." (1:23–1:25)
 
 ### Shot 8. The impersonator, blocked in 5 seconds (1:27–1:36)
 - **Visual:** take `BLOCKED`, `/demo?scenario=blocked&speed=1`, Play at 1:27.5. Composition C: the unknown sender's phone plus Dana's phone, cropped to the left 870 px.
@@ -120,9 +122,8 @@ Coordinates are CSS pixels on a 1920×1080 viewport. `RECORDING_PLAN.md` gives t
 ### Shot 9. Under the hood: who can do what (1:36–1:46)
 - **Visual:** `/trust`, scrolled to "Know your agent: who can do what". A slow vertical pan over the diagram.
   - Left: the dashed "Cannot move money" box (intake, notify, report agents).
-  - Right: the chain down to the dark "Approval service — holds PayPal Payouts credentials" box. [VERIFY that this card's wording is still true at recording time; see decision 5.]
-- **VO V7, part 1 (1:36–1:46):** "Under the hood: the agents that talk to neighbors have no PayPal tools at all. Only the approval path can call Payouts, and only with a record signed by two different organizers."
-  - *Alternate if the separate approval service has shipped:* "…One approval service holds the Payouts credentials, and it pays only on a record signed by two different organizers."
+  - Right: the chain down to the dark "Approval service — a separate process, the only one with PayPal Payouts credentials" box (true since `apps/approver` shipped; see decision 5).
+- **VO V7, part 1 (1:36–1:46):** "Under the hood: the agents that talk to neighbors have no PayPal tools at all. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers."
 
 ### Shot 10. The rail, now full screen (1:46–1:52)
 - **Visual:** the full `/demo` stage at the end of the `LAN` take, the first full-frame view. Slow push toward the PayPal rail column:
@@ -142,7 +143,7 @@ Plain, on-brand code cards: Atkinson Hyperlegible Mono 22 px, ink on `--paper-ra
 | 3 | 2:02–2:07 | `packages/paypal/src/webhooks.ts` (~lines 60–80) | `path: '/v1/notifications/verify-webhook-signature'` and the raw-body splice |
 | 4 | 2:07–2:12 | Terminal card: `pnpm test` summary, then `packages/paypal/src/reconcile.ts` line 43 signature | The pass counts per package [VERIFY: paste the real numbers from the run] |
 
-- **VO V7, part 3 (1:52–2:12):** "The batch ID is a hash of that approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search."
+- **VO V7, part 3 (1:52–2:12):** "The batch ID is a hash of that approval, so a double tap can't pay twice. Webhooks are signature-verified, and a nightly job on Render reconciles every payout against PayPal Transaction Search."
 - **Lower third on card 4:** `Open source · MIT · @neighborline/paypal + an MCP server that adds Payouts tools to the PayPal Agent Toolkit`
 
 ### Shot 12. Where the money went (2:12–2:30)
@@ -170,9 +171,9 @@ Plain, on-brand code cards: Atkinson Hyperlegible Mono 22 px, ink on `--paper-ra
 | V2 | 0:12.5–0:24 | 30 | She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers, on two phones. |
 | V3 | 0:32–0:45 | 37 | Paid, into her Venmo, with a message in Vietnamese. Twenty-nine seconds from voice note to PayPal's SUCCESS webhook. Our organizers tapped on cue; with real volunteers, it's as long as two neighbors take to check their phones. |
 | V4 | 0:46–1:00 | 35 | This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most groups still run on spreadsheets and a volunteer's personal Venmo. |
-| V5 | 1:01–1:25 | 40 | Rosa asks for groceries, in Spanish. Same rules, two approvals. / Her email has no PayPal account yet, so PayPal reports the payout unclaimed. / Most systems stop there. Neighborline texts her, in Spanish, exactly how to claim it. / She does. Success. |
+| V5 | 1:01–1:25 | 40 | Rosa asks for groceries, in Spanish. Same rules, two approvals. / Her email has no PayPal account yet, so PayPal reports the payout unclaimed. / Most systems stop there. Neighborline messages her, in Spanish, exactly how to claim it. / She does. Success. |
 | V6 | 1:28–1:36 | 21 | Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves. |
-| V7 | 1:36–2:12 | 78 | Under the hood: the agents that talk to neighbors have no PayPal tools at all. Only the approval path can call Payouts, and only with a record signed by two different organizers. / Every AI output is checked against a schema, repaired once, or the neighbor is asked again, never guessed. / The batch ID is a hash of that approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. |
+| V7 | 1:36–2:12 | 78 | Under the hood: the agents that talk to neighbors have no PayPal tools at all. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers. / Every AI output is checked against a schema, repaired once, or the neighbor is asked again, never guessed. / The batch ID is a hash of that approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. |
 | V8 | 2:12–2:28 | 39 | Donors give with PayPal or Venmo. The public report is AI-written around numbers that code pulls from the ledger, and it never names a neighbor. Built for the roughly nine hundred volunteer groups that mobilize when the storm hits. |
 | V9 | 2:30–2:41 | 27 | Neighborline is open source. Try the hotline yourself, no login, at the link below. Because the morning after a storm, help should sound like your own language. |
 | | | **335** | Re-count after filling `{T}`. Budget is ≤ 380. |
