@@ -3,15 +3,15 @@
 [![CI](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml/badge.svg)](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6)
-![Unit tests](https://img.shields.io/badge/unit%20tests-502-2d6a4f)
+![Unit tests](https://img.shields.io/badge/unit%20tests-595-2d6a4f)
 
 **A hotline, not a dashboard.** A neighbor leaves a voice note in their own language. Two volunteer organizers
 approve it on their phones. PayPal or Venmo cash lands. Then the neighbor gets a message back in their language.
 
-![The /demo stage: Mrs. Lan's Vietnamese voice note, two organizer approvals, a PayPal Payouts batch, a verified webhook, and the stopwatch frozen at 0:09.6 when PayPal reported SUCCESS](apps/web/screenshots/demo-1920-lan-paid.png)
+![The /demo stage at real pace: Mrs. Lan's Vietnamese voice note, two signed approvals, one PayPal Payouts batch, a verified SUCCESS webhook; the stopwatch splits neighbors' decision time from system time.](apps/web/screenshots/demo-1920-lan-done.png)
 
-<sub>The `/demo` stage, sped up 3×. Left: the neighbor's phone. Middle: two organizers. Right: every PayPal event,
-with the stopwatch that stops when PayPal reports `SUCCESS`. The stage runs in fake/fixture mode: see
+<sub>The `/demo` stage at real pace. Left: the neighbor's phone. Middle: two organizers. Right: every PayPal event,
+with a stopwatch that stops when PayPal reports `SUCCESS` and splits the neighbors' decision time from system time. The stage runs in fake/fixture mode: see
 [Sandbox reality](#sandbox-reality).</sub>
 
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT licensed.
@@ -317,7 +317,7 @@ Not built yet, in rough priority order:
 1. Run the real PayPal sandbox spike (Payouts app + main app, webhooks on both).
 2. Organizer authentication (passkeys) and device binding for approvals.
 3. Give the approver its own container (Render private service, block ready in render.yaml) and its own Postgres role.
-4. Deploy the Render Workflows jobs (nightly reconcile, unclaimed follow-ups, report refresh): the tasks and the signed `/api/internal/*` endpoints exist; they run once the Blueprint is applied.
+4. Deploy the Render Workflows jobs (reconcile against Transaction Search, unclaimed follow-ups and report refresh, scheduled on Render): the tasks and the signed `/api/internal/*` endpoints exist; they run once the Blueprint is applied.
 5. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
 6. Rate limiting and bot protection on intake.
 7. Vetted catalog text for French, Tagalog, Korean and Russian (today they get a checked LLM translation or English).

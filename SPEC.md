@@ -1,7 +1,7 @@
 # Neighborline — Product & Engineering Spec (v1, Oct 16 2026)
 
 > A hotline, not a dashboard. A neighbor leaves a voice note in any language, two organizers approve,
-> PayPal or Venmo cash lands in ~90 seconds — then the agent calls them back in their language.
+> PayPal or Venmo cash lands in minutes, not days (a few seconds of system time) — then the line messages them back in their thread, in their language.
 
 Hackathon: PayPal AI Hackathon (Devpost). Deadline **Nov 12 2026, 12:00 PT**. Judged equally on
 Technological Implementation, Design, Potential Impact, Innovation, Presentation (<3 min video).
@@ -21,7 +21,7 @@ power out 2 days, needs a space heater and groceries. Agent reads back in Vietna
 the group's rules ($150 cap for "utility outage" category). Two organizer phones buzz → Approve, Approve.
 One Payouts batch (mixed PayPal + Venmo) → webhook SUCCESS → her phone: "Đã gửi $150 vào Venmo của bạn".
 On-screen timer from voice note to payout ID. Second beat: Spanish speaker's payout returns UNCLAIMED →
-agent calls/texts her in Spanish with claim help → SUCCESS. Third beat (5s): a lookalike organizer handle
+the line messages her back in her thread, in Spanish, with claim help → SUCCESS. Third beat (5s): a lookalike organizer handle
 "@eastside-mutualaid" vs "@eastside-mutuaiaid" is blocked by rail protection.
 
 **Rule: no dashboard in the first 60 seconds of the video.** The requester's phone is the main character.
@@ -41,7 +41,7 @@ agent calls/texts her in Spanish with claim help → SUCCESS. Third beat (5s): a
 4. **Protect the rail, not suspect the person:** lookalike organizer handles, same payout destination under
    different names, velocity caps, rule-cap violations, prompt-injection in request text.
 5. **Idempotent money:** `sender_batch_id` = hash(approval record); retries/double taps return the original
-   batch. All webhooks signature-verified. Nightly reconcile against Transaction Search.
+   batch. All webhooks signature-verified. Reconcile against Transaction Search, scheduled on Render (Render Workflows).
 6. **Privacy by default:** raw audio wiped right after transcription (`AUDIO_RETENTION=none`, or `24h` then deleted),
    only the transcript kept; emails, phone numbers and handles masked in logs and AI traces (`core.redactPII`);
    transparency report is aggregate-only; Venmo `social_feed_privacy: PRIVATE`.
