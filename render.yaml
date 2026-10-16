@@ -2,7 +2,9 @@
 #
 # Neighborline on Render: Blueprint (infrastructure as code). Step-by-step setup: docs/DEPLOY.md.
 #
-#   neighborline            web       Next.js app + API + PayPal webhooks (Starter, $7/mo, always on)
+#   neighborline            web       Next.js app + API + PayPal webhooks (Starter, $7/mo, always on), plus the
+#                                     approver (apps/approver) as a SEPARATE PROCESS in the same instance: the only
+#                                     process given PAYPAL_PAYOUTS_* (scripts/render-start.sh strips them from Next)
 #   neighborline-db         postgres  Render Postgres 0.1c-256mb ($6/mo; a free DB expires after 30 days)
 #   neighborline-workflows  workflow  Render Workflows tasks: reconcile, unclaimed follow-up, report refresh
 #   neighborline-scheduler  cron      Starts the due workflow runs every 15 min ($1/mo minimum)
@@ -62,6 +64,7 @@ services:
       paths:
         - apps/web/**
         - packages/**
+        - apps/approver/**
         - tools/fake-paypal/**
         - package.json
         - pnpm-lock.yaml
@@ -109,9 +112,13 @@ services:
         sync: false
       - key: PAYPAL_WEBHOOK_ID
         sync: false
+      # Payouts-only PayPal REST app. scripts/render-start.sh hands these to the approver process on stdin
+      # and removes them from the Next.js environment. Required when PAYPAL_MODE=sandbox (docs/DEPLOY.md §4).
       - key: PAYPAL_PAYOUTS_CLIENT_ID
         sync: false
       - key: PAYPAL_PAYOUTS_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_PAYOUTS_WEBHOOK_ID
         sync: false
       - key: NEXT_PUBLIC_PAYPAL_CLIENT_ID
         sync: false
@@ -167,3 +174,34 @@ services:
         value: "10"
       - key: REPORT_REFRESH_EVERY_N_PAYOUTS
         value: "5"
+
+  # ── Optional: the approver as its own Render private service (stronger isolation, +$7/mo) ──────────────
+  # Private services have no free instance type, so the default above runs the approver as a separate
+  # process inside the web instance (separate environment, loopback only). To give it its own container,
+  # uncomment this block, move PAYPAL_PAYOUTS_* here (remove them from `neighborline`), set
+  # APPROVER_URL=http://<this service's hostport> and one shared NEIGHBORLINE_APPROVER_SECRET (env group)
+  # on both, and set SKIP_EMBEDDED_APPROVER=true on `neighborline`. See docs/DEPLOY.md "Approver process".
+  #
+  # - type: pserv
+  #   name: neighborline-approver
+  #   runtime: node
+  #   region: oregon
+  #   plan: 0.5c-512mb
+  #   buildCommand: corepack pnpm install --frozen-lockfile
+  #   startCommand: cd apps/approver && APPROVER_HOST=0.0.0.0 APPROVER_PORT=$PORT node_modules/.bin/tsx src/main.ts
+  #   envVars:
+  #     - key: NODE_VERSION
+  #       value: "22"
+  #     - key: PAYPAL_MODE
+  #       value: sandbox
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: neighborline-db
+  #         property: connectionString
+  #     - key: PAYPAL_PAYOUTS_CLIENT_ID
+  #       sync: false
+  #     - key: PAYPAL_PAYOUTS_CLIENT_SECRET
+  #       sync: false
+  #     - key: PAYPAL_PAYOUTS_WEBHOOK_ID
+  #       sync: false
+  #     - fromGroup: neighborline-approver-link
