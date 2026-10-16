@@ -5,3 +5,5 @@ export { createApproverHandler, startApproverServer, healthFrom, type ApproverSe
 export { recheckPolicy, committedTodayCents } from './recheck.js';
 export { checkAssertions } from './assertions.js';
 export { jsonLogger, silentLogger, type Logger } from './log.js';
+export { PayPalPayoutsRail, ManualRail, RailUnavailable, accountLevelReason, ACCOUNT_LEVEL_ERRORS, MANUAL_METHODS, type PayoutRail, type RailKind, type RailBatch, type RailResult, type ManualAttestation, type ManualMethod } from './rails.js';
+export { manualFallbackOn } from './manual.js';

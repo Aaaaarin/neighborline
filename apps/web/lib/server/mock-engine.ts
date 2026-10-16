@@ -6,6 +6,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { HelpRequest, Lang, PayoutBatch, PayoutItem, PayoutItemStatus, RequestStatus, StageEvent } from '@neighborline/core';
 import type {
+  ManualPayoutResult,
+  RailSettingsView,
   ApprovalChallenge,
   CompilePolicyOutcome,
   PolicyEditorView,
@@ -673,6 +675,20 @@ export class MockEngine implements Services {
 
   async getLedger(): Promise<LedgerView> {
     return buildLedger(this);
+  }
+
+  /* ---------------- payout rails (real engine only) ---------------- */
+
+  async railSettings(): Promise<RailSettingsView> {
+    return { primary: 'paypal_payouts', manualFallback: false };
+  }
+
+  async setManualFallback(): Promise<RailSettingsView> {
+    throw new HttpError(501, 'Payout rail settings need the real engine (unset ENGINE=mock).');
+  }
+
+  async recordManualPayout(): Promise<ManualPayoutResult> {
+    throw new HttpError(501, 'Manual payouts need the real engine and the approver (unset ENGINE=mock).');
   }
 
   /* ---------------- donors ---------------- */

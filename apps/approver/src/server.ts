@@ -12,6 +12,7 @@ import {
   CancelUnclaimedRequest,
   ExecuteRequest,
   NonceCache,
+  RecordManualRequest,
   VerifyWebhookRequest,
   verifyApproverRequest,
   type ApproverError,
@@ -53,7 +54,8 @@ function send(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(body));
 }
 
-const err = (res: ServerResponse, status: number, code: ApproverError['code'], error: string) => send(res, status, { error, code } satisfies ApproverError);
+const err = (res: ServerResponse, status: number, code: ApproverError['code'], error: string, extra: Pick<ApproverError, 'batchId' | 'railReason'> = {}) =>
+  send(res, status, { error, code, ...extra } satisfies ApproverError);
 
 function parse<T>(raw: string, schema: ZodType<T, ZodTypeDef, unknown>): T {
   let json: unknown;
@@ -100,10 +102,12 @@ export function createApproverHandler(opts: ApproverServerOptions) {
       if (m) return send(res, 200, await approver.poll(decodeURIComponent(m[1]!)));
       m = /^\/v1\/cancel-unclaimed\/([^/]+)$/.exec(path);
       if (m) return send(res, 200, await approver.cancelUnclaimed(decodeURIComponent(m[1]!), parse(raw, CancelUnclaimedRequest)));
+      m = /^\/v1\/record-manual\/([^/]+)$/.exec(path);
+      if (m) return send(res, 200, await approver.recordManual(decodeURIComponent(m[1]!), parse(raw, RecordManualRequest)));
       return err(res, 404, 'not_found', 'no such route');
     } catch (e) {
       if (e instanceof BodyTooLarge) return err(res, 413, 'bad_request', 'body too large');
-      if (e instanceof ApproverFailure) return err(res, e.status, e.code, e.message);
+      if (e instanceof ApproverFailure) return err(res, e.status, e.code, e.message, e.extra);
       opts.log('error', 'internal_error', { path, error: e instanceof Error ? e.message : String(e) });
       return err(res, 500, 'internal', 'approver internal error; nothing was sent');
     }

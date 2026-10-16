@@ -41,9 +41,42 @@ export interface PolicyCategoryView {
   perHouseholdPer30dCents: number;
 }
 
+/**
+ * How payouts reach neighbors (apps/approver/src/rails.ts): PayPal Payouts, and the group's fallback
+ * setting "if PayPal is unavailable or the account is restricted, switch to manual recording".
+ */
+export interface RailSettingsView {
+  primary: 'paypal_payouts';
+  manualFallback: boolean;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+/** A hand-over an organizer recorded on the manual rail (cash, check, other). No money moved through us. */
+export interface ManualRecordView {
+  method: 'cash' | 'check' | 'other';
+  reference: string;
+  recordedBy: string;
+  recordedAt: string;
+}
+
+/** POST /api/payouts/:batchId/manual: what the approver recorded. `movedMoney` is always false. */
+export interface ManualPayoutResult {
+  batchId: string;
+  reference: string;
+  method: 'cash' | 'check' | 'other';
+  recordedBy: string;
+  recordedAt: string;
+  totalCents: number;
+  itemCount: number;
+  recordedNow: boolean;
+  movedMoney: false;
+}
+
 export interface GroupView {
   /** Open alerts for organizers (see OrganizerAlert), newest first. Empty/absent = nothing to show. */
   alerts?: OrganizerAlert[];
+  rail: RailSettingsView;
   id: string;
   slug: string;
   name: string;
@@ -296,13 +329,15 @@ export interface ReportView {
   byCategory: Array<{ key: string; label: string; payouts: number; paidCents: number }>;
   approvalParity: Array<{ key: string; label: string; n: number; medianMinutesToApproval: number; approvalRate: number }>;
   kAnonymity: { k: number; note: string };
-  lines: Array<{ date: string; categoryLabel: string; amountCents: number; transactionId: string; status: PayoutItemStatus }>;
+  /** `rail: 'manual'`: recorded by hand (no PayPal transaction id). */
+  lines: Array<{ date: string; categoryLabel: string; amountCents: number; transactionId: string; status: PayoutItemStatus; rail?: 'manual' }>;
 }
 
 /* ---------- ledger ---------- */
 
 /** 'seeded' = demo history created by the seed script; it never went through this PayPal environment. */
-export type ReconcileState = 'matched' | 'pending' | 'mismatch' | 'seeded';
+/** manual: recorded by hand on the manual rail; there is no PayPal transaction to reconcile against. */
+export type ReconcileState = 'matched' | 'pending' | 'mismatch' | 'seeded' | 'manual';
 
 export interface LedgerRow {
   itemId: string;
@@ -321,6 +356,9 @@ export interface LedgerRow {
   reconcile: ReconcileState;
   /** Why the last reconcile did not match (status drift such as "we have SUCCESS, PayPal says reversed", amount, missing). */
   reconcileDetail?: string;
+  /** refused: PayPal refused the batch at the account level (FAILED_RAIL), nothing sent. manual: recorded by hand. */
+  rail?: 'refused' | 'manual';
+  manual?: ManualRecordView;
 }
 
 /**
@@ -336,10 +374,12 @@ export interface FundTotals {
   landedCents: number;
   landedPayouts: number;
   households: number;
-  /** PENDING + ONHOLD */
+  /** PENDING + ONHOLD at PayPal */
   sendingCents: number;
   unclaimedCents: number;
-  /** donationsIn − landed − sending − unclaimed */
+  /** Approved but not sent: PayPal refused the batch (FAILED_RAIL / FAILED). Still owed to the neighbor. */
+  notSentCents: number;
+  /** donationsIn − landed − sending − unclaimed − notSent */
   leftInFundCents: number;
 }
 
@@ -357,8 +397,14 @@ export interface LedgerView {
 /** Something a human organizer should look at, raised by a background job (Render Workflows). */
 export interface OrganizerAlert {
   id: string;
-  /** unclaimed_day25: PayPal auto-returns an unclaimed payout on day 30. reconcile_mismatch: ledger ≠ PayPal. */
-  kind: 'unclaimed_day25' | 'reconcile_mismatch';
+  /**
+   * unclaimed_day25: PayPal auto-returns an unclaimed payout on day 30. reconcile_mismatch: ledger ≠ PayPal.
+   * rail_unavailable: PayPal refused a payout at the account level; nothing was sent (raised by this server).
+   */
+  kind: 'unclaimed_day25' | 'reconcile_mismatch' | 'rail_unavailable';
+  /** rail_unavailable: the refused batch, and what has happened to it since. */
+  batchId?: string;
+  resolved?: { how: 'manual' | 'paypal'; manual?: ManualRecordView };
   /** One English line (PII-redacted). */
   summary: string;
   /** Payout item ids (match LedgerRow.itemId). */

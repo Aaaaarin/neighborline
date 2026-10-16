@@ -17,7 +17,7 @@ export default async function OrganizerPage() {
   const session = viewer.organizer;
   return (
     <PageShell footer={false}>
-      <OrganizerQueue organizers={group.organizers} initial={viewsFor(viewer, requests)} session={session} roster={roster} policyVersion={group.policy.version} alerts={group.alerts} />
+      <OrganizerQueue organizers={group.organizers} initial={viewsFor(viewer, requests)} session={session} roster={roster} policyVersion={group.policy.version} alerts={group.alerts} rail={group.rail} />
     </PageShell>
   );
 }

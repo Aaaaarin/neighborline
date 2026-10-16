@@ -61,6 +61,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
           ['Landed with neighbors', money(view.fund.landedCents)],
           ['Sending now', money(view.fund.sendingCents)],
           ['Unclaimed', money(view.fund.unclaimedCents)],
+          ...(view.fund.notSentCents ? [['Not sent (PayPal refused)', money(view.fund.notSentCents)]] : []),
           ['Left in the fund', money(view.fund.leftInFundCents)],
         ].map(([k, v]) => (
           <div key={k}>
@@ -150,16 +151,30 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
                   <span
                     className={cx(
                       'inline-flex rounded-full px-2.5 py-0.5 text-[0.8rem] font-medium',
-                      r.status === 'SUCCESS' ? 'bg-lamp-wash text-ink' : r.status === 'UNCLAIMED' || r.status === 'PENDING' ? 'border border-rule-strong text-ink' : 'bg-signal-wash text-signal',
+                      r.rail === 'refused'
+                        ? 'bg-signal-wash text-signal'
+                        : r.rail === 'manual'
+                          ? 'border border-dashed border-ink text-ink'
+                          : r.status === 'SUCCESS'
+                            ? 'bg-lamp-wash text-ink'
+                            : r.status === 'UNCLAIMED' || r.status === 'PENDING'
+                              ? 'border border-rule-strong text-ink'
+                              : 'bg-signal-wash text-signal',
                     )}
                   >
-                    {STATUS_TEXT[r.status] ?? r.status}
+                    {r.rail === 'manual' ? `By hand · ${r.manual?.method ?? 'other'}` : r.rail === 'refused' ? 'Not sent' : (STATUS_TEXT[r.status] ?? r.status)}
                   </span>
+                  {r.rail === 'refused' && <span className="mt-0.5 block max-w-[22ch] text-[0.78rem] leading-snug text-ink-2">PayPal refused the batch (sponsor account)</span>}
                 </td>
                 <td className="px-4 py-3 text-[0.8rem] leading-snug text-ink-2">
                   <span className="block">
                     batch <span className="id-text text-ink" title={r.senderBatchId}>{shortId(r.senderBatchId, 9, 4)}</span>
                   </span>
+                  {r.manual && (
+                    <span className="block">
+                      ref <span className="id-text text-ink">{r.manual.reference}</span>
+                    </span>
+                  )}
                   {r.transactionId && (
                     <span className="block">
                       tx <span className="id-text text-ink" title={r.transactionId}>{shortId(r.transactionId, 6, 4)}</span>
@@ -175,6 +190,10 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
                     <span className="text-signal">
                       Mismatch
                       {r.reconcileDetail && <span className="mt-0.5 block max-w-[28ch] text-[0.8rem] leading-snug text-ink-2">{r.reconcileDetail}</span>}
+                    </span>
+                  ) : r.reconcile === 'manual' ? (
+                    <span className="text-ink-3" title="Recorded by hand on the manual rail with a receipt note; there is no PayPal transaction to match.">
+                      Not a PayPal payment
                     </span>
                   ) : r.reconcile === 'seeded' ? (
                     <span className="text-ink-3" title="Demo history from the seed script; it never went through this PayPal environment, so there is nothing to reconcile.">

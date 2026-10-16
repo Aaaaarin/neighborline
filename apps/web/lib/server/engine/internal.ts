@@ -41,7 +41,7 @@ import { buildReportView } from './report';
 type AuditRow = typeof auditLog.$inferSelect;
 
 /** Append an audit row unless one with the same action + key exists (serialized by the audit table lock). */
-async function appendOnce(db: Db, action: string, key: string, row: { actor: string; entityType: string; entityId: string; data: Record<string, unknown> }): Promise<{ created: boolean; row: AuditRow }> {
+export async function appendOnce(db: Db, action: string, key: string, row: { actor: string; entityType: string; entityId: string; data: Record<string, unknown> }): Promise<{ created: boolean; row: AuditRow }> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`LOCK TABLE ${auditLog} IN SHARE ROW EXCLUSIVE MODE`);
     const [existing] = await tx

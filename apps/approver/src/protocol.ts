@@ -32,7 +32,16 @@ export const APPROVER_ROUTES = {
   poll: (batchId: string) => `/v1/poll/${encodeURIComponent(batchId)}`,
   cancelUnclaimed: (itemId: string) => `/v1/cancel-unclaimed/${encodeURIComponent(itemId)}`,
   verifyWebhook: '/v1/verify-webhook',
+  /** Manual rail: record an organizer-attested cash/check hand-over for a FAILED_RAIL batch (moves no money). */
+  recordManual: (batchId: string) => `/v1/record-manual/${encodeURIComponent(batchId)}`,
 } as const;
+
+/**
+ * The group setting "if PayPal is unavailable or the account is restricted, switch to manual recording"
+ * lives in the append-only audit log: the newest row with this action wins (data: { manualFallback }).
+ * Written by the web app (a signed-in organizer), read by the approver before it records anything.
+ */
+export const RAIL_FALLBACK_ACTION = 'group.rail_fallback';
 
 /* ---------------- signing ---------------- */
 
@@ -175,6 +184,8 @@ export const ExecuteRequest = z
 export type ExecuteRequest = z.infer<typeof ExecuteRequest>;
 
 export interface ExecuteResponse {
+  /** How the batch went out: PayPal Payouts, or recorded by hand on the manual rail (no money moved by us). */
+  rail?: 'paypal_payouts' | 'manual';
   approvalId: string;
   hash: string;
   batchId: string;
@@ -203,6 +214,36 @@ export interface PollResponse {
   items: Array<{ payoutItemId: string; senderItemId?: string; status: string; transactionId?: string }>;
 }
 
+/**
+ * Manual rail. `organizerId` is the signed-in organizer the web app vouches for (the approver checks they
+ * belong to the group); the money authority is still the approval's two re-verified passkey signatures.
+ */
+export const RecordManualRequest = z
+  .object({
+    organizerId: z.string().min(1),
+    method: z.enum(['cash', 'check', 'other']),
+    receiptNote: z.string().trim().min(8).max(500),
+  })
+  .strict();
+export type RecordManualRequest = z.infer<typeof RecordManualRequest>;
+export interface RecordManualResponse {
+  batchId: string;
+  approvalId: string;
+  status: 'MANUAL';
+  rail: 'manual';
+  /** e.g. MANUAL-3F9A…: write it on the receipt. Never a PayPal id. */
+  reference: string;
+  method: 'cash' | 'check' | 'other';
+  recordedBy: string;
+  recordedAt: string;
+  totalCents: number;
+  itemCount: number;
+  /** true only for the call that recorded it (a repeat returns the same record). */
+  recordedNow: boolean;
+  /** Always false: the manual rail records, it never moves money. */
+  movedMoney: false;
+}
+
 export const VerifyWebhookRequest = z.object({ headers: z.record(z.string()), rawBody: z.string().max(1_000_000) }).strict();
 export type VerifyWebhookRequest = z.infer<typeof VerifyWebhookRequest>;
 export interface VerifyWebhookResponse {
@@ -224,6 +265,9 @@ export interface ApproverHealth {
 /** Error body for every non-2xx response. `code` is stable; `message` is safe to show an organizer. */
 export interface ApproverError {
   error: string;
+  /** rail_unavailable: the batch that PayPal refused (now FAILED_RAIL), and PayPal's reason. */
+  batchId?: string;
+  railReason?: string;
   code:
     | 'unauthorized'
     | 'replayed'
@@ -241,5 +285,9 @@ export interface ApproverError {
     | 'paypal_error'
     /** PayPal may or may not have accepted the batch (timeout / network / 5xx). Batch is UNKNOWN; re-execute resolves it. */
     | 'paypal_unknown'
+    /** PayPal refused at the account level (restricted, locked, not authorized). Batch is FAILED_RAIL; nothing was sent. */
+    | 'rail_unavailable'
+    /** The manual rail refused: not a FAILED_RAIL batch, the group's fallback is off, or the attestation is invalid. */
+    | 'manual_not_allowed'
     | 'internal';
 }

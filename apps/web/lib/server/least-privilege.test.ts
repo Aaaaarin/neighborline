@@ -122,10 +122,17 @@ describe('least privilege: only the approver process can pay', () => {
     expect(builders).toEqual(['apps/approver/src/main.ts']);
   });
 
-  it('the approver checks the record itself before it pays (hash, organizers, signatures, policy)', () => {
-    const src = readFileSync(join(REPO, 'apps/approver/src/approver.ts'), 'utf8');
-    for (const step of ['approvalPayload', 'distinctApprovers', 'checkAssertions', 'contentFromRequests', 'recheckPolicy', 'createBatch']) expect(src).toContain(step);
-    expect(src.indexOf('recheckPolicy(')).toBeLessThan(src.indexOf('payouts.createBatch('));
+  it('the approver checks the record itself before it pays (hash, organizers, signatures, policy), on every rail', () => {
+    const read = (f: string) => readFileSync(join(REPO, 'apps/approver/src', f), 'utf8');
+    const [approver, verify, rails, manual] = ['approver.ts', 'verify.ts', 'rails.ts', 'manual.ts'].map(read) as [string, string, string, string];
+    for (const step of ['approvalPayload', 'verifyApprovalRecord', 'createBatch']) expect(approver).toContain(step);
+    for (const step of ['distinctApprovers', 'checkAssertions', 'contentFromRequests', 'recheckPolicy']) expect(verify).toContain(step);
+    // PayPal rail and manual rail both re-verify before they act.
+    expect(approver.indexOf('verifyApprovalRecord(')).toBeLessThan(approver.indexOf('this.rail.send('));
+    expect(manual.indexOf('verifyApprovalRecord(')).toBeLessThan(manual.indexOf('rail.send('));
+    // Only the PayPal rail calls Payouts; the manual rail has no client and no network.
+    expect(rails).toContain('this.payouts.createBatch(');
+    expect(rails.slice(rails.indexOf('export class ManualRail'))).not.toMatch(/payouts|fetch\(|PayPalClient/i);
   });
 
   it('the intake path never reaches the approval client (transitively, at runtime)', () => {

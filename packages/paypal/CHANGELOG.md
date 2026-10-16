@@ -7,6 +7,11 @@
   against the local item status) and `stuckPending`
   (`PENDING`/`ONHOLD` with no transaction id after `stuckAfterMs`, default 24 h).
 
+### Payouts
+- `BATCH_STATUSES` adds two local states (mirroring `@neighborline/core`): `FAILED_RAIL` (PayPal refused the create
+  call at the account level, e.g. `SENDER_RESTRICTED`, `SENDER_LOCKED`, `AUTHORIZATION_ERROR`; nothing was sent) and
+  `MANUAL` (the caller recorded the payout as made outside PayPal). `mapBatchStatus` never returns either.
+
 ### Errors
 - `isAmbiguousPayPalError(err)`: true for timeouts, network errors, 5xx, 408, 429 and a `DuplicateBatchError`
   without a link, where PayPal may have accepted (or certainly accepted) a write.

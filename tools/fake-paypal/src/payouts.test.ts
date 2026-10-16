@@ -85,6 +85,15 @@ describe('payouts', () => {
     expect(batch.body.batch_header.batch_status).toBe('DENIED');
   });
 
+  it('a named fault answers with that PayPal error (e.g. a restricted sender), once', async () => {
+    const f = await fetch(`${fake.url}/__fake/faults`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pathPrefix: '/v1/payments/payouts', status: 422, count: 1, name: 'SENDER_RESTRICTED' }) });
+    expect(f.status).toBe(200);
+    const res = await api('POST', '/v1/payments/payouts', { sender_batch_header: { sender_batch_id: 'nl_fault' }, items: [item('a@example.com')] });
+    expect(res.status).toBe(422);
+    expect(res.body.name).toBe('SENDER_RESTRICTED');
+    expect((await api('POST', '/v1/payments/payouts', { sender_batch_header: { sender_batch_id: 'nl_fault2' }, items: [item('a@example.com')] })).status).toBe(201);
+  });
+
   it('applies deterministic outcomes and emits signed item + batch webhooks in order', async () => {
     const created = await api('POST', '/v1/payments/payouts', {
       sender_batch_header: { sender_batch_id: 'nl_mix' },

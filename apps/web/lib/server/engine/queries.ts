@@ -81,6 +81,30 @@ export async function listAlerts(db: Db, limit = 20): Promise<OrganizerAlert[]> 
     summary: String(r.data.summary ?? ''),
     itemIds: Array.isArray(r.data.itemIds) ? (r.data.itemIds as string[]) : [],
     ...(typeof r.data.deadline === 'string' ? { deadline: r.data.deadline } : {}),
+    ...(typeof r.data.batchId === 'string' ? { batchId: r.data.batchId } : {}),
     createdAt: r.at.toISOString(),
   }));
+}
+
+/**
+ * Requests whose payout item is still PENDING in a batch PayPal never accepted (FAILED_RAIL: refused at
+ * the account level; FAILED: rejected). That money was approved but not sent: not "sending now".
+ */
+export async function notSentRequestIds(db: Db): Promise<Set<string>> {
+  const rows = await db
+    .select({ requestId: payoutItems.requestId })
+    .from(payoutItems)
+    .innerJoin(payoutBatches, eq(payoutBatches.id, payoutItems.batchId))
+    .where(and(eq(payoutItems.status, 'PENDING'), inArray(payoutBatches.status, ['FAILED_RAIL', 'FAILED'])));
+  return new Set(rows.map((r) => r.requestId));
+}
+
+/** Requests paid by hand on the manual rail (their item sits in a MANUAL batch): no PayPal transaction. */
+export async function manualRequestIds(db: Db): Promise<Set<string>> {
+  const rows = await db
+    .select({ requestId: payoutItems.requestId })
+    .from(payoutItems)
+    .innerJoin(payoutBatches, eq(payoutBatches.id, payoutItems.batchId))
+    .where(eq(payoutBatches.status, 'MANUAL'));
+  return new Set(rows.map((r) => r.requestId));
 }

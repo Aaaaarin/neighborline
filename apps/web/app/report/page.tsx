@@ -178,7 +178,9 @@ function PayoutTable({ lines, link }: { lines: Awaited<ReturnType<ReturnType<typ
               <td className="py-2.5 pr-4 text-ink">{l.categoryLabel}</td>
               <td className="py-2.5 text-right tabular text-ink">{money(l.amountCents)}</td>
               <td className="py-2.5 pl-6">
-                {l.status === 'SUCCESS' && l.transactionId && !link ? (
+                {l.rail === 'manual' ? (
+                  <span className="text-[0.88rem] text-ink-2">Recorded by hand · PayPal was unavailable</span>
+                ) : l.status === 'SUCCESS' && l.transactionId && !link ? (
                   <span className="id-text text-ink-2" title={l.transactionId}>
                     {shortId(l.transactionId, 6, 4)}
                   </span>

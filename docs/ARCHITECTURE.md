@@ -32,7 +32,7 @@ flowchart LR
 | Process | Holds | Can | Cannot |
 |---|---|---|---|
 | `apps/web` | Main PayPal app keys (Orders, Subscriptions, webhooks, Transaction Search), model keys, `DATABASE_URL`, the approver HMAC key | Run intake and the AI agents, record approvals and passkey signatures, settle webhooks, serve every page | Construct a Payouts client, create a payout batch (one exception: seeding fictional demo history, which never calls PayPal), read `PAYPAL_PAYOUTS_*` (all three fail the build: [`least-privilege.test.ts`](../apps/web/lib/server/least-privilege.test.ts)) |
-| `apps/approver` | Payouts app keys, `DATABASE_URL`, the approver HMAC key | Execute an approval record, poll a batch, cancel an unclaimed item, verify a Payouts-app webhook | Trust anything in the request beyond "look at approval X" (see below) |
+| `apps/approver` | Payouts app keys, `DATABASE_URL`, the approver HMAC key | Execute an approval record, poll a batch, cancel an unclaimed item, verify a Payouts-app webhook, record a manual hand-over for a batch PayPal refused (moves no money) | Trust anything in the request beyond "look at approval X" (see below) |
 | `tools/dev-db` (local only) | An in-memory PGlite | Serve it over the Postgres wire protocol on loopback so web and approver share one database in `pnpm dev` and e2e | Start in production (it refuses) |
 
 **What the approver checks before it pays** ([`apps/approver/src/approver.ts`](../apps/approver/src/approver.ts)):
@@ -56,6 +56,21 @@ flowchart LR
    `UNKNOWN` by a timeout (see [PAYPAL.md](PAYPAL.md#when-the-create-call-fails-definite-vs-ambiguous)). Refusals,
    ambiguous outcomes and executions are appended to the hash-chained audit log (`approver.execute_refused`,
    `approver.paypal_unknown`, `approver.executed`).
+
+**Payout rails** ([`rails.ts`](../apps/approver/src/rails.ts)). The batch goes out on a `PayoutRail`:
+
+| Rail | Moves money | Used when | Authority |
+|---|---|---|---|
+| `paypal_payouts` (primary) | Yes, PayPal Payouts from the sponsor's account | Always first | Steps 1–6 above |
+| `manual` (fallback) | **No.** It records an organizer's attestation (cash, check, other + receipt note) | Only for a batch PayPal refused at the account level (`FAILED_RAIL`), only when the group turned on "if PayPal is unavailable or the account is restricted, switch to manual recording" | Steps 2–5 re-run on the stored approval ([`verify.ts`](../apps/approver/src/verify.ts)), the recorder must be a signed-in organizer of the group, a receipt note is required ([`manual.ts`](../apps/approver/src/manual.ts)) |
+
+An account-level refusal (`SENDER_RESTRICTED`, `SENDER_LOCKED`, `AUTHORIZATION_ERROR`, `REQUIRED_SCOPE_MISSING`,
+`CIP_NOT_VERIFIED`, `SENDER_EMAIL_UNCONFIRMED`, `NOT_AUTHORIZED`, any 401/403) marks the batch `FAILED_RAIL`: certainly
+nothing was sent, unlike an ambiguous error (`UNKNOWN`). The web app raises a `rail_unavailable` organizer alert
+([`engine/rail.ts`](../apps/web/lib/server/engine/rail.ts)). Organizers can retry once PayPal clears the account (the
+same `sender_batch_id`, after a compare-and-set FAILED_RAIL → CREATING) or record the hand-over (FAILED_RAIL → MANUAL,
+items SUCCESS with actor `manual-rail:<organizer>`, audit `approver.manual_recorded`); whichever claims the batch first
+wins. Reconcile skips manual items; the ledger and report label them "by hand".
 
 Requests are HMAC-signed with a per-deployment secret, timestamped (±120 s) and carry a nonce the approver accepts once
 ([`protocol.ts`](../apps/approver/src/protocol.ts)). In production the approver runs as a separate process in the web

@@ -8,7 +8,9 @@
  *                              organizer-attested hand-over), for requests filed in the window.
  *   - "Sending now":           items PayPal still holds (PENDING, ONHOLD).
  *   - "Unclaimed":             items waiting for the neighbor to claim them (UNCLAIMED).
- *   - "Left in the fund":      donations in − landed − sending − unclaimed (core.buildReport's balance).
+ *   - "Not sent":              approved, but PayPal refused the batch (FAILED_RAIL, FAILED); still owed.
+ *   - "Left in the fund":      donations in − landed − sending − unclaimed − not sent (core.buildReport's
+ *                              balance, which counts the not-sent items as in flight).
  * The public report masks groups smaller than k (core.buildReport); the organizer ledger shows the
  * same numbers unmasked. A test (test/consistency.test.ts) asserts the pages agree.
  */
@@ -16,6 +18,7 @@ import type { PayoutItemStatus, ReportInput } from '@neighborline/core';
 import { listForReport } from '@neighborline/db';
 import type { FundTotals } from '../../types';
 import type { BaseCtx } from './context';
+import { notSentRequestIds } from './queries';
 
 /** The whole seeded month (28 days) plus slack; a real group would pick its reporting period. */
 export const FUND_WINDOW_DAYS = 30;
@@ -43,8 +46,15 @@ export function fundWindow(now: Date = new Date()): FundWindow {
 
 const SENDING: ReadonlySet<PayoutItemStatus> = new Set<PayoutItemStatus>(['PENDING', 'ONHOLD']);
 
-/** Pure: the totals of rows already limited to one window (requests by created_at, donations by date). */
-export function fundTotals(input: Pick<ReportInput, 'requests' | 'items' | 'donations'>, window: Pick<FundWindow, 'from' | 'to' | 'label'>): FundTotals {
+/**
+ * Pure: the totals of rows already limited to one window (requests by created_at, donations by date).
+ * `notSent`: requests whose PENDING item sits in a batch PayPal refused (queries.notSentRequestIds).
+ */
+export function fundTotals(
+  input: Pick<ReportInput, 'requests' | 'items' | 'donations'>,
+  window: Pick<FundWindow, 'from' | 'to' | 'label'>,
+  notSent: ReadonlySet<string> = new Set(),
+): FundTotals {
   const reqById = new Map(input.requests.map((r) => [r.id, r]));
   const items = input.items.filter((i) => reqById.has(i.requestId));
   const sum = (pred: (s: PayoutItemStatus) => boolean) => items.filter((i) => pred(i.status)).reduce((t, i) => t + i.amountCents, 0);
@@ -53,7 +63,9 @@ export function fundTotals(input: Pick<ReportInput, 'requests' | 'items' | 'dona
   const donationsInCents = input.donations.reduce((t, d) => t + d.amountCents, 0);
   const donors = new Set(input.donations.map((d, idx) => d.donorKey ?? `anon:${idx}`)).size;
   const landedCents = sum((s) => s === 'SUCCESS');
-  const sendingCents = sum((s) => SENDING.has(s));
+  const refused = (i: (typeof items)[number]) => i.status === 'PENDING' && notSent.has(i.requestId);
+  const notSentCents = items.filter(refused).reduce((t, i) => t + i.amountCents, 0);
+  const sendingCents = sum((s) => SENDING.has(s)) - notSentCents;
   const unclaimedCents = sum((s) => s === 'UNCLAIMED');
   return {
     window: { from: window.from.toISOString(), to: window.to.toISOString(), label: window.label, days: FUND_WINDOW_DAYS },
@@ -65,13 +77,14 @@ export function fundTotals(input: Pick<ReportInput, 'requests' | 'items' | 'dona
     households,
     sendingCents,
     unclaimedCents,
-    leftInFundCents: donationsInCents - landedCents - sendingCents - unclaimedCents,
+    notSentCents,
+    leftInFundCents: donationsInCents - landedCents - sendingCents - unclaimedCents - notSentCents,
   };
 }
 
 /** The one query behind every total on every page. */
 export async function loadFund(ctx: Pick<BaseCtx, 'db' | 'gen'>, now: Date = new Date()): Promise<{ window: FundWindow; input: ReportInput; totals: FundTotals }> {
   const window = fundWindow(now);
-  const input = await listForReport(ctx.db, ctx.gen.group.id, window.period);
-  return { window, input, totals: fundTotals(input, window) };
+  const [input, notSent] = await Promise.all([listForReport(ctx.db, ctx.gen.group.id, window.period), notSentRequestIds(ctx.db)]);
+  return { window, input, totals: fundTotals(input, window, notSent) };
 }

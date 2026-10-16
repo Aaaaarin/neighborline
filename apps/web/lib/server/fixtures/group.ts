@@ -78,6 +78,7 @@ export function groupView(simulatedPaypal: boolean): GroupView {
     slug: 'eastside',
     name: 'Eastside Mutual Aid',
     payoutHandle: GROUP_HANDLE,
+    rail: { primary: 'paypal_payouts', manualFallback: false },
     fiscalSponsor: {
       name: 'Eastside Community Foundation', // same as packages/db seed.ts
       checks: [

@@ -5,10 +5,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, openStream } from '@/lib/api';
 import { LANGUAGE_NAMES, clockTime, cx, money, walletLabel } from '@/lib/format';
 import { approveWithPasskey, passkeyErrorMessage } from '@/lib/passkey-client';
-import type { DeclineReasonCode, Organizer, OrganizerAlert, OrganizerSession, PasskeyRoster, RequestView } from '@/lib/types';
+import type { DeclineReasonCode, Organizer, OrganizerAlert, OrganizerSession, PasskeyRoster, RailSettingsView, RequestView } from '@/lib/types';
 import Link from 'next/link';
 import { Alerts } from './Alerts';
 import { Devices } from './Devices';
+import { ManualRecord } from './ManualRecord';
+import { RailSettings } from './RailSettings';
 import { dirOf } from '@/lib/i18n';
 import { ApproveCard } from '../ApproveCard';
 import { SignInPanel, SignedInBar } from './OrganizerAuth';
@@ -29,7 +31,8 @@ export function OrganizerQueue({
   session: initialSession,
   roster,
   policyVersion,
-  alerts,
+  alerts: initialAlerts,
+  rail: initialRail,
 }: {
   organizers: Organizer[];
   initial: RequestView[];
@@ -37,7 +40,10 @@ export function OrganizerQueue({
   roster: PasskeyRoster;
   policyVersion: number;
   alerts?: OrganizerAlert[];
+  rail: RailSettingsView;
 }) {
+  const [alerts, setAlerts] = useState(initialAlerts);
+  const [rail, setRail] = useState(initialRail);
   const [session, setSession] = useState<OrganizerSession | null>(initialSession);
   const [demoAs, setDemoAs] = useState<string | null>(null);
   const meId = session?.organizerId ?? demoAs;
@@ -53,6 +59,10 @@ export function OrganizerQueue({
   const load = useCallback(async () => {
     try {
       setItems(await api.requests());
+      void api
+        .group()
+        .then((g) => setAlerts(g.alerts))
+        .catch(() => {});
       setLoadError(null);
     } catch {
       setLoadError('Couldn’t refresh the queue. Showing what we had; retrying when something changes.');
@@ -115,7 +125,11 @@ export function OrganizerQueue({
         </Link>
         .
       </p>
-      <Alerts alerts={alerts} className="mt-6" />
+      <Alerts
+        alerts={alerts}
+        className="mt-6"
+        manualSlot={(a) => <ManualRecord alert={a} enabled={rail.manualFallback} signedIn={!!session} onRecorded={() => void load()} />}
+      />
       {session ? (
         <SignedInBar session={session} onSignedOut={() => setSession(null)} />
       ) : (
@@ -184,6 +198,7 @@ export function OrganizerQueue({
       )}
 
       <Devices roster={roster} session={session} onSignedOut={() => setSession(null)} />
+      <RailSettings initial={rail} signedIn={!!session} onChange={setRail} />
 
       <p className="sr-only" role="status" aria-live="polite">
         {notice}

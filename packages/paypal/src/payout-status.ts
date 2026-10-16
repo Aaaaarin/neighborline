@@ -9,8 +9,15 @@
  */
 export const PAYOUT_ITEM_STATUSES = ['PENDING', 'SUCCESS', 'UNCLAIMED', 'RETURNED', 'ONHOLD', 'BLOCKED', 'FAILED', 'REFUNDED', 'REVERSED', 'CANCELED'] as const;
 export type PayoutItemStatus = (typeof PAYOUT_ITEM_STATUSES)[number];
-/** UNKNOWN is local only: the create call failed ambiguously (timeout, network, 5xx) and is resolved by re-sending the same sender_batch_id. */
-export const BATCH_STATUSES = ['CREATING', 'UNKNOWN', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED'] as const;
+/**
+ * UNKNOWN is local only: the create call failed ambiguously (timeout, network, 5xx) and is resolved by
+ * re-sending the same sender_batch_id.
+ *
+ * Batch states. PayPal's own are PENDING, PROCESSING, SUCCESS, DENIED, CANCELED (and FAILED via the
+ * create call); CREATING, UNKNOWN, FAILED_RAIL (refused at the account level, nothing sent) and MANUAL
+ * (recorded as paid outside PayPal) are local states a caller keeps. mapBatchStatus never returns them.
+ */
+export const BATCH_STATUSES = ['CREATING', 'UNKNOWN', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED', 'FAILED_RAIL', 'MANUAL'] as const;
 export type BatchStatus = (typeof BATCH_STATUSES)[number];
 
 /** PayPal `transaction_status` (wire) values. */

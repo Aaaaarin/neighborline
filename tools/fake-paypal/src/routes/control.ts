@@ -9,7 +9,8 @@
  *   POST /__fake/orders/:id/approve     {payerEmail?, fundingSource?: 'paypal'|'venmo'}
  *   POST /__fake/subscriptions/:id/activate
  *   POST /__fake/tokens/expire          expire every issued access token (test token refresh)
- *   POST /__fake/faults                 {pathPrefix, status, count, retryAfterSec?} fail the next N matching calls
+ *   POST /__fake/faults                 {pathPrefix, status, count, retryAfterSec?, name?} fail the next N matching calls
+ *                                       (name: the PayPal error name, e.g. SENDER_RESTRICTED for a restricted sender)
  */
 import type { FakeConfig } from '../config.js';
 import type { FakeContext } from '../context.js';
@@ -25,6 +26,8 @@ export interface Fault {
   status: number;
   remaining: number;
   retryAfterSec?: number;
+  /** PayPal error name for the body (default by status: RATE_LIMIT_REACHED, SERVICE_UNAVAILABLE, INTERNAL_SERVER_ERROR). */
+  name?: string;
 }
 
 const SETTABLE: Array<TransactionStatus | 'CANCELED'> = ['SUCCESS', 'FAILED', 'PENDING', 'UNCLAIMED', 'RETURNED', 'ONHOLD', 'BLOCKED', 'REFUNDED', 'REVERSED', 'CANCELED'];
@@ -78,9 +81,10 @@ export function registerControlRoutes(router: Router, ctx: FakeContext, hooks: {
       return { status: 200, body: { expired: ctx.state.tokens.size } };
     }, open)
     .add('POST', '/__fake/faults', (c) => {
-      const f = c.json<{ pathPrefix?: string; status?: number; count?: number; retryAfterSec?: number }>();
+      const f = c.json<{ pathPrefix?: string; status?: number; count?: number; retryAfterSec?: number; name?: string }>();
       const fault: Fault = { pathPrefix: f.pathPrefix ?? '/', status: f.status ?? 500, remaining: f.count ?? 1 };
       if (f.retryAfterSec !== undefined) fault.retryAfterSec = f.retryAfterSec;
+      if (typeof f.name === 'string' && /^[A-Z_]{3,64}$/.test(f.name)) fault.name = f.name;
       hooks.faults.push(fault);
       return { status: 200, body: fault };
     }, open);

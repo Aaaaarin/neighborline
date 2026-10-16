@@ -231,8 +231,14 @@ export const PayoutBatch = z.object({
   approvalId: z.string(),
   senderBatchId: z.string(), // core senderBatchIdFor: 'nl_' + 24 hex of H(domain ‖ approval id ‖ approval hash)
   paypalBatchId: z.string().optional(),
-  /** UNKNOWN: the create call timed out or failed ambiguously; resolved by re-sending the same sender_batch_id. */
-  status: z.enum(['CREATING', 'UNKNOWN', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED']),
+  /**
+   * Local states besides PayPal's: UNKNOWN: the create call timed out or failed ambiguously; resolved by
+   * re-sending the same sender_batch_id. FAILED_RAIL: PayPal refused at the account level (restricted,
+   * locked, not authorized); nothing was sent; organizers may retry or, if the group allows it, record a
+   * manual hand-over. MANUAL: organizers recorded a cash/check hand-over for it (the manual rail moves
+   * no money; apps/approver/src/rails.ts).
+   */
+  status: z.enum(['CREATING', 'UNKNOWN', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED', 'FAILED_RAIL', 'MANUAL']),
   createdAt: z.string(),
 });
 export type PayoutBatch = z.infer<typeof PayoutBatch>;

@@ -15,6 +15,7 @@ import { QUEUE_PEOPLE } from './demo-extras';
 import { categoryLabelFor, type BaseCtx as Ctx } from './context';
 import { PAYOUT_PURPOSE } from './constants';
 import { listAlerts } from './queries';
+import { railSettings, withRailResolution } from './rail';
 import { DECLINE_REASON_EN, questionFor } from './conversation';
 import { splitUntranslated } from '../../untranslated';
 
@@ -29,9 +30,10 @@ export async function groupView(ctx: Ctx): Promise<GroupView> {
   const orgs = await listOrganizers(ctx.db, g.id);
   const simulated = ctx.cfg.paypalMode !== 'sandbox';
   const venmo = g.officialHandles.find((h) => h.wallet === 'VENMO') ?? g.officialHandles[0];
-  const alerts = await listAlerts(ctx.db);
+  const alerts = await withRailResolution(ctx.db, await listAlerts(ctx.db));
   return {
     ...(alerts.length ? { alerts } : {}),
+    rail: await railSettings(ctx.db, g.id),
     id: g.id,
     slug: g.slug,
     name: g.name,

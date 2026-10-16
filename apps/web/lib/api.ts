@@ -21,7 +21,9 @@ import type {
   GroupView,
   IntakeResult,
   LedgerView,
+  ManualPayoutResult,
   PlayMode,
+  RailSettingsView,
   ReconcileResult,
   ReportView,
   RequestView,
@@ -102,6 +104,12 @@ export const api = {
   previewDecline: (id: string, input: { reasonCode: DeclineReasonCode; note?: string }) =>
     post<{ text: string; textEn: string; lang: Lang }>(`/api/requests/${id}/decline/preview`, input),
   cancelItem: (batchId: string, itemId: string) => post<{ status: string }>(`/api/payouts/${batchId}/cancel-item`, { itemId }),
+
+  /* payout rails: PayPal Payouts, and the manual fallback that records a hand-over (moves no money) */
+  railSettings: () => call<RailSettingsView>('/api/rail'),
+  setManualFallback: (enabled: boolean) => post<RailSettingsView>('/api/rail', { manualFallback: enabled }),
+  recordManual: (batchId: string, input: { method: 'cash' | 'check' | 'other'; receiptNote: string }) =>
+    post<ManualPayoutResult>(`/api/payouts/${encodeURIComponent(batchId)}/manual`, input),
 
   /* money */
   ledger: () => call<LedgerView>('/api/ledger'),

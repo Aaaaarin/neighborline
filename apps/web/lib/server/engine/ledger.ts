@@ -6,6 +6,7 @@ import type { LedgerRow, LedgerView, ReconcileResult, ReconcileState } from '../
 import { categoryLabelFor, type BaseCtx } from './context';
 import { allBatches, listAlerts } from './queries';
 import { loadFund } from './totals';
+import { manualRecords, withRailResolution } from './rail';
 
 /** Seeded history never went through this PayPal environment, so it is labelled, not "reconciled". */
 const isSeeded = (paypalItemId: string | undefined) => !!paypalItemId?.startsWith('SEEDITEM');
@@ -86,7 +87,8 @@ export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<
     getActivePolicy(ctx.db, g.id),
     loadFund(ctx),
   ]);
-  const alerts = await listAlerts(ctx.db);
+  const alerts = await withRailResolution(ctx.db, await listAlerts(ctx.db));
+  const manual = await manualRecords(ctx.db);
   // Rows for exactly the requests the totals (and /report, /donate) count: same query, same window.
   const inWindow = new Set(fund.input.requests.map((r) => r.id));
   const reqById = new Map(reqs.filter((r) => inWindow.has(r.id)).map((r) => [r.id, r]));
@@ -110,8 +112,10 @@ export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<
       amountCents: it.amountCents,
       status: it.status,
       ...(it.transactionId ? { transactionId: it.transactionId } : {}),
-      reconcile: isSeeded(it.paypalItemId) ? 'seeded' : (cache.states.get(it.id) ?? 'pending'),
-      ...(cache.details?.get(it.id) && !isSeeded(it.paypalItemId) ? { reconcileDetail: cache.details.get(it.id) } : {}),
+      reconcile: isSeeded(it.paypalItemId) ? 'seeded' : b?.status === 'MANUAL' ? 'manual' : (cache.states.get(it.id) ?? 'pending'),
+      ...(cache.details?.get(it.id) && !isSeeded(it.paypalItemId) && b?.status !== 'MANUAL' ? { reconcileDetail: cache.details.get(it.id) } : {}),
+      ...(b?.status === 'MANUAL' ? { rail: 'manual' as const, ...(manual.get(b.id) ? { manual: manual.get(b.id)! } : {}) } : {}),
+      ...((b?.status === 'FAILED_RAIL' || b?.status === 'FAILED') && it.status === 'PENDING' ? { rail: 'refused' as const } : {}),
     });
   }
   rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -128,7 +132,9 @@ export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<
 
 /** Compare every item PayPal should know about with Transaction Search (last 30 days). */
 export async function runReconcile(ctx: BaseCtx, cache: ReconcileCache): Promise<ReconcileResult> {
-  const items = (await listItems(ctx.db)).filter((i) => !isSeeded(i.paypalItemId));
+  // Seeded history never reached this PayPal, and items recorded by hand or refused have no PayPal transaction.
+  const offPayPal = new Set((await allBatches(ctx.db)).filter((b) => ['MANUAL', 'FAILED_RAIL', 'FAILED'].includes(b.status)).map((b) => b.id));
+  const items = (await listItems(ctx.db)).filter((i) => !isSeeded(i.paypalItemId) && !offPayPal.has(i.batchId));
   const end = new Date();
   const start = new Date(end.getTime() - 30 * 86_400_000);
   const txns = await ctx.paypal.reporting.searchTransactions({ startDate: start, endDate: end });

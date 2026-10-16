@@ -304,6 +304,7 @@ export function buildLedger(e: MockEngine): LedgerView {
       households: new Set(rows.filter((r) => r.status === 'SUCCESS').map((r) => r.requestRef)).size,
       sendingCents: sum('PENDING'),
       unclaimedCents: sum('UNCLAIMED'),
+      notSentCents: 0,
       leftInFundCents: e.donations.cents - paidCents - sum('PENDING') - sum('UNCLAIMED'),
     },
     summary: {

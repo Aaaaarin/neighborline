@@ -97,7 +97,7 @@ export async function createFakePayPal(options: FakePayPalOptions = {}): Promise
       const fault = faults.find((f) => f.remaining > 0 && url.pathname.startsWith(f.pathPrefix));
       if (fault) {
         fault.remaining--;
-        const name = fault.status === 429 ? 'RATE_LIMIT_REACHED' : fault.status === 503 ? 'SERVICE_UNAVAILABLE' : 'INTERNAL_SERVER_ERROR';
+        const name = fault.name ?? (fault.status === 429 ? 'RATE_LIMIT_REACHED' : fault.status === 503 ? 'SERVICE_UNAVAILABLE' : 'INTERNAL_SERVER_ERROR');
         return { status: fault.status, body: errorBody(name), ...(fault.retryAfterSec !== undefined ? { headers: { 'retry-after': String(fault.retryAfterSec) } } : {}) };
       }
       applyGenericMock(c);

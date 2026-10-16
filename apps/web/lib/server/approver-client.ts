@@ -16,6 +16,8 @@ import {
   type ExecuteRequest,
   type ExecuteResponse,
   type PollResponse,
+  type RecordManualRequest,
+  type RecordManualResponse,
   type VerifyWebhookResponse,
 } from '@neighborline/approver/protocol';
 import { HttpError } from './errors';
@@ -28,6 +30,8 @@ export class ApproverRefusal extends HttpError {
     status: number,
     readonly code: ApproverError['code'] | 'unreachable' | 'not_configured',
     message: string,
+    /** rail_unavailable: the batch PayPal refused (now FAILED_RAIL) and PayPal's reason. */
+    readonly extra: Pick<ApproverError, 'batchId' | 'railReason'> = {},
   ) {
     super(status, message);
   }
@@ -68,8 +72,11 @@ export class ApproverClient {
     const msg = json.error ?? `approval service error ${res.status}`;
     // Our own signature was refused: a deployment problem, not something the organizer did.
     if (res.status === 401 || code === 'replayed') throw new ApproverRefusal(502, code, `The approval service rejected this server's signature (${msg}). Nothing was sent.`);
-    if (res.status >= 500) throw new ApproverRefusal(502, code, msg);
-    throw new ApproverRefusal(res.status === 404 ? 404 : res.status === 403 ? 403 : 409, code, msg);
+    const extra = { ...(json.batchId ? { batchId: json.batchId } : {}), ...(json.railReason ? { railReason: json.railReason } : {}) };
+    // PayPal refused at the account level: nothing was sent (a 503 to the organizer, not a server fault).
+    if (code === 'rail_unavailable') throw new ApproverRefusal(503, code, msg, extra);
+    if (res.status >= 500) throw new ApproverRefusal(502, code, msg, extra);
+    throw new ApproverRefusal(res.status === 404 ? 404 : res.status === 403 ? 403 : res.status === 400 ? 400 : 409, code, msg, extra);
   }
 
   execute(req: ExecuteRequest): Promise<ExecuteResponse> {
@@ -82,6 +89,11 @@ export class ApproverClient {
 
   cancelUnclaimed(itemId: string, body: { organizerId?: string; batchId?: string }): Promise<CancelUnclaimedResponse> {
     return this.post(APPROVER_ROUTES.cancelUnclaimed(itemId), body);
+  }
+
+  /** Manual rail: record an organizer-attested hand-over for a batch PayPal refused (moves no money). */
+  recordManual(batchId: string, body: RecordManualRequest): Promise<RecordManualResponse> {
+    return this.post(APPROVER_ROUTES.recordManual(batchId), body);
   }
 
   async verifyPayoutsWebhook(input: { headers: Record<string, string>; rawBody: string }): Promise<boolean> {

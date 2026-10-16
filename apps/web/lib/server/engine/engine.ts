@@ -21,6 +21,7 @@ import type {
   StreamMessage,
 } from '../../types';
 import { ApprovalService, type SentBatch } from '../approval-service';
+import { ApproverRefusal } from '../approver-client';
 import { sweepAudio } from '../audio-retention';
 import { HttpError } from '../errors';
 import { errorText, log } from '../log';
@@ -41,6 +42,7 @@ import * as policyEditor from './policy-editor';
 import { splitFrom } from '../../../components/stage/stage-steps';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
 import { MetaStore } from './meta';
+import * as rail from './rail';
 import { buildTrust } from './report';
 import { playScenario } from './scenario-runner';
 import { applyItemStatus } from './settle';
@@ -194,10 +196,15 @@ export class Engine implements Services {
     // approver identity comes from the credential, never from the request body.
     const signed = await passkeys.signTap(ctx, { ...input, origin: input.origin ?? null });
     const deviceLabel = signed.assertion.deviceLabel;
-    const { sent, ...result } = await ctx.approvals.approve(
-      { db: ctx.db, group: ctx.gen.group, bus: ctx.bus },
-      { requestIds: input.requestIds, organizerId: signed.organizerId, deviceLabel },
-    );
+    let outcome;
+    try {
+      outcome = await ctx.approvals.approve({ db: ctx.db, group: ctx.gen.group, bus: ctx.bus }, { requestIds: input.requestIds, organizerId: signed.organizerId, deviceLabel });
+    } catch (err) {
+      // PayPal refused at the account level (nothing sent): alert the organizers, offer the manual path.
+      if (err instanceof ApproverRefusal && err.code === 'rail_unavailable') await rail.alertRailUnavailable(this.baseOf(await this.state), err).catch(() => {});
+      throw err;
+    }
+    const { sent, ...result } = outcome;
     if (sent) await this.afterSent(ctx, sent);
     return { ...result, signer: { organizerId: signed.organizerId, kind: signed.assertion.kind, deviceLabel } };
   }
@@ -377,6 +384,33 @@ export class Engine implements Services {
   async getLedger() {
     const st = await this.state;
     return buildLedger(st.ctx, st.reconcile);
+  }
+
+  /* ---------------- payout rails ---------------- */
+
+  async railSettings() {
+    const ctx = await this.base();
+    return rail.railSettings(ctx.db, ctx.gen.group.id);
+  }
+
+  /** Only a signed-in organizer (live passkey session) changes how payouts fall back. */
+  private async organizerOf(ctx: BaseCtx, session: OrganizerSession | null, what: string): Promise<string> {
+    const live = await passkeys.liveSession(ctx, session);
+    if (!live) throw new HttpError(401, `Sign in with your passkey to ${what}.`);
+    return live.organizerId;
+  }
+
+  async setManualFallback(input: { enabled: boolean; session: OrganizerSession | null }) {
+    const ctx = await this.base();
+    const organizerId = await this.organizerOf(ctx, input.session, 'change the payout fallback');
+    return rail.setManualFallback(ctx, { enabled: input.enabled, organizerId });
+  }
+
+  async recordManualPayout(input: { batchId: string; method: 'cash' | 'check' | 'other'; receiptNote: string; session: OrganizerSession | null }) {
+    const ctx = await this.ctx();
+    const organizerId = await this.organizerOf(this.baseOf(await this.state), input.session, 'record a manual payout');
+    const r = await rail.recordManual(ctx, { batchId: input.batchId, organizerId, method: input.method, receiptNote: input.receiptNote });
+    return { batchId: r.batchId, reference: r.reference, method: r.method, recordedBy: r.recordedBy, recordedAt: r.recordedAt, totalCents: r.totalCents, itemCount: r.itemCount, recordedNow: r.recordedNow, movedMoney: false as const };
   }
 
   /* ---------------- donors ---------------- */

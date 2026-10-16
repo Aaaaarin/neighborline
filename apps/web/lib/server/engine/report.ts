@@ -10,7 +10,7 @@ import { getActivePolicy } from '@neighborline/db';
 import { LANGUAGE_NAMES } from '../../format';
 import type { GroupView, NarrativeSegment, ReportView, TrustView } from '../../types';
 import { categoryLabelFor, type BaseCtx } from './context';
-import { confirmedAtByRequest, signaturesByRequest } from './queries';
+import { confirmedAtByRequest, manualRequestIds, signaturesByRequest } from './queries';
 import { loadFund } from './totals';
 
 const num = (m: Masked<number> | null | undefined): number => (typeof m === 'number' ? m : 0);
@@ -49,7 +49,7 @@ export function segment(text: string, trace: WriteReportResult['numberTrace']): 
 export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
   const g = ctx.gen.group;
   // The same query and window as /ledger and /donate (totals.ts), so every page agrees.
-  const [fund, policy, sigs, confirmed] = await Promise.all([loadFund(ctx), getActivePolicy(ctx.db, g.id), signaturesByRequest(ctx.db, g.id), confirmedAtByRequest(ctx.db)]);
+  const [fund, policy, sigs, confirmed, byHand] = await Promise.all([loadFund(ctx), getActivePolicy(ctx.db, g.id), signaturesByRequest(ctx.db, g.id), confirmedAtByRequest(ctx.db), manualRequestIds(ctx.db)]);
   const { input, window } = fund;
   const { from, to, period } = window;
   const report: TransparencyReport = buildReport({ ...input, period });
@@ -120,7 +120,14 @@ export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
     .filter((i) => i.status === 'SUCCESS' || i.status === 'UNCLAIMED')
     .map((i) => {
       const r = reqById.get(i.requestId)!;
-      return { date: i.successAt ?? r.createdAt, categoryLabel: categoryLabelFor(policy, r.ruleKey), amountCents: i.amountCents, transactionId: i.transactionId ?? '', status: i.status };
+      return {
+        date: i.successAt ?? r.createdAt,
+        categoryLabel: categoryLabelFor(policy, r.ruleKey),
+        amountCents: i.amountCents,
+        transactionId: i.transactionId ?? '',
+        status: i.status,
+        ...(byHand.has(i.requestId) && i.status === 'SUCCESS' ? { rail: 'manual' as const } : {}),
+      };
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 
@@ -232,6 +239,12 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
         detail: ctx.env.RENDER
           ? `Scheduled on Render (Render Workflows): every night each payout item is compared with ${sandbox ? 'PayPal sandbox Transaction Search' : 'the fake PayPal’s Transaction Search'}. The ledger also has a Reconcile now button.`
           : 'Scheduled on Render when deployed there (render.yaml, Render Workflows). This server isn’t on Render, so use Reconcile now on the ledger.',
+      },
+      {
+        label: 'If the sponsor’s PayPal is restricted',
+        status: 'simulated',
+        detail:
+          'A payout PayPal refuses because of the sponsor’s account (SENDER_RESTRICTED, SENDER_LOCKED, AUTHORIZATION_ERROR and similar) is marked FAILED_RAIL: nothing was sent and organizers get an alert. If the group turned on manual recording, an organizer can record a cash or check hand-over instead; it needs the same two passkey approvals plus a receipt note, and it records only, never moving money. Tested against the local fake with PayPal’s documented error names; not yet seen from the real sandbox.',
       },
       {
         label: 'Messages back by SMS, WhatsApp or phone call',

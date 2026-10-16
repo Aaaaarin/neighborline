@@ -26,7 +26,9 @@ import type {
   GroupView,
   IntakeResult,
   LedgerView,
+  ManualPayoutResult,
   PlayMode,
+  RailSettingsView,
   ReconcileResult,
   ReportView,
   RequestView,
@@ -134,6 +136,13 @@ export interface Services {
     lang: Lang;
   }>;
   cancelPayoutItem(input: { batchId: string; itemId: string }): Promise<{ status: string }>;
+
+  /* payout rails (apps/approver/src/rails.ts): PayPal Payouts, and a manual fallback that records only */
+  railSettings(): Promise<RailSettingsView>;
+  /** "If PayPal is unavailable or the account is restricted, switch to manual recording". Needs a live organizer session. */
+  setManualFallback(input: { enabled: boolean; session: OrganizerSession | null }): Promise<RailSettingsView>;
+  /** Record a cash/check hand-over for a batch PayPal refused at the account level. Needs a live organizer session. */
+  recordManualPayout(input: { batchId: string; method: 'cash' | 'check' | 'other'; receiptNote: string; session: OrganizerSession | null }): Promise<ManualPayoutResult>;
 
   /* PayPal */
   handlePaypalWebhook(input: { headers: Record<string, string>; rawBody: string }): Promise<{ verified: boolean; eventType: string }>;
