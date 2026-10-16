@@ -13,7 +13,7 @@ describe('heuristicExtract (offline fixture extractor)', () => {
     ['ko', '이틀째 정전이라 난방이 안 돼요. 우리 집은 세 명이에요.', 'utility_outage', 3],
     ['ru', 'У нас уже два дня нет света, нужен обогреватель. Нас трое.', 'utility_outage', 3],
     ['fr', "Nous n'avons plus de courant depuis la tempête. Nous sommes 5.", 'utility_outage', 5],
-    ['tl', 'Kailangan ko ng pagkain para sa pamilya. 4 na tao kami.', 'groceries', undefined],
+    ['tl', 'Kailangan ko ng pagkain para sa pamilya. 4 na tao kami.', 'groceries', 4],
   ])('%s: category and household from typed text', (lang, text, category, household) => {
     const x = heuristicExtract(text, KEYS);
     expect(x.lang).toBe(lang);
@@ -86,5 +86,36 @@ describe('heuristicExtract (offline fixture extractor)', () => {
     const r = await agent.fromText({ text: 'У нас уже два дня нет света, нужен обогреватель.\nМой Venmo @ivan-petrov7', categories: CATS });
     expect(r.status).toBe('awaiting_confirmation');
     expect(r.readBack.text).toContain('деньги придут на ваш Venmo: @ivan-petrov7.');
+  });
+});
+
+describe('EVAL finding 7 (offline extractor): need over who is mentioned, hunger, household', () => {
+  it.each([
+    ['The furnace died and the landlord is not answering.', 'utility_outage'],
+    ['Se dañó la calefacción y el casero no contesta.', 'utility_outage'],
+    ['房东不管，暖气停了。', 'utility_outage'],
+    ['The landlord says we are out on Monday if I cannot pay.', 'rent_gap'],
+    ['I am short on rent and the landlord is threatening eviction.', 'rent_gap'],
+    ['My kids are hungry and there is nothing to eat.', 'groceries'],
+    ['Mis hijos tienen hambre.', 'groceries'],
+    ['Mga anak ko ay gutom na.', 'groceries'],
+    ['Power went out and I need groceries for the kids, the food spoiled.', 'groceries'],
+  ])('%s → %s', (text, key) => {
+    expect(categoryFrom(text, new Set(KEYS))).toBe(key);
+  });
+
+  it.each([
+    ['I live alone.', 1], ['Vivo sola.', 1], ['Je vis seul.', 1], ['Mag-isa lang po ako.', 1], ['Живу одна.', 1], ['혼자 살아요.', 1], ['أعيش وحدي.', 1],
+    ['It is me and my wife.', 2], ['Just the two of us.', 2], ['Vivo con mi abuela.', 2], ['Mon mari et moi.', 2],
+    ['It is me and my 3 kids.', 4], ['Vivo con mis 2 hijas.', 3], ['Je vis avec mes deux enfants.', 3], ['Se mwen ak twa pitit mwen.', 4],
+    ['Dalawa lang po kami.', 2], ['Nous sommes quatre.', 4], ['Somos cinco.', 5],
+  ] as const)('%s → %s', (text, n) => {
+    expect(householdFrom(text)).toBe(n);
+  });
+
+  it('does not read ages, weeks or amounts as a household', () => {
+    expect(householdFrom('My mother is 81 and we are 2 weeks behind.')).toBeUndefined();
+    expect(householdFrom('I need $40 for 3 days of medicine.')).toBeUndefined();
+    expect(householdFrom('Mwen gen 70 an.')).toBeUndefined();
   });
 });

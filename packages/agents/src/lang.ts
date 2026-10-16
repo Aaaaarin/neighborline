@@ -39,10 +39,17 @@ const MARKERS: ReadonlyArray<readonly [string, RegExp]> = [
 
 export function detectLang(text: string, fallback = 'en'): string {
   const t = text.normalize('NFC');
-  if (/[가-힯]/.test(t)) return 'ko';
-  if (/[一-鿿]/.test(t)) return 'zh';
-  if (/[؀-ۿ]/.test(t)) return 'ar';
-  if (/[Ѐ-ӿ]/.test(t)) return 'ru';
+  // A script counts when it carries the text, not when one lookalike letter hides in a Latin handle
+  // ("Venmo @eastside-mutuaіd" with a Cyrillic і is English).
+  const letters = (t.match(/\p{L}/gu) ?? []).length || 1;
+  const carries = (re: RegExp): boolean => {
+    const n = (t.match(re) ?? []).length;
+    return n >= 3 || n / letters >= 0.3;
+  };
+  if (carries(/[가-힯]/g)) return 'ko';
+  if (carries(/[一-鿿]/g)) return 'zh';
+  if (carries(/[؀-ۿ]/g)) return 'ar';
+  if (carries(/[Ѐ-ӿ]/g)) return 'ru';
   // Vietnamese-only letters (ơ ư ă đ and stacked tone marks) are decisive.
   if (/[ơưăđƠƯĂĐạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/u.test(t)) return 'vi';
   let best = fallback;

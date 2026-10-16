@@ -10,6 +10,7 @@
  */
 import type { IntakeExtraction } from '@neighborline/core';
 import { detectLang, wordsRe } from '../lang.js';
+import { householdFromFolded } from './household.js';
 import { detectPayout, fold } from './spoken-handles.js';
 
 /** Arabic-Indic and full-width digits → ASCII, so "٣ أشخاص" and "３人" count. */
@@ -22,50 +23,78 @@ const matchable = (s: string): string => asciiDigits(fold(s)).normalize('NFC');
 /** wordsRe is global (stateful .test); these are reused, so drop the g flag. */
 const wordRe = (words: readonly string[]): RegExp => new RegExp(wordsRe(words).source, 'iu');
 
-type Rule = { words: readonly string[]; stems: readonly string[] };
+/**
+ * `need`: words that name the need itself (heat, rent, medicine). `context`: words that often come
+ * with it but name who or what is involved (the landlord). A request is scored by how many distinct
+ * need words (weight 2) and context words (weight 1) it uses, so "the heating broke and the landlord
+ * won't fix it" is a utility outage, not rent, while "the landlord gave me until the 5th" is rent.
+ */
+type Terms = { words: readonly string[]; stems: readonly string[] };
+type Rule = { need: Terms; context?: Terms };
 
 const CATEGORY_RULES: ReadonlyArray<readonly [string, Rule]> = [
   [
     'medicine_copay',
     {
-      words: [
-        'medicine', 'insulin', 'pharmacy', 'prescription', 'copay', 'co-pay', 'medicina', 'medicinas', 'medicamentos?', 'farmacia', 'receta', 'copago',
-        'thuoc', 'nha thuoc', 'medikaman', 'famasi', 'ensilin', 'kopeman', 'medicaments?', 'pharmacie', 'insuline', 'ordonnance', 'gamot', 'botika',
-        'лекарств\\p{L}*', 'аптек\\p{L}*', 'инсулин\\p{L}*', 'рецепт\\p{L}*',
-      ],
-      stems: ['药', '胰岛素', '약국', '약값', '약을', '약이', '인슐린', '처방', 'دواء', 'ادوية', 'صيدلية', 'انسولين'],
+      need: {
+        words: [
+          'medicine', 'meds', 'insulin', 'inhaler', 'pharmacy', 'prescription', 'copay', 'co-pay', 'pills', 'antibiotics?',
+          'medicina', 'medicinas', 'medicamentos?', 'farmacia', 'receta', 'copago', 'inhalador', 'insulina', 'antibioticos?',
+          'thuoc', 'nha thuoc', 'medikaman', 'famasi', 'ensilin', 'kopeman', 'medicaments?', 'pharmacie', 'insuline', 'ordonnance', 'inhalateur',
+          'gamot', 'botika', 'лекарств\\p{L}*', 'аптек\\p{L}*', 'инсулин\\p{L}*', 'рецепт\\p{L}*', 'ингалятор\\p{L}*',
+        ],
+        stems: ['药', '胰岛素', '吸入器', '약국', '약값', '약을', '약이', '인슐린', '처방', '흡입기', 'دواء', 'ادوية', 'صيدلية', 'انسولين', 'بخاخ'],
+      },
     },
   ],
   [
     'rent_gap',
     {
-      words: ['rent', 'landlord', 'eviction', 'renta', 'alquiler', 'desalojo', 'tien nha', 'thue nha', 'lwaye', 'loyer', 'proprietaire', 'expulsion', 'upa', 'renta', 'аренд\\p{L}*', 'квартплат\\p{L}*'],
-      stems: ['房租', '租金', '房东', '월세', '집세', '임대료', '집주인', 'ايجار'],
+      need: {
+        words: ['rent', 'eviction', 'evicted', 'renta', 'alquiler', 'desalojo', 'tien nha', 'thue nha', 'lwaye', 'loyer', 'expulsion', 'upa', 'аренд\\p{L}*', 'квартплат\\p{L}*'],
+        stems: ['房租', '租金', '월세', '집세', '임대료', 'ايجار'],
+      },
+      context: {
+        words: ['landlord', 'landlady', 'casero', 'casera', 'dueno', 'chu nha', 'met kay', 'proprietaire', 'kasero', 'may-ari', 'хозя\\p{L}*', 'арендодател\\p{L}*'],
+        stems: ['房东', '집주인', 'المالك', 'صاحب البيت', 'صاحب الشقة'],
+      },
     },
   ],
   [
     'transport',
     {
-      words: ['ride', 'bus', 'gas money', 'transport', 'car', 'transporte', 'pasaje', 'gasolina', 'xe', 'di lai', 'transpo', 'machin', 'essence', 'trajet', 'pamasahe', 'sasakyan', 'проезд\\p{L}*', 'транспорт\\p{L}*', 'автобус\\p{L}*', 'бензин\\p{L}*', 'такси'],
-      stems: ['车费', '交通', '公交', '油钱', '打车', '교통', '버스', '차비', '기름값', '택시', 'مواصلات', 'بنزين'],
+      need: {
+        words: ['ride', 'bus', 'bus pass', 'gas money', 'transport', 'car', 'transporte', 'pasaje', 'gasolina', 'xe', 'di lai', 'transpo', 'machin', 'bis', 'essence', 'trajet', 'pamasahe', 'sasakyan', 'проезд\\p{L}*', 'транспорт\\p{L}*', 'автобус\\p{L}*', 'бензин\\p{L}*', 'такси'],
+        stems: ['车费', '交通', '公交', '油钱', '打车', '교통', '버스', '차비', '기름값', '택시', 'مواصلات', 'بنزين'],
+      },
     },
   ],
   [
     'utility_outage',
     {
-      words: [
-        'power', 'electricity', 'heat', 'heater', 'outage', 'utility', 'luz', 'electricidad', 'calefaccion', 'calentador', 'mat dien', 'dien', 'may suoi',
-        'kouran', 'limye', 'chofaj', 'electricite', 'courant', 'chauffage', 'panne', 'kuryente', 'brownout',
-        'электричеств\\p{L}*', 'света', 'свет', 'отоплени\\p{L}*', 'обогревател\\p{L}*',
-      ],
-      stems: ['停电', '没电', '断电', '暖气', '取暖', '供暖', '정전', '전기', '난방', '히터', 'كهرباء', 'انقطاع', 'تدفئة', 'مدفاة', 'سخان'],
+      need: {
+        words: [
+          'power', 'electricity', 'heat', 'heating', 'heater', 'furnace', 'boiler', 'outage', 'utility', 'gas bill', 'light bill',
+          'luz', 'electricidad', 'calefaccion', 'calentador', 'mat dien', 'dien', 'may suoi', 'lo suoi', 'suoi am',
+          'kouran', 'limye', 'chofaj', 'electricite', 'courant', 'chauffage', 'panne', 'kuryente', 'brownout',
+          'электричеств\\p{L}*', 'света', 'свет', 'отоплени\\p{L}*', 'обогревател\\p{L}*',
+        ],
+        stems: ['停电', '没电', '断电', '暖气', '取暖', '供暖', '정전', '전기', '난방', '히터', 'كهرباء', 'انقطاع', 'تدفئة', 'مدفاة', 'سخان'],
+      },
     },
   ],
   [
     'groceries',
     {
-      words: ['food', 'groceries', 'grocery', 'comida', 'alimentos', 'despensa', 'do an', 'thuc pham', 'manje', 'nourriture', 'courses', 'epicerie', 'pagkain', 'bigas', 'еда', 'еды', 'еду', 'продукт\\p{L}*'],
-      stems: ['食物', '食品', '买菜', '吃的', '杂货', '粮食', '음식', '식료품', '장보기', '먹을', 'طعام', 'غذائية', 'بقالة'],
+      need: {
+        words: [
+          'food', 'groceries', 'grocery', 'hungry', 'hunger', 'meals?', 'nothing to eat', 'fridge is empty',
+          'comida', 'alimentos', 'despensa', 'hambre', 'comer', 'do an', 'thuc pham', 'bi doi', 'nhin doi', 'bua an', 'manje', 'grangou',
+          'nourriture', 'courses', 'epicerie', 'manger', 'faim', 'repas', 'pagkain', 'bigas', 'gutom', 'makain', 'kumain',
+          'еда', 'еды', 'еду', 'продукт\\p{L}*', 'голод\\p{L}*', 'кормить', 'накормить',
+        ],
+        stems: ['食物', '食品', '买菜', '吃的', '杂货', '粮食', '吃饭', '饿', '음식', '식료품', '장보기', '먹을', '굶', '배고', 'طعام', 'غذائية', 'بقالة', 'جوع', 'جائع', 'جياع'],
+      },
     },
   ],
 ];
@@ -78,46 +107,34 @@ const OTHER_ANSWERS = new Set(
   ['other', 'something else', 'otro', 'otra cosa', 'khac', 'lot bagay', 'autre', 'autre chose', 'iba pa', '其他', 'اخرى', '기타', 'другое'].map((s) => matchable(s)),
 );
 
-const RULE_RES = CATEGORY_RULES.map(([key, r]) => [key, wordRe(r.words), r.stems.map((s) => matchable(s))] as const);
+/** Each term as its own matcher, so a score counts distinct terms. */
+const termMatchers = (t: Terms | undefined): Array<(f: string) => boolean> => [
+  ...(t?.words ?? []).map((w) => {
+    const re = wordRe([w]);
+    return (f: string) => re.test(f);
+  }),
+  ...(t?.stems ?? []).map((stem) => {
+    const m = matchable(stem);
+    return (f: string) => f.includes(m);
+  }),
+];
+const RULE_MATCHERS = CATEGORY_RULES.map(([key, r]) => [key, termMatchers(r.need), termMatchers(r.context)] as const);
 
 const TODAY = wordRe(['today', 'now', 'right now', 'tonight', 'hoy', 'ahora', 'hom nay', 'ngay', 'jodi a', 'kounye a', 'aujourd\'hui', 'ce soir', 'ngayon', 'сегодня', 'сейчас']);
 const TODAY_STEMS = ['今天', '现在', '今晚', '오늘', '지금', 'اليوم', 'الان'].map((s) => matchable(s));
 
-/** Small number words people use for a household ("3 người", "三口人", "세 명", "нас трое"). */
-const NUMBER_WORDS: Readonly<Record<string, number>> = {
-  一: 1, 两: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
-  한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10,
-  двое: 2, трое: 3, четверо: 4, пятеро: 5, шестеро: 6, семеро: 7,
-  // Arabic, folded (أربعة → اربعة)
-  اثنان: 2, ثلاثة: 3, اربعة: 4, خمسة: 5, ستة: 6, سبعة: 7,
-};
-const NUM = String.raw`(\d{1,2}|[一两二三四五六七八九十]|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)`;
-const HOUSEHOLD: readonly RegExp[] = [
-  /(?:household of|family of|we are|there are|somos|nha co|nou se|nous sommes|kami ay)\s+(\d{1,2})/u,
-  /(\d{1,2})\s*(?:people|persons?|of us|personas|nguoi|moun|personnes|katao|tao)(?![\p{L}])/u,
-  new RegExp(`${NUM}\\s*(?:口人|个人|人)`, 'u'),
-  new RegExp(`${NUM}\\s*(?:명|식구|사람)`, 'u'),
-  /(\d{1,2})\s*(?:اشخاص|افراد|انفار|شخص)/u,
-  /(?:نحن|عددنا|اسرة من|عايلة من)\s*(\d{1,2}|اثنان|ثلاثة|اربعة|خمسة|ستة|سبعة)/u,
-  /(\d{1,2})\s*(?:человек|чел)/u,
-  /нас\s+(\d{1,2}|двое|трое|четверо|пятеро|шестеро|семеро)/u,
-];
-
-export function householdFrom(text: string): number | undefined {
-  const f = matchable(text);
-  for (const re of HOUSEHOLD) {
-    const raw = re.exec(f)?.[1];
-    if (!raw) continue;
-    const n = /^\d+$/.test(raw) ? Number(raw) : NUMBER_WORDS[raw];
-    if (n !== undefined && n >= 1 && n <= 30) return n;
-  }
-  return undefined;
-}
+export const householdFrom = (text: string): number | undefined => householdFromFolded(matchable(text));
 
 export function categoryFrom(text: string, allowed: ReadonlySet<string>): string | undefined {
   const f = matchable(text);
-  const hit = RULE_RES.find(([key, re, stems]) => allowed.has(key) && (re.test(f) || stems.some((s) => f.includes(s))));
-  if (hit) return hit[0];
+  let best: { key: string; score: number } | undefined;
+  for (const [key, need, context] of RULE_MATCHERS) {
+    if (!allowed.has(key)) continue;
+    const score = 2 * need.filter((m) => m(f)).length + context.filter((m) => m(f)).length;
+    // Ties keep the earlier rule (medicine, rent, transport, utility, groceries).
+    if (score > 0 && (!best || score > best.score)) best = { key, score };
+  }
+  if (best) return best.key;
   if (allowed.has('other') && text.split('\n').some((line) => OTHER_ANSWERS.has(matchable(line).replace(/[.!?。！？]+$/u, '').trim()))) return 'other';
   return undefined;
 }
