@@ -343,6 +343,10 @@ Running this with real money needs more than code:
   requires pre-approval for collecting donations as a charity.
 - **Venmo payouts are US-only**, and a `note` is required.
 - **Transaction Search permission** must be enabled on the REST app.
+- **If the sponsor's PayPal is restricted or under review,** payouts stop safely (batch `FAILED_RAIL`, nothing sent,
+  organizers alerted). With the group's manual-recording setting on, organizers can record a cash or check hand-over
+  instead, with the same two passkey approvals plus a receipt note; recording never moves money
+  ([`rails.ts`](apps/approver/src/rails.ts), THREAT_MODEL T36).
 - **SMS** needs carrier registration (US toll-free verification or A2P 10DLC), which takes days. This is why callbacks
   are on the roadmap rather than in the demo.
 - **Organizer authentication.** Passkeys with invite codes; set `DEMO_MODE=false` (the default outside fake mode) so no
