@@ -31,8 +31,13 @@ In scope:
 - Privacy: PII in logs, re-identification through the public report.
 
 Known and documented, so not new findings (but fixes are welcome):
-- The demo has **no organizer authentication** (THREAT_MODEL R1).
-- The web app's in-memory engine is a demo stand-in while the real wiring lands (R2).
+- With `DEMO_MODE` on (the hosted demo), labelled server-held demo keys sign as fictional organizers, so a demo run's
+  two approvals prove two credentials, not two humans (THREAT_MODEL R1). Real organizer seats need passkeys and
+  invite codes.
+- `ENGINE=mock` switches the web app to a UI-only in-memory engine that moves no money; it is never set in
+  deployment (R2).
+- Invite codes are static per organizer until `NEIGHBORLINE_SESSION_SECRET` rotates (R13), and rate limits are
+  in memory, per process (R9).
 - Transitive dependency advisories reported by `pnpm audit` (R5).
 - `tools/fake-paypal` is a development tool: by default it signs webhooks with a fixed local key, and its `/__fake/*` control
   routes have no authentication by design. It must never be deployed.

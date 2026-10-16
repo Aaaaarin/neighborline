@@ -5,7 +5,8 @@ The web app talks to the domain through **one seam**: the `Services` interface i
 call one `services()` method → JSON), and server components (`/demo`, `/organizer`, `/report`, `/trust`,
 `/ledger`, `/donate`) call `services()` directly. `createServices()` returns the **real engine**
 (`lib/server/engine/engine.ts`, built on `@neighborline/core`, `/db`, `/paypal`, `/agents`).
-`ENGINE=mock` switches back to the in-memory `MockEngine` (`lib/server/mock-engine.ts`) as a fallback.
+`ENGINE=mock` switches to the in-memory `MockEngine` (`lib/server/mock-engine.ts`), a UI-only fallback that moves no
+money; it is never set in deployment (THREAT_MODEL R2).
 
 ### Real engine layout (`lib/server/engine/`)
 
@@ -17,7 +18,7 @@ call one `services()` method → JSON), and server components (`/demo`, `/organi
 | `intake.ts` | startIntake / submitAudio / submitText / confirmIntake (agents.intake → core amounts + rail) |
 | `views.ts` | GroupView, RequestView, ThreadView |
 | `settle.ts` | item status → core state machine (db.upsertItemFromEvent) → agents.notify in the neighbor's language |
-| `webhooks.ts` | verify signature → dedupe (recordWebhookEvent) → settle |
+| `webhooks.ts` | verify signature → `beginWebhookEvent` (new / retry / done) → settle → `markWebhookProcessed` (applied at least once) |
 | `ledger.ts`, `report.ts`, `donations.ts` | /ledger + reconcile, /report + /trust, Orders v2 + Subscriptions |
 | `scenario-runner.ts` | `/demo` Play: drives the public methods with fixture samples; only human beats are scripted |
 | `policy-editor.ts`, `policy-drafts.ts` | `/organizer/rules`: `agents.policy.compile` → draft stored in the audit log under core `policyDraftHash` → queue preview (`railFor` under the draft) → two organizers' signatures over the draft hash → `db.activatePolicy` + re-price waiting requests (pending approvals voided) |
@@ -121,7 +122,7 @@ What each screen reads from events:
 | `webhook.verified` | Webhook verified (nth occurrence → nth row) | |
 | `notify.sent` | Callback / claim help sent in {language} | |
 
-## Wiring map (mock → real)
+## Wiring map
 
 | Facade method | Real implementation (see `NOTES-core.md`, `NOTES-agents.md`, `NOTES-paypal.md`) |
 |---|---|
@@ -130,13 +131,13 @@ What each screen reads from events:
 | `submitText` | `agents.intake.fromText` (stateless: re-run on previous text + answer) — replaces `mock-text-intake.ts` |
 | `confirmIntake` | `getActivePolicy` → `getHistoryForDestination` → `getTodaySpentCents` → core `computeAmount` + `checkRail` → `updateRequest(status: 'awaiting_approval')` → `agents.notify.render({ key: 'confirmed_waiting' })` |
 | `approve` | web: verify + record the organizer's assertion → `createOrGetApproval` → `addApproverTx` → if complete: `POST /v1/execute` to **apps/approver** with `{ approvalId, hash, payload (core approvalPayload), approvers }`. The approver re-reads everything from the database (hash, ≥ 2 distinct organizers, signatures, amounts via `computeAmount`, `checkRail`), then `createBatch` → PayPal create-batch with `senderBatchId`, `senderItemId`, `purpose: NON_GOODS_OR_SERVICES`, Venmo `social_feed_privacy: PRIVATE` → `updateBatch`/`setPaypalItemId`. Block flags throw a 409 (`HttpError`) with the flag detail; approver refusals come back as 403/409 with its reason. |
-| `handlePaypalWebhook` | `paypal.WebhooksApi.verify` (main app's `PAYPAL_WEBHOOK_ID`; for `PAYMENT.PAYOUTS*` events that fail it, the approver verifies against the Payouts app's webhook) → `recordWebhookEvent` (skip duplicates) → `itemStatusForWebhookEvent` → `upsertItemFromEvent` → `notifyKeyFor` → `agents.notify.render` → `recordNotification` |
+| `handlePaypalWebhook` | `paypal.WebhooksApi.verify` (main app's `PAYPAL_WEBHOOK_ID`; for `PAYMENT.PAYOUTS*` events that fail it, the approver verifies against the Payouts app's webhook) → `beginWebhookEvent` (skip only events already processed) → `itemStatusForWebhookEvent` → `upsertItemFromEvent` → `notifyKeyFor` → `agents.notify.render` → `recordNotification` → `markWebhookProcessed` |
 | `getReport` | `db.listForReport` → core `buildReport` → `agents.report.write` → map `narrative` + `numberTrace` to `NarrativeSegment[][]` (`{ figure, ref }` for every grounded number) |
-| `getLedger` / `reconcile` | `listItems` + Transaction Search via `@neighborline/paypal`; `reconcile: 'matched' | 'pending' | 'mismatch'` per item |
+| `getLedger` / `reconcile` | `listItems` + Transaction Search via `@neighborline/paypal` (amount, currency and status drift, stuck `PENDING`); `reconcile: 'matched' \| 'pending' \| 'mismatch' \| 'seeded'` per item with `reconcileDetail`; every run saved (`saveReconcileRun`) |
 | `createDonationOrder` / `captureDonationOrder` | `paypal.OrdersApi` (`buildDonationOrder`, `summarizeCapture`) → `recordDonation` |
 | `getSubscriptionPlan` | env `PAYPAL_PLAN_ID_<dollars>` or `PAYPAL_PLAN_ID` (create plans once in the sandbox dashboard or with the Subscriptions API) |
 | `getTrust` | group + `agents.providers.notes` for the Sandbox-reality lines |
-| `playScenario` | Keep `mock-scenario-runner.ts`'s timeline, but drive the real methods above with `fixtureAudioBytes` and the organizer ids `org_dana` / `org_marcus`. |
+| `playScenario` | `engine/scenario-runner.ts`: drives the real methods above with `fixtureAudioBytes`; only the human beats are scripted (`BEATS`: note arrives 1.5 s, listening 7 s, each organizer's look 6 s, at speed 1). Dana and, in auto mode, Marcus sign with labelled demo keys. Ids are `req_demo_<visitor tag>_…` |
 
 `RequestView` extras the real implementation must fill:
 - `requester.displayName` (first name only) and `area` (neighborhood) — never full names.
@@ -145,7 +146,7 @@ What each screen reads from events:
 - `aiTrace` — `{ status, summary }` from the intake agent's `trace` (shown under the summary on `/organizer`).
 - `audioSeconds` — for the language chip.
 
-## Next.js config needed when real packages are added
+## Next.js config for the workspace packages
 
 ```ts
 transpilePackages: ['@neighborline/core', '@neighborline/db', '@neighborline/paypal', '@neighborline/agents'],
@@ -171,7 +172,7 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 | `PAYPAL_PLAN_ID`, `PAYPAL_PLAN_ID_10`, `_25`, `_50` | Monthly plans for the subscription buttons |
 | `PAYPAL_MODE` | `sandbox` flips the "simulated" tags off where real calls are made |
 | `AI_MODE` | `live` changes the Sandbox-reality line for AI |
-| `DEMO_MODE=false` | Disables `/api/demo/*` (play/reset) |
+| `DEMO_MODE` | Fails closed: unset means on only with `PAYPAL_MODE=fake`. Off disables `/api/demo/play`, demo keys and demo-visitor passkeys. `/api/demo/reset` additionally needs the internal HMAC (`NEIGHBORLINE_INTERNAL_SECRET`) |
 | `APPROVER_URL`, `NEIGHBORLINE_APPROVER_SECRET` | Where the approver listens (default `http://127.0.0.1:4020`) and the HMAC key shared with it. `pnpm dev` / `render-start.sh` set both |
 | `DATABASE_URL`, `DEV_DB_CONTROL_URL` | The database shared with the approver; `pnpm dev` points both at `tools/dev-db`, whose control URL lets `/demo` reset swap in a fresh database |
 | `NEIGHBORLINE_INTERNAL_SECRET` | HMAC key for `/api/internal/*` (Render Workflows) |
@@ -184,7 +185,8 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 `GET /api/intake/:id/thread`, `GET /api/intake/samples`, `GET /api/requests/:id`,
 `POST /api/requests/:id/decline` (+ `/preview`), `POST /api/donate/subscription/activated`,
 `GET /api/ledger`, `GET /api/group`, `POST /api/demo/play`, `GET /api/policy`, `POST /api/policy/{draft,challenge,sign}`,
-`POST /api/organizer/passkeys/revoke`. `GET /api/stream` accepts `?requestId=`.
+`POST /api/approvals/challenge`, `GET /api/organizer/me`, `POST /api/organizer/passkeys` (+ `/options`, `/revoke`),
+`POST /api/organizer/signin` (+ `/options`), `POST /api/organizer/signout`. `GET /api/stream` accepts `?requestId=`.
 
 ## Tests
 
@@ -192,7 +194,11 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 in-process fake PayPal + the real approver HTTP service on a random port sharing that database + fixture AI),
 the internal-endpoint tests, the privacy tests and the least-privilege check.
 `pnpm --filter @neighborline/web test:e2e` starts tools/dev-db on :4130, tools/fake-paypal on :4110, apps/approver on
-:4120, builds into `.next-e2e`, starts on :3100 (real engine, `PAYPAL_MODE=fake`) and runs `e2e/*.spec.ts`
-(Lan → SUCCESS with the stopwatch frozen; visitor approves as Marcus; lookalike blocked; approval
-idempotency over the API; `/call` sample voice note on a phone viewport). Set `BASE_URL` to test a
-running server instead. Chromium comes from `PLAYWRIGHT_BROWSERS_PATH`.
+:4120, builds into `.next-e2e`, starts on :3100 (real engine, `PAYPAL_MODE=fake`) and runs the 30 tests in
+`e2e/*.spec.ts`: Lan → SUCCESS with the stopwatch frozen; a visitor approves as Marcus with a passkey or the demo key;
+lookalike blocked; approval idempotency and visitor isolation over the API; cross-site and non-JSON requests refused;
+the nonce CSP; an organizer enrolls a passkey; `/call` on a phone (sample voice note, a Chinese clarifying question
+answered after a refresh, category quick answers, the 2,000-character limit, decline and REVIEW); the rules editor;
+axe checks on every page (desktop, phone width and the dark stage). Override the ports with `E2E_PORT`,
+`E2E_FAKE_PAYPAL_PORT`, `E2E_APPROVER_PORT`, `E2E_DEV_DB_PORT` and the build dir with `NEXT_DIST_DIR`. Set `BASE_URL`
+to test a running server instead. Chromium comes from `PLAYWRIGHT_BROWSERS_PATH`.

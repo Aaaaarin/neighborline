@@ -126,8 +126,8 @@ break out of the data block. The `inject_en` fixture and the `blocked` stage sce
 
 - **Vetted catalog** (written, not machine-translated at runtime): English, Spanish, Vietnamese, Haitian Creole,
   Chinese, Arabic ([`core/src/i18n.ts`](../packages/core/src/i18n.ts) and
-  [`intake/phrases.ts`](../packages/agents/src/intake/phrases.ts)). Core marks Arabic as right-to-left
-  (`textDirection`); the web UI does not apply it yet.
+  [`intake/phrases.ts`](../packages/agents/src/intake/phrases.ts)). Arabic is right to left
+  (core `textDirection`); the neighbor's views apply `dir="rtl"` and keep handles and ids left to right.
 - **Other languages** in the contract (French, Tagalog, Korean, Russian): the read-back frame and status messages
   are LLM-translated with the back-translation fact check, or fall back to English. The neighbor's own summary
   (`summaryNative`) is written by the model in their language.
@@ -138,12 +138,12 @@ break out of the data block. The `inject_en` fixture and the `blocked` stage sce
 
 | | `AI_MODE=fixture` (default) | `AI_MODE=live` |
 |---|---|---|
-| LLM | `FixtureLLM`: scenario answers matched by transcript; otherwise a conservative keyword extractor that never extracts an amount; policy text → offline parser; translations from `fixtures/translations.json` or identity; report → template | Claude (`claude-sonnet-5-5`) or OpenAI (`gpt-5.4-mini`), chosen by `LLM_PROVIDER`, falling back to whichever key exists, then to fixtures with a warning |
+| LLM | `FixtureLLM`: scenario answers matched by transcript; otherwise a conservative keyword extractor (categories, household size and quick-answer labels in all ten contract languages) that never extracts an amount and asks the specific missing question; policy text → offline parser; translations from `fixtures/translations.json` or identity; report → template | Claude (`claude-sonnet-5-5`) or OpenAI (`gpt-5.4-mini`), chosen by `LLM_PROVIDER`, falling back to whichever key exists, then to fixtures with a warning |
 | STT | `FixtureSTT`: recognizes fixture audio by marker or by sha256 in `fixtures/audio/manifest.json`. An unknown recording transcribes as `lan_vi` unless `AI_FIXTURE_DEFAULT_AUDIO=none` | OpenAI `gpt-4o-transcribe` (needs `OPENAI_API_KEY`) |
 | TTS | Fixture (browser speech in the UI) | OpenAI `gpt-4o-mini-tts`, voice `coral` |
 | Fallback | — | `AI_FALLBACK=fixture` sends model errors to fixtures and logs it |
 
-`providers.notes` lists, in plain words, which provider is live; `/trust` is meant to show it.
+`providers.notes` lists, in plain words, which provider is live; `/trust` shows it in the Sandbox reality panel.
 
 Fixture scenarios ([`fixtures/scenarios`](../packages/agents/fixtures/scenarios)): `lan_vi`, `rosa_es`, `jean_ht`,
 `walter_en`, `inject_en`, `missing_payout_es`. To record real demo audio:

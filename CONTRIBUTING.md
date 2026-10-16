@@ -25,9 +25,10 @@ contribute. Copy `.env.example` to `.env` only if you want to try the real sandb
 |---|---|
 | `pnpm test` | All unit tests (vitest), offline |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
-| `pnpm --filter @neighborline/core test` | One package's tests (use `core`, `db`, `agents`, `paypal`, `fake-paypal`) |
+| `pnpm --filter @neighborline/core test` | One package's tests (`core`, `db`, `agents`, `passkeys`, `paypal`, `approver`, `web`, `fake-paypal`, `dev-db`) |
 | `pnpm --filter @neighborline/paypal build` | Build the publishable PayPal package |
 | `pnpm --filter @neighborline/web test:e2e` | Playwright end-to-end tests (run `pnpm --filter @neighborline/web exec playwright install chromium` once) |
+| `cd workflows && npm test` | The Render Workflows tasks (a standalone npm package, outside the pnpm workspace) |
 | `pnpm fake-paypal` | Start the local PayPal look-alike on :4010 |
 | `pnpm --filter @neighborline/db generate` | After a schema change: generate the SQL migration and re-embed it |
 

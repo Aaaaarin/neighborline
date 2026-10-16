@@ -40,8 +40,10 @@ the line messages her back in her thread, in Spanish, with claim help → SUCCES
    or low-confidence, **re-ask the neighbor in their language** instead of guessing.
 4. **Protect the rail, not suspect the person:** lookalike organizer handles, same payout destination under
    different names, velocity caps, rule-cap violations, prompt-injection in request text.
-5. **Idempotent money:** `sender_batch_id` = hash(approval record); retries/double taps return the original
-   batch. All webhooks signature-verified. Reconcile against Transaction Search, scheduled on Render (Render Workflows).
+5. **Idempotent money:** `sender_batch_id` derives from the approval record (approval id + approval hash); retries and
+   double taps return the original batch, and a timeout leaves the batch `UNKNOWN` until it is re-sent with the same id.
+   All webhooks signature-verified and applied at least once. Reconcile against Transaction Search (amount, currency,
+   status drift) runs on demand from /ledger and nightly on Render (Render Workflows) once deployed.
 6. **Privacy by default:** raw audio wiped right after transcription (`AUDIO_RETENTION=none`, or `24h` then deleted),
    only the transcript kept; emails, phone numbers and handles masked in logs and AI traces (`core.redactPII`);
    transparency report is aggregate-only; Venmo `social_feed_privacy: PRIVATE`.
@@ -81,8 +83,8 @@ tools/fake-paypal        Local fake PayPal sandbox (HTTP) implementing the subse
                          webhooks — enables dev/tests with no credentials and deterministic demos.
 tools/dev-db             Local only: one PGlite served over the Postgres wire protocol on loopback, so web and
                          approver (two processes) share a database in `pnpm dev` and e2e.
-packages/passkeys        WebAuthn: the challenge an organizer signs IS the approval hash; verification shared by
-                         web (at tap time) and approver (before paying).
+packages/passkeys        WebAuthn: the challenge an organizer signs binds the approval hash to a single-use server
+                         nonce; verification shared by web (at tap time) and approver (before paying).
 ```
 
 Process layout: `pnpm dev` = dev-db :4030 + fake-paypal :4010 + approver :4020 + web :3000. On Render the approver
@@ -136,7 +138,7 @@ interface IntakeExtraction { // AI output, zod schema in core/schemas.ts
 interface Approval { id; requestIds: string[]; approvers: Array<{ organizerId; at; deviceLabel }>;
   totalUsd; policyVersionId; hash /* sha256 canonical JSON */; }
 
-interface PayoutBatch { id; approvalId; senderBatchId /* = 'nl_' + approval.hash.slice(0,24) */;
+interface PayoutBatch { id; approvalId; senderBatchId /* = 'nl_' + sha256(domain ‖ approval.id ‖ approval.hash)[0..24] */;
   paypalBatchId?; status; items: PayoutItem[]; createdAt; }
 interface PayoutItem { id; requestId; senderItemId; paypalItemId?; amountUsd; wallet; receiver;
   status: 'PENDING'|'SUCCESS'|'UNCLAIMED'|'RETURNED'|'ONHOLD'|'BLOCKED'|'FAILED'|'REFUNDED'|'REVERSED'|'CANCELED';
@@ -163,6 +165,7 @@ POST /api/intake/:id/audio        multipart audio → transcribe → extract →
 POST /api/intake/:id/text         {text}
 POST /api/intake/:id/confirm      {confirmed: boolean, corrections?} → status awaiting_approval | needs_clarification
 GET  /api/requests?status=        organizer queue (computed amount + rule citation + rail flags)
+POST /api/approvals/challenge     {requestIds} → WebAuthn options (challenge = H(approval hash ‖ nonce))
 POST /api/approvals               {requestIds, signer} → records a signed approver; when 2 distinct → approver process executes
 POST /api/payouts/:batchId/cancel-item {itemId}       (only UNCLAIMED)
 POST /api/webhooks/paypal         verify signature → update item state → trigger notify agent
@@ -170,8 +173,8 @@ GET  /api/stream                  SSE: request/approval/payout events for /demo 
 POST /api/donate/order            create Order v2 (server) ; POST /api/donate/order/:id/capture
 POST /api/donate/subscription     returns plan id for JS SDK subscription button
 GET  /api/report                  aggregate report JSON + AI narrative
-POST /api/reconcile               Transaction Search reconcile (also scheduled nightly)
-POST /api/demo/reset              reseed demo data
+POST /api/reconcile               Transaction Search reconcile (also scheduled nightly on Render)
+POST /api/demo/reset              reseed demo data (internal HMAC only; not public)
 GET  /api/health                  Render health check (+ approver up/down)
 POST /api/internal/*              Render Workflows jobs, HMAC-signed (workflows/src/contract.ts)
 ```

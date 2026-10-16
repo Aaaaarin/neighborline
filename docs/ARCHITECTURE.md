@@ -71,7 +71,7 @@ flowchart LR
     db[packages/db<br/>Drizzle + Postgres/PGlite]
     agents[packages/agents<br/>LLM / STT / TTS]
     paypal[packages/paypal<br/>REST client + MCP server]
-    passkeys[packages/passkeys<br/>WebAuthn over the approval hash]
+    passkeys[packages/passkeys<br/>WebAuthn over approval hash + nonce]
     fake[tools/fake-paypal<br/>local PayPal]
     devdb[tools/dev-db<br/>local shared DB]
     toolkit[("@paypal/agent-toolkit<br/>optional")]
@@ -99,7 +99,7 @@ flowchart LR
 | `packages/db` | Drizzle schema, migrations (SQL files embedded into `migrations.generated.ts`), repositories that enforce state transitions and write the audit log | Call PayPal or models |
 | `packages/agents` | Provider abstraction (Anthropic, OpenAI, fixtures), the structured-output pipeline, IntakeAgent, PolicyCompiler, NotifyAgent, ReportWriter | Compute amounts, decide eligibility, depend on `@neighborline/paypal` (tested) |
 | `packages/paypal` | Typed PayPal REST client, idempotency, webhook verification and parsing, item state machine copy, reconcile, approval tokens, `neighborline-payouts-mcp` | Depend on private packages at runtime (core is a dev dependency, used by a drift test) |
-| `packages/passkeys` | WebAuthn challenge = approval hash, verification, labelled demo software authenticator | Hold PayPal keys |
+| `packages/passkeys` | WebAuthn challenge = SHA-256(domain ‖ approval hash ‖ single-use server nonce) (`challengeFor`), verification shared by web and approver, labelled demo software authenticator | Hold PayPal keys |
 | `apps/approver` | The only Payouts client in the running system; execute / poll / cancel-unclaimed / verify-webhook | Accept amounts, destinations or approvers from its caller |
 | `apps/web` | Pages, route handlers, SSE stream, `/api/internal/*`. Everything goes through one interface, `Services`, in [`lib/server/services.ts`](../apps/web/lib/server/services.ts) | Put domain logic in components; import anything but `@neighborline/approver/protocol` from the approver |
 | `tools/fake-paypal`, `tools/dev-db` | Local stand-ins for PayPal and Postgres | Ship to production |

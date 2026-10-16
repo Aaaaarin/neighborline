@@ -95,7 +95,6 @@ Non-secret settings on the web service that matter for security (render.yaml):
 | `DEMO_MODE` | `true` | Fails closed when unset (on only with `PAYPAL_MODE=fake`); the approver refuses `true` with `PAYPAL_MODE=live`. What it relaxes is printed on `/trust` ("In this demo") from the config |
 | `RATE_LIMITS` | `on` | In-memory token buckets per IP, per visitor and a global live-AI bucket (`off` only for e2e) |
 | `TRUST_PROXY_HOPS` | `1` | Render's proxy appends the client address to `X-Forwarded-For`; the limiter trusts exactly that hop |
-| `NEIGHBORLINE_REQUIRE_PASSKEYS` | (removed) | The approver now always requires a verified signature from every approver |
 
 Organizer invite codes: `NEIGHBORLINE_SESSION_SECRET=<same value> node apps/web/scripts/organizer-invite.mjs org_dana`
 prints the code for one organizer. A real organizer seat needs one even in demo mode; a judge never needs one (they play
