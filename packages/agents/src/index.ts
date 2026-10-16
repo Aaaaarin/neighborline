@@ -87,9 +87,11 @@ export function createAgents(env?: AgentEnv, opts: { groupName?: string; logger?
   const logger = opts.logger ?? consoleLogger;
   const providers = createProviders(env, logger);
   const groupName = opts.groupName ?? 'Eastside Mutual Aid';
+  // Phone numbers said without a country code are read in this region (E.164); default US.
+  const phoneRegion = (env ?? (process.env as AgentEnv)).PHONE_DEFAULT_REGION?.trim().toUpperCase();
   return {
     providers,
-    intake: new IntakeAgent({ llm: providers.llm, stt: providers.stt, tts: providers.tts, groupName, logger }),
+    intake: new IntakeAgent({ llm: providers.llm, stt: providers.stt, tts: providers.tts, groupName, logger, ...(phoneRegion ? { phoneRegion } : {}) }),
     policy: new PolicyCompiler({ llm: providers.llm, groupName }),
     notify: new NotifyAgent({ llm: providers.llm, tts: providers.tts }),
     report: new ReportWriter({ llm: providers.llm }),

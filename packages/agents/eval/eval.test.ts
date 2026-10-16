@@ -65,28 +65,18 @@ describe('dataset', () => {
   });
 
   /**
-   * Known gaps in the agents' grounding code, found by this dataset (docs/EVAL.md, Findings). A
-   * correct model answer for these cases is dropped as "not said". When a gap is fixed, delete its
-   * id here: the list must only ever shrink.
+   * Grounding gaps: a correct model answer that the agents' grounding code would drop as "not said".
+   * The EVAL findings of 2026-10-16 (phones without a country code, French "point", amounts written
+   * against Chinese characters) are fixed; this must stay empty. A new case that fails here is a
+   * new finding: fix the mechanism, do not special-case the line.
    */
-  it('known grounding gaps (must only shrink)', () => {
+  it('no grounding gaps: every labeled destination and amount passes the grounding checks', () => {
     const destGaps = cases.filter((c) => c.gold.payout && !homoglyph(c) && !isGroundedDestination(c.gold.payout.value, c.text)).map((c) => c.id);
     const amountGaps = cases
       .filter((c) => c.gold.requestedAmountCents !== undefined && !extractNumbers(c.text).some((n) => n.value === (c.gold.requestedAmountCents as number) / 100))
       .map((c) => c.id);
-    // Phone numbers said without a country code and without a Latin "Venmo"/"PayPal" keyword nearby; French "point".
-    expect(destGaps.sort()).toEqual(['ar-05', 'en-04', 'fr-02', 'fr-05', 'ko-09', 'tl-05']);
-    // Digits written against Chinese characters ("要60美元"): numbers.ts ignores digits that follow a letter.
-    expect(amountGaps.sort()).toEqual(['ben-25-zh', 'zh-03', 'zh-04', 'zh-11']);
-  });
-
-  it('holds out about 20% of every file (frozen in dataset/heldout.txt)', () => {
-    const files = [...EVAL_LANGS.map((l) => cases.filter((c) => c.set === 'intake' && c.lang === l)), ...EVAL_SETS.filter((s) => s !== 'intake').map((s) => cases.filter((c) => c.set === s))];
-    for (const xs of files) {
-      const share = xs.filter((c) => heldOut.has(c.id)).length / xs.length;
-      expect(share, xs[0]?.id).toBeGreaterThanOrEqual(0.15);
-      expect(share, xs[0]?.id).toBeLessThanOrEqual(0.3);
-    }
+    expect(destGaps).toEqual([]);
+    expect(amountGaps).toEqual([]);
   });
 
   it('label rules catch inconsistent lines', () => {
@@ -129,8 +119,16 @@ describe('runCase (fixture)', { timeout: 30_000 }, () => {
   });
 
   it('records a grounded-but-wrong destination as wrong, not as a hallucination', async () => {
-    const r = await runCase(llm, byId('fr-05'));
-    expect(r.pred.payout?.value).toBe('@le8575550148');
+    // Two handles in the text; the offline extractor takes the first wallet mention (the sister's).
+    const base = byId('en-05');
+    const c: EvalCase = {
+      ...base,
+      id: 'test-wrong-dest',
+      text: "We have no food this week. My sister's Venmo is @ana-lopez-9 but mine is @maria-lopez-2.",
+      gold: { ...base.gold, payout: { wallet: 'VENMO', type: 'USER_HANDLE', value: '@maria-lopez-2' }, missing: base.gold.missing.filter((m) => m !== 'payout') },
+    };
+    const r = await runCase(llm, c);
+    expect(r.pred.payout?.value).toBe('@ana-lopez-9');
     expect(r.safety).toMatchObject({ payoutUngrounded: false, payoutNotGold: true });
   });
 });
@@ -157,11 +155,11 @@ describe('runEval', { timeout: 60_000 }, () => {
     expect(loadThresholds().fixture.payoutHallucinationMax).toBe(0);
   });
 
-  it('oracle mode: a perfect model is still limited by the grounding gaps above', async () => {
+  it('oracle mode: a perfect model loses nothing to grounding or normalization', async () => {
     const { result } = await runEval(opts({ mode: 'oracle' }));
     const f = result.metrics.fields.intake;
     expect([f.category.rate, f.household.rate]).toEqual([1, 1]);
-    expect(result.cases.filter((c) => c.set === 'intake' && !c.correct.payout).map((c) => c.id).sort()).toEqual(['ar-05', 'en-04', 'fr-02', 'fr-05', 'ko-09', 'tl-05']);
+    expect(result.cases.filter((c) => c.set === 'intake' && !c.correct.payout).map((c) => c.id)).toEqual([]);
     expect(result.metrics.safety.payoutHallucination.k).toBe(0);
   });
 

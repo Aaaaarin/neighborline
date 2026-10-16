@@ -21,6 +21,8 @@ export interface IntakeAgentDeps {
   tts?: TTS;
   groupName?: string;
   logger?: Logger;
+  /** Region a phone number said without a country code is read in (ISO 3166 code, default US). */
+  phoneRegion?: string;
 }
 
 export interface IntakeTextInput {
@@ -64,6 +66,10 @@ const toBase64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('bas
 export class IntakeAgent {
   constructor(private readonly deps: IntakeAgentDeps) {}
 
+  private get handleOpts(): { phoneRegion?: string } {
+    return this.deps.phoneRegion ? { phoneRegion: this.deps.phoneRegion } : {};
+  }
+
   async fromAudio(input: IntakeAudioInput): Promise<IntakeResult> {
     if (!this.deps.stt) throw new Error('IntakeAgent.fromAudio needs an STT provider');
     const transcript = await this.deps.stt.transcribe({
@@ -90,7 +96,7 @@ export class IntakeAgent {
       label: 'intake',
       system: intakeSystemPrompt(this.deps.groupName ?? 'the group'),
       messages: [{ role: 'user', content: intakeUserPrompt(text, input.categories, input.langHint) }],
-      semanticCheck: (v) => intakeSemanticIssues(v, text),
+      semanticCheck: (v) => intakeSemanticIssues(v, text, this.handleOpts),
     });
 
     let value = outcome.ok ? outcome.value : undefined;
@@ -102,7 +108,7 @@ export class IntakeAgent {
     if (!value) return this.failed(input, transcript, outcome.trace);
 
     const { englishText, ...rest } = value;
-    const { extraction, notes } = finalizeExtraction<IntakeExtraction>(rest, text);
+    const { extraction, notes } = finalizeExtraction<IntakeExtraction>(rest, text, this.handleOpts);
     outcome.trace.notes.push(...notes);
     const lang = extraction.lang;
     const lowConfidence = extraction.confidence < LOW_CONFIDENCE;

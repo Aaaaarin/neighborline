@@ -11,11 +11,15 @@ export interface FoundNumber {
 }
 
 // 1,350 · 1350 · 1350.50 · 94 · 83% · 2026 · "$5,000". Thousands separators only in groups of 3.
-const NUM = /(?<![\p{L}\p{N}.])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?![\p{N}])/gu;
+// Only a Latin letter or a digit right before a number makes it part of a word ("@lan54", "A1"):
+// Chinese, Japanese, Korean and Arabic write numbers against their words ("要60美元").
+const NUM = /(?<![\p{Script=Latin}\p{N}.])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?![\p{N}])/gu;
+/** Full-width digits ("６０") → ASCII, one code unit each, so indexes stay the same. */
+const asciiDigits = (s: string): string => s.replace(/[０-９]/g, (d) => String(d.charCodeAt(0) - 0xff10));
 
 export function extractNumbers(text: string): FoundNumber[] {
   const out: FoundNumber[] = [];
-  for (const m of text.matchAll(NUM)) {
+  for (const m of asciiDigits(text).matchAll(NUM)) {
     const whole = (m[1] ?? '').replace(/,/g, '');
     const value = Number(m[2] ? `${whole}.${m[2]}` : whole);
     if (Number.isFinite(value)) out.push({ value, text: m[0], index: m.index ?? 0 });

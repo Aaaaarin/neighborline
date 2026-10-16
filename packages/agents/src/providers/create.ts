@@ -40,6 +40,8 @@ export interface AgentEnv {
   AI_FALLBACK?: string;
   AI_FIXTURE_DEFAULT_AUDIO?: string;
   AI_FIXTURE_AUDIO_DIR?: string;
+  /** ISO 3166 region for phone numbers said without a country code (default US). */
+  PHONE_DEFAULT_REGION?: string;
   [key: string]: string | undefined;
 }
 
