@@ -44,6 +44,8 @@ import { extractFromText } from './mock-text-intake';
 import { HISTORY_DONATIONS, buildHistory, type HistoryDecision, type HistoryPayout } from './seed';
 import type { AudioInput, Services } from './services';
 import { HttpError } from './errors';
+import { demoRunTagOf } from './security/visitor';
+import type { PayoutActor } from './security/viewer';
 import { runScenario } from './mock-scenario-runner';
 
 export interface Rec {
@@ -638,9 +640,10 @@ export class MockEngine implements Services {
     return { status: rec.request.status, message: { ...m, lang: rec.request.lang } };
   }
 
-  async cancelPayoutItem(input: { batchId: string; itemId: string }) {
+  async cancelPayoutItem(input: { batchId: string; itemId: string; actor: PayoutActor }) {
     const item = this.items.get(input.itemId);
     if (!item || item.batchId !== input.batchId) throw new HttpError(404, 'No such payout item');
+    if ('visitorTag' in input.actor && demoRunTagOf(item.requestId) !== input.actor.visitorTag) throw new HttpError(403, 'You can cancel only the payout of your own demo run.');
     if (item.status !== 'UNCLAIMED') throw new HttpError(409, 'Only unclaimed items can be cancelled');
     this.applyItemStatus(item.id, 'CANCELED');
     return { status: 'CANCELED' };

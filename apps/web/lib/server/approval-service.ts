@@ -226,10 +226,11 @@ export class ApprovalService {
   }
 
   /** Cancel an UNCLAIMED item through the approver; the money returns to the fund. */
-  async cancelUnclaimed(d: ApprovalDeps, input: { batchId: string; itemId: string; organizerId?: string }): Promise<PayoutItem> {
+  async cancelUnclaimed(d: ApprovalDeps, input: { batchId: string; itemId: string; organizerId?: string; authorize?: (item: PayoutItem) => void }): Promise<PayoutItem> {
     const bw = await getBatch(d.db, input.batchId);
     const item = bw?.items.find((i) => i.id === input.itemId);
     if (!item) throw new HttpError(404, 'No such payout item');
+    input.authorize?.(item);
     if (item.status !== 'UNCLAIMED') throw new HttpError(409, 'Only unclaimed items can be cancelled');
     await this.approver.cancelUnclaimed(item.id, { batchId: input.batchId, ...(input.organizerId ? { organizerId: input.organizerId } : {}) });
     return item;

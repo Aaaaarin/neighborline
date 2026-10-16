@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { assertJson, crossSiteProblem, readCapped } from '../lib/server/security/guard';
 import { RateLimiter, clientIp, enforceLimit, limiter } from '../lib/server/security/rate-limit';
 import { redactRequestView, redactText, streamMessageFor, viewsFor } from '../lib/server/security/redact';
-import { accessTo, ownsAll, type Viewer } from '../lib/server/security/viewer';
+import { accessTo, ownsAll, payoutActorOf, type Viewer } from '../lib/server/security/viewer';
 import { demoDisclosure } from '../lib/server/security/demo-disclosure';
 import { decodeVisitor, demoRunId, encodeVisitor, ownerTagOf, visitorRequestId, visitorTag } from '../lib/server/security/visitor';
 import type { RequestView, StreamMessage } from '../lib/types';
@@ -118,6 +118,18 @@ describe('who sees what (viewer.ts)', () => {
     expect(accessTo(org, theirs)).toBe('full');
     expect(ownsAll(anon, [own])).toBe(true);
     expect(ownsAll(anon, [own, 'req_seed_q_ana'])).toBe(false);
+  });
+});
+
+describe('cancelling an unclaimed payout (POST /api/payouts/[batchId]/cancel-item)', () => {
+  const organizer: Viewer['organizer'] = { organizerId: 'org_dana', name: 'Dana', credentialId: 'c', deviceLabel: 'phone', kind: 'passkey' };
+  const visitor = { id: 'x'.repeat(24), tag: 'abcdefabcdef', fresh: false };
+  it('needs a signed-in organizer, or the visitor’s own demo run in DEMO_MODE; anyone else gets 401', () => {
+    expect(payoutActorOf({ organizer, visitor: null, demo: false })).toEqual({ organizerId: 'org_dana' });
+    expect(payoutActorOf({ organizer: null, visitor, demo: true })).toEqual({ visitorTag: 'abcdefabcdef' });
+    expect(() => payoutActorOf({ organizer: null, visitor, demo: false })).toThrow(expect.objectContaining({ status: 401 }));
+    expect(() => payoutActorOf({ organizer: null, visitor: null, demo: true })).toThrow(expect.objectContaining({ status: 401 }));
+    expect(() => payoutActorOf({ organizer: null, visitor: null, demo: false })).toThrow(expect.objectContaining({ status: 401 }));
   });
 });
 

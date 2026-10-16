@@ -7,6 +7,7 @@
  * as a fallback. See apps/web/INTEGRATION.md.
  */
 import 'server-only';
+import type { PayoutActor } from './security/viewer';
 import type { Channel, HelpRequest, Lang, RequestStatus } from '@neighborline/core';
 import type {
   ApprovalChallenge,
@@ -138,7 +139,8 @@ export interface Services {
     textEn: string;
     lang: Lang;
   }>;
-  cancelPayoutItem(input: { batchId: string; itemId: string }): Promise<{ status: string }>;
+  /** `actor`: a signed-in organizer, or a DEMO_MODE visitor who may cancel only their own demo run's item. */
+  cancelPayoutItem(input: { batchId: string; itemId: string; actor: PayoutActor }): Promise<{ status: string }>;
 
   /* payout rails (apps/approver/src/rails.ts): PayPal Payouts, and a manual fallback that records only */
   railSettings(): Promise<RailSettingsView>;

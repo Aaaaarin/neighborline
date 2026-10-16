@@ -8,6 +8,7 @@
  */
 import { demoModeOn } from '@neighborline/passkeys';
 import type { OrganizerSession } from '../../types';
+import { HttpError } from '../errors';
 import { decodeSession, readSessionFromRequest, SESSION_COOKIE } from '../passkeys/session';
 import { services } from '../services';
 import { decodeVisitor, ownerTagOf, VISITOR_COOKIE, visitorFromRequest, type Visitor } from './visitor';
@@ -45,4 +46,18 @@ export function accessTo(viewer: Viewer, requestId: string): Access {
 export function ownsAll(viewer: Viewer, requestIds: readonly string[]): boolean {
   const tag = viewer.visitor?.tag;
   return !!tag && requestIds.length > 0 && requestIds.every((id) => ownerTagOf(id) === tag);
+}
+
+/** Who is acting on a payout item: a signed-in organizer, or (DEMO_MODE only) the visitor whose own demo run it pays. */
+export type PayoutActor = { organizerId: string } | { visitorTag: string };
+
+/**
+ * Cancelling an UNCLAIMED payout returns money to the fund, so only a live organizer session may do
+ * it; in DEMO_MODE a visitor may also cancel the payout of their OWN demo run (the engine checks the
+ * item's request id carries their tag). Anyone else: 401.
+ */
+export function payoutActorOf(viewer: Viewer): PayoutActor {
+  if (viewer.organizer) return { organizerId: viewer.organizer.organizerId };
+  if (viewer.demo && viewer.visitor) return { visitorTag: viewer.visitor.tag };
+  throw new HttpError(401, 'Sign in with your passkey to cancel a payout.');
 }

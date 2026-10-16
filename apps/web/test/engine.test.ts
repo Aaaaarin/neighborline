@@ -162,13 +162,18 @@ describe('engine (in-memory PGlite + fake PayPal + fixture AI)', () => {
     await h.engine.approve({ requestIds: [requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } });
     await paidThread(requestId, 'UNCLAIMED');
     const p = (await h.engine.getRequest(requestId))!.payout!;
-    await expect(h.engine.cancelPayoutItem({ batchId: 'pb_wrong', itemId: p.item.id })).rejects.toMatchObject({ status: 404 });
-    await h.engine.cancelPayoutItem({ batchId: p.batch.id, itemId: p.item.id });
+    const dana = { organizerId: 'org_dana' };
+    await expect(h.engine.cancelPayoutItem({ batchId: 'pb_wrong', itemId: p.item.id, actor: dana })).rejects.toMatchObject({ status: 404 });
+    // Not an organizer, and not the visitor whose own demo run this is: refused before anything moves.
+    await expect(h.engine.cancelPayoutItem({ batchId: p.batch.id, itemId: p.item.id, actor: { visitorTag: 'abcdefabcdef' } })).rejects.toMatchObject({ status: 403 });
+    await expect(h.engine.cancelPayoutItem({ batchId: p.batch.id, itemId: p.item.id, actor: { organizerId: 'org_nobody' } })).rejects.toMatchObject({ status: 403 });
+    expect((await h.engine.getRequest(requestId))!.payout!.item.status).toBe('UNCLAIMED');
+    await h.engine.cancelPayoutItem({ batchId: p.batch.id, itemId: p.item.id, actor: dana });
     await waitFor(() => h.deliveries.some((d) => d.rawBody.includes('PAYMENT.PAYOUTS-ITEM.CANCELED') && d.rawBody.includes(p.item.paypalItemId!)), 5_000, 'CANCELED webhook');
     const v = (await h.engine.getRequest(requestId))!;
     expect(v.payout!.item.status).toBe('CANCELED');
     expect(v.request.status).toBe('cancelled');
-    await expect(h.engine.cancelPayoutItem({ batchId: p.batch.id, itemId: p.item.id })).rejects.toMatchObject({ status: 409 });
+    await expect(h.engine.cancelPayoutItem({ batchId: p.batch.id, itemId: p.item.id, actor: dana })).rejects.toMatchObject({ status: 409 });
   });
 
   it('donations go through Orders v2 on fake PayPal and show up in the report and ledger', async () => {

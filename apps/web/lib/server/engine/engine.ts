@@ -38,6 +38,8 @@ import { EventBus, nowIso } from './events';
 import * as intake from './intake';
 import * as passkeys from './passkeys';
 import { demoModeOn } from '../passkeys/demo-signer';
+import { demoRunTagOf } from '../security/visitor';
+import type { PayoutActor } from '../security/viewer';
 import * as policyEditor from './policy-editor';
 import { splitFrom } from '../../../components/stage/stage-steps';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
@@ -369,9 +371,18 @@ export class Engine implements Services {
     return { ...tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal && !appeal.closed }), lang: r.lang };
   }
 
-  async cancelPayoutItem(input: { batchId: string; itemId: string }) {
+  async cancelPayoutItem(input: { batchId: string; itemId: string; actor: PayoutActor }) {
     const ctx = await this.ctx();
-    const item = await ctx.approvals.cancelUnclaimed({ db: ctx.db, group: ctx.gen.group, bus: ctx.bus }, input);
+    const { actor } = input;
+    const organizerId = 'organizerId' in actor ? actor.organizerId : undefined;
+    if (organizerId && !(await listOrganizers(ctx.db, ctx.gen.group.id)).some((o) => o.id === organizerId)) throw new HttpError(403, 'Unknown organizer');
+    // A DEMO_MODE visitor may cancel only the payout of their own demo run.
+    const authorize = (item: { requestId: string }) => {
+      if ('visitorTag' in actor && (!demoModeOn(ctx.env) || demoRunTagOf(item.requestId) !== actor.visitorTag)) {
+        throw new HttpError(403, 'You can cancel only the payout of your own demo run.');
+      }
+    };
+    const item = await ctx.approvals.cancelUnclaimed({ db: ctx.db, group: ctx.gen.group, bus: ctx.bus }, { batchId: input.batchId, itemId: input.itemId, authorize, ...(organizerId ? { organizerId } : {}) });
     const { approvals: _a, ...base } = ctx;
     await applyItemStatus(base, { senderItemId: item.senderItemId, status: 'CANCELED', actor: 'organizer' });
     return { status: 'CANCELED' };
