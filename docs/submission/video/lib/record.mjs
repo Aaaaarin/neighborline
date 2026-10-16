@@ -78,7 +78,8 @@ export async function recordTake(id, { dpr = 1 } = {}) {
   rmSync(frameDir, { recursive: true, force: true });
   mkdirSync(frameDir, { recursive: true });
 
-  await fetch(`${BASE}/api/demo/reset`, { method: 'POST' });
+  // No demo reset (POST /api/demo/reset is not public): a new browser context is a new visitor whose runs
+  // are its own, and demo runs never count against the group's caps.
   const browser = await chromium.launch({ args: CHROME_ARGS });
   // The DevTools screencast delivers CSS-pixel frames whatever the deviceScaleFactor, so for sharp 2× frames we
   // render a (1920·dpr)×(1080·dpr) viewport at DPR 1 with `html{zoom:dpr}`: the same 1920×1080 layout, twice

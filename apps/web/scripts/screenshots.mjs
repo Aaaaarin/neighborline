@@ -173,36 +173,58 @@ await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
 
 /* ---------- serial: flows that change server state (rules editor, alerts), each on a fresh demo ---------- */
 
-const resetDemo = () => fetch(`${base}/api/demo/reset`, { method: 'POST' });
+/** POST to /api/internal/* signed with the server's NEIGHBORLINE_INTERNAL_SECRET (what Render Workflows sends). */
+async function internalPost(secret, path, body) {
+  const raw = JSON.stringify(body);
+  const ts = String(Math.floor(Date.now() / 1000));
+  const sig = 'v1=' + createHmac('sha256', secret).update(`${ts}.POST.${path}.${raw}`).digest('hex');
+  const res = await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-neighborline-timestamp': ts, 'x-neighborline-signature': sig }, body: raw });
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  return res.json();
+}
 
-/** Raise the two organizer alerts the scheduled jobs raise (needs NEIGHBORLINE_INTERNAL_SECRET of the server). */
+const DAY = 86_400_000;
+const usd = (cents) => `$${(cents / 100).toFixed(2)}`;
+/**
+ * Stand in for the scheduler, honestly: run the same unclaimed sweep the nightly job runs and raise the
+ * day-25 alert only for items that really are unclaimed and 25+ days old, with the job's own wording
+ * (workflows/src/policy.ts decideUnclaimed + tasks/unclaimed.ts escalationSummary). The seeded month has
+ * exactly one such payout, so the alert, the ledger row and the Unclaimed total describe the same item.
+ */
 async function raiseAlerts() {
   const secret = process.env.NEIGHBORLINE_INTERNAL_SECRET;
   if (!secret) return false;
-  const ledger = await (await fetch(`${base}/api/ledger`)).json();
-  const unclaimed = ledger.rows.find((r) => r.status === 'UNCLAIMED') ?? ledger.rows[0];
-  const other = ledger.rows.find((r) => r.status === 'SUCCESS' && r.itemId !== unclaimed.itemId);
-  const post = async (path, body) => {
-    const raw = JSON.stringify(body);
-    const ts = String(Math.floor(Date.now() / 1000));
-    const sig = 'v1=' + createHmac('sha256', secret).update(`${ts}.POST.${path}.${raw}`).digest('hex');
-    await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-neighborline-timestamp': ts, 'x-neighborline-signature': sig }, body: raw });
-  };
-  await post('/api/internal/organizer-alert', {
-    kind: 'unclaimed_day25', idempotencyKey: `day25:${unclaimed.itemId}`, itemIds: [unclaimed.itemId],
-    summary: `A ${unclaimed.categoryLabel.toLowerCase()} payout of $${(unclaimed.amountCents / 100).toFixed(0)} to ${unclaimed.receiverMasked} has not been claimed for 25 days.`,
-    deadline: new Date(Date.now() + 5 * 86_400_000).toISOString(),
-  });
-  await post('/api/internal/organizer-alert', {
-    kind: 'reconcile_mismatch', idempotencyKey: `mismatch:${other.itemId}`, itemIds: [other.itemId],
-    summary: `Transaction Search shows a different amount for one payout of $${(other.amountCents / 100).toFixed(0)} (${other.requestRef}).`,
-  });
+  const now = new Date();
+  const { items } = await internalPost(secret, '/api/internal/unclaimed-sweep', { now: now.toISOString(), minAgeHours: 24 });
+  for (const item of items) {
+    const created = Date.parse(item.payoutCreatedAt);
+    const deadline = new Date(created + 30 * DAY).toISOString();
+    if (now.getTime() - created < 25 * DAY || now.toISOString() >= deadline || item.organizerAlertedAt) continue;
+    const wallet = item.wallet === 'VENMO' ? 'Venmo' : 'PayPal';
+    await internalPost(secret, '/api/internal/organizer-alert', {
+      kind: 'unclaimed_day25',
+      idempotencyKey: `unclaimed_day25:${item.itemId}`,
+      itemIds: [item.itemId],
+      deadline,
+      summary:
+        `${usd(item.amountCents)} ${wallet} payout for request ${item.requestId} is still unclaimed after 25 days ` +
+        `(${item.nudgeCount} follow-up(s) sent in ${item.lang}). PayPal returns it on ${deadline}. ` +
+        `Please reach the neighbor directly, or cancel the item and re-send to a destination they can use.`,
+    });
+  }
   return true;
 }
 
-const RULES_EDIT = (t) =>
-  t.replace('up to $150 per request, at most $300', 'up to $120 per request, at most $300')
-    .replace('- Anything else:', '- Baby supplies (diapers, formula, wipes): up to $80 per request, $160 per household in 30 days.\n- Anything else:');
+/**
+ * The rules edit works from whatever policy is active (no reset between flows): it toggles the utility
+ * cap between $150 and $120 and adds the baby-supplies line once.
+ */
+const RULES_EDIT = (t) => {
+  const next = /up to \$120 per request, at most \$300/.test(t) ? '$150' : '$120';
+  let out = t.replace(/up to \$\d+ per request, at most \$300/, `up to ${next} per request, at most $300`);
+  if (!/Baby supplies/.test(out)) out = out.replace('- Anything else:', '- Baby supplies (diapers, formula, wipes): up to $80 per request, $160 per household in 30 days.\n- Anything else:');
+  return out;
+};
 
 /** /organizer/rules: draft → one signature → second signature (activated), at one viewport. */
 async function rulesFlow(tag, vp) {
@@ -220,7 +242,7 @@ async function rulesFlow(tag, vp) {
     const box = p.locator('#rules-text');
     await box.fill(RULES_EDIT(await box.inputValue()));
     await p.getByRole('button', { name: /Draft policy|Draft again/ }).click();
-    await p.getByRole('heading', { name: /Review draft v2/ }).waitFor({ timeout: 20_000 });
+    await p.getByRole('heading', { name: /Review draft v\d+/ }).waitFor({ timeout: 20_000 });
     await p.getByRole('button', { name: 'Show line 7 of the rules' }).first().hover();
     await shot(`rules-${tag}-draft`);
     const pick = async (name) => {
@@ -232,7 +254,7 @@ async function rulesFlow(tag, vp) {
     await p.getByText('Dana signed').scrollIntoViewIfNeeded();
     await shot(`rules-${tag}-one-signature`, false);
     await pick('Marcus');
-    await p.getByText(/Policy v2 is now active/).waitFor({ timeout: 20_000 });
+    await p.getByText(/Policy v\d+ is now active/).waitFor({ timeout: 20_000 });
     await p.evaluate(() => window.scrollTo(0, 0));
     await shot(`rules-${tag}-activated`, false);
   } catch (err) {
@@ -278,9 +300,8 @@ const serial = [
       }),
   },
 ].filter((s) => !only || only.test(s.name));
-for (const s of serial) {
-  await resetDemo();
-  await s.run();
-}
-if (serial.length) await resetDemo();
+// No demo reset (it is not public): every shot above runs in a fresh browser context, i.e. a new
+// visitor with its own runs. The serial flows change shared state (the active policy, alerts), so they
+// run last; for pristine rules shots, run them against a freshly started server.
+for (const s of serial) await s.run();
 await browser.close();
