@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
+    "@neighborline/core": "workspace:*",
     "@simplewebauthn/server": "14.0.3",
     "zod": "^3.23.8"
   }

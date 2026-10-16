@@ -135,6 +135,54 @@ export const approvalSignatures = pgTable(
   (t) => [primaryKey({ columns: [t.approvalId, t.organizerId] })],
 );
 
+/**
+ * WebAuthn credentials per organizer. `kind = 'demo_key'` rows are server-held software keys used
+ * only in DEMO_MODE and are always labelled as such; `passkey` rows hold a public key only.
+ */
+export const organizerCredentials = pgTable(
+  'organizer_credentials',
+  {
+    /** base64url credential id */
+    id: text('id').primaryKey(),
+    organizerId: text('organizer_id').notNull().references(() => organizers.id),
+    /** base64url COSE_Key */
+    publicKey: text('public_key').notNull(),
+    counter: integer('counter').notNull().default(0),
+    transports: jsonb('transports').$type<string[]>().notNull().default([]),
+    deviceLabel: text('device_label').notNull(),
+    kind: text('kind').$type<'passkey' | 'demo_key'>().notNull().default('passkey'),
+    backedUp: boolean('backed_up').notNull().default(false),
+    createdAt: createdAt(),
+    lastUsedAt: ts('last_used_at'),
+    revokedAt: ts('revoked_at'),
+  },
+  (t) => [index('organizer_credentials_org_idx').on(t.organizerId)],
+);
+
+/**
+ * One verified WebAuthn assertion per (approval hash, organizer): the organizer's signature over
+ * exactly what will be paid. Keyed by hash (not approval id) so it can be recorded before the
+ * approval row exists and re-attached if an identical approval is re-created.
+ */
+export const approvalAssertions = pgTable(
+  'approval_assertions',
+  {
+    approvalHash: text('approval_hash').notNull(),
+    organizerId: text('organizer_id').notNull().references(() => organizers.id),
+    credentialId: text('credential_id').notNull().references(() => organizerCredentials.id),
+    kind: text('kind').$type<'passkey' | 'demo_key'>().notNull(),
+    authenticatorData: text('authenticator_data').notNull(),
+    clientDataJson: text('client_data_json').notNull(),
+    signature: text('signature').notNull(),
+    userHandle: text('user_handle'),
+    rpId: text('rp_id').notNull(),
+    origin: text('origin').notNull(),
+    deviceLabel: text('device_label').notNull(),
+    verifiedAt: ts('verified_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.approvalHash, t.organizerId] })],
+);
+
 export const payoutBatches = pgTable('payout_batches', {
   id: text('id').primaryKey(),
   approvalId: text('approval_id').notNull().unique().references(() => approvals.id),
@@ -231,6 +279,8 @@ export const schema = {
   requests,
   approvals,
   approvalSignatures,
+  organizerCredentials,
+  approvalAssertions,
   payoutBatches,
   payoutItems,
   donations,

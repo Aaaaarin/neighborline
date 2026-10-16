@@ -18,6 +18,7 @@ import type { Executor, Tx } from '../client.js';
 import { approvalSignatures, approvals, groups, organizers, requests } from '../schema.js';
 import { RepoError, inTx, iso, newId } from '../util.js';
 import { appendAudit } from './audit.js';
+import { listApprovalAssertions } from './credentials.js';
 import { toHelpRequest } from './requests.js';
 
 type ApprovalRow = typeof approvals.$inferSelect;
@@ -28,10 +29,14 @@ async function loadApproval(ex: Executor, row: ApprovalRow): Promise<Approval> {
     .from(approvalSignatures)
     .where(eq(approvalSignatures.approvalId, row.id))
     .orderBy(asc(approvalSignatures.at), asc(approvalSignatures.organizerId));
+  const assertions = sigs.length ? await listApprovalAssertions(ex, row.hash) : new Map();
   return {
     id: row.id,
     requestIds: row.requestIds,
-    approvers: sigs.map((s) => ({ organizerId: s.organizerId, at: iso(s.at), deviceLabel: s.deviceLabel })),
+    approvers: sigs.map((s) => {
+      const assertion = assertions.get(s.organizerId);
+      return { organizerId: s.organizerId, at: iso(s.at), deviceLabel: s.deviceLabel, ...(assertion ? { assertion } : {}) };
+    }),
     totalCents: row.totalCents,
     policyVersionId: row.policyVersionId,
     hash: row.hash,

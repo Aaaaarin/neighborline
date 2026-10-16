@@ -168,6 +168,9 @@ importers:
 
   packages/passkeys:
     dependencies:
+      '@neighborline/core':
+        specifier: workspace:*
+        version: link:../core
       '@simplewebauthn/server':
         specifier: 14.0.3
         version: 14.0.3

@@ -67,3 +67,25 @@ describe('verifyApprovalAssertion', () => {
     expect(ApprovalAssertion.parse(rec)).toEqual(rec);
   });
 });
+
+describe('relying party', async () => {
+  const { configuredOrigins, expectedFor, isAllowedOrigin, relyingParty } = await import('./relying-party.js');
+  it('reads WEBAUTHN_ORIGIN, then APP_BASE_URL, then localhost', () => {
+    expect(configuredOrigins({ WEBAUTHN_ORIGIN: 'https://a.example, https://b.example/x' })).toEqual(['https://a.example', 'https://b.example']);
+    expect(configuredOrigins({ APP_BASE_URL: 'https://nl.onrender.com/' })).toEqual(['https://nl.onrender.com']);
+    expect(configuredOrigins({})).toEqual(['http://localhost:3000']);
+  });
+  it('allows local origins only outside production or in demo mode', () => {
+    const prod = { NODE_ENV: 'production', DEMO_MODE: 'false', WEBAUTHN_ORIGIN: 'https://nl.example' };
+    expect(isAllowedOrigin('http://localhost:3100', prod)).toBe(false);
+    expect(isAllowedOrigin('https://nl.example', prod)).toBe(true);
+    expect(isAllowedOrigin('http://127.0.0.1:3100', { ...prod, DEMO_MODE: 'true' })).toBe(true);
+    expect(isAllowedOrigin('https://evil.example', { DEMO_MODE: 'true' })).toBe(false);
+  });
+  it('derives the RP ID from the origin unless WEBAUTHN_RP_ID is set', () => {
+    expect(relyingParty({}, 'http://127.0.0.1:3100')).toMatchObject({ rpId: '127.0.0.1', origin: 'http://127.0.0.1:3100' });
+    expect(relyingParty({ WEBAUTHN_ORIGIN: 'https://app.nl.example', WEBAUTHN_RP_ID: 'nl.example' }, 'https://evil.example')).toMatchObject({ rpId: 'nl.example', origin: 'https://app.nl.example' });
+    expect(expectedFor({ origin: 'https://evil.example' }, {})).toBeNull();
+    expect(expectedFor({ origin: 'http://localhost:3000' }, {})).toEqual({ expectedOrigin: ['http://localhost:3000'], expectedRpId: 'localhost' });
+  });
+});

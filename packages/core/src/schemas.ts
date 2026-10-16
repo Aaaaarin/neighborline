@@ -145,10 +145,36 @@ export const HelpRequest = z.object({
 });
 export type HelpRequest = z.infer<typeof HelpRequest>;
 
+const B64URL = z.string().regex(/^[A-Za-z0-9_-]*$/, 'base64url');
+
+/**
+ * An approver's WebAuthn assertion over the approval hash (challenge = base64url of the hash's 32
+ * bytes). Carries everything needed to re-verify the signature later against the credential's
+ * stored public key; see NOTES-passkeys.md and @neighborline/passkeys.
+ */
+export const ApproverAssertion = z.object({
+  v: z.literal(1),
+  /** 'passkey' = an authenticator the organizer holds; 'demo_key' = server-held software key (DEMO_MODE only) */
+  kind: z.enum(['passkey', 'demo_key']),
+  credentialId: B64URL.min(1),
+  authenticatorData: B64URL.min(37),
+  clientDataJSON: B64URL.min(1),
+  signature: B64URL.min(1),
+  userHandle: B64URL.optional(),
+  rpId: z.string().min(1),
+  origin: z.string().min(1),
+  approvalHash: z.string().regex(/^[0-9a-f]{64}$/),
+  deviceLabel: z.string().min(1).max(80),
+  verifiedAt: z.string(),
+});
+export type ApproverAssertion = z.infer<typeof ApproverAssertion>;
+
 export const Approver = z.object({
   organizerId: z.string(),
   at: z.string(),
   deviceLabel: z.string(),
+  /** Present when the approval was signed (passkey or labelled demo key). */
+  assertion: ApproverAssertion.optional(),
 });
 export type Approver = z.infer<typeof Approver>;
 

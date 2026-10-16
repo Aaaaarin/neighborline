@@ -6,6 +6,7 @@ export * from './repo/audit.js';
 export * from './repo/groups.js';
 export * from './repo/requests.js';
 export * from './repo/approvals.js';
+export * from './repo/credentials.js';
 export * from './repo/payouts.js';
 export * from './repo/misc.js';
 export * from './seed.js';
