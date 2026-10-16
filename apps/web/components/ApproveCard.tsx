@@ -97,6 +97,9 @@ export function ApproveCard({
           {view.aiTrace.summary}
         </p>
       )}
+      {view.redacted && (
+        <p className="mt-1.5 text-[0.8rem] leading-snug text-ink-3">Sign in as an organizer to see the full request. Visitors see a summary, never a neighbor’s words or payout account.</p>
+      )}
       {r.lang !== 'en' && r.originalText && (
         <details className="group mt-2">
           <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-[0.85rem] text-ink-2 [&::-webkit-details-marker]:hidden">
@@ -118,9 +121,11 @@ export function ApproveCard({
             {appeal.firstDecline.organizerId === me.id ? 'You' : appeal.firstDecline.name} declined it at {clockTime(appeal.firstDecline.at)}: {appeal.firstDecline.reasonLabel.toLowerCase()}
             {appeal.firstDecline.note ? ` (“${appeal.firstDecline.note}”)` : ''}.
           </p>
-          <p className="mt-1.5" lang={r.lang} dir={dirOf(r.lang)}>
-            “{appeal.text}”
-          </p>
+          {appeal.text && (
+            <p className="mt-1.5" lang={r.lang} dir={dirOf(r.lang)}>
+              “{appeal.text}”
+            </p>
+          )}
           {appeal.textEn && appeal.textEn !== appeal.text && <p className="mt-0.5 text-ink-2">“{appeal.textEn}”</p>}
           <p className="mt-1.5 text-ink-2">{declinedFirst ? 'You declined it the first time, so someone else decides now.' : 'A different organizer decides this time.'}</p>
         </div>

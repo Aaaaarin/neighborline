@@ -102,7 +102,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
     }
   };
 
-  const sendAudio = (input: { audio?: Blob; sampleId?: ScenarioId }) =>
+  const sendAudio = (input: { audio?: Blob; sampleId?: ScenarioId; durationSeconds?: number }) =>
     run(async () => {
       setMode('sending');
       const id = await ensureRequest('web_voice');
@@ -148,7 +148,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
       await refresh(requestId);
     });
 
-  const replyAudio = (input: { audio?: Blob; sampleId?: ScenarioId }) =>
+  const replyAudio = (input: { audio?: Blob; sampleId?: ScenarioId; durationSeconds?: number }) =>
     run(async () => {
       if (!requestId) return;
       const res = await api.submitAudio(requestId, input);
@@ -159,8 +159,9 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
   const toggleReplyRecording = async () => {
     if (rec.state === 'recording') {
       replyRecording.current = false;
+      const durationSeconds = Math.min(120, rec.seconds);
       const blob = await rec.stop();
-      if (blob && blob.size > 0) await replyAudio({ audio: blob });
+      if (blob && blob.size > 0) await replyAudio({ audio: blob, durationSeconds });
       return;
     }
     replyRecording.current = true;
@@ -187,8 +188,10 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
 
   const finishRecording = async () => {
     if (replyRecording.current) return toggleReplyRecording();
+    // The server refuses recordings over 2:00, so the recorder stops there (see the effect below).
+    const durationSeconds = Math.min(120, rec.seconds);
     const blob = await rec.stop();
-    if (blob && blob.size > 0) await sendAudio({ audio: blob });
+    if (blob && blob.size > 0) await sendAudio({ audio: blob, durationSeconds });
   };
 
   useEffect(() => {

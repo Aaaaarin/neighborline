@@ -60,11 +60,12 @@ const post = <T>(path: string, json?: unknown) => call<T>(path, { method: 'POST'
 export const api = {
   /* intake */
   startIntake: (input: { groupSlug: string; channel: Channel; lang?: Lang }) => post<{ requestId: string }>('/api/intake/start', input),
-  submitAudio: (requestId: string, input: { audio?: Blob; sampleId?: ScenarioId; lang?: Lang; photo?: Blob }) => {
+  submitAudio: (requestId: string, input: { audio?: Blob; sampleId?: ScenarioId; lang?: Lang; photo?: Blob; durationSeconds?: number }) => {
     const form = new FormData();
     if (input.audio) form.set('audio', input.audio, 'voice-note');
     if (input.sampleId) form.set('sampleId', input.sampleId);
     if (input.lang) form.set('lang', input.lang);
+    if (input.durationSeconds !== undefined) form.set('durationSeconds', String(Math.round(input.durationSeconds)));
     if (input.photo) form.set('photo', input.photo, 'photo');
     return call<IntakeResult>(`/api/intake/${requestId}/audio`, { method: 'POST', body: form });
   },
