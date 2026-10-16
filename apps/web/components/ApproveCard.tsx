@@ -1,6 +1,7 @@
 'use client';
 
-import { Ban, Check, ChevronDown, Fingerprint, KeyRound, LoaderCircle, Mic, MessageCircle } from 'lucide-react';
+import { Ban, Check, ChevronDown, Fingerprint, KeyRound, LoaderCircle, Mic, MessageCircle, RotateCcw } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import type { Organizer, RequestView } from '@/lib/types';
 import { LANGUAGE_NAMES, clockTime, cx, money, shortId, tidyQuotes, walletLabel } from '@/lib/format';
 import { dirOf } from '@/lib/i18n';
@@ -50,6 +51,27 @@ export function ApproveCard({
   const dest = r.payoutDestination;
   const isVoice = r.channel === 'web_voice' || r.channel === 'phone';
   const titleId = `req-${r.id}-title`;
+  const appeal = view.appeal && !view.appeal.closed && r.status === 'awaiting_approval' ? view.appeal : null;
+  const declinedFirst = !!appeal && appeal.firstDecline.organizerId === me.id;
+
+  // Keyboard and screen-reader users: after this card's Approve, focus lands on what replaced the button
+  // (the confirmation, the demo-key fallback, or the error), never on <body>. "Your turn" focuses Approve.
+  const pressed = useRef(false);
+  const approveBtn = useRef<HTMLButtonElement>(null);
+  const after = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (highlight) approveBtn.current?.focus();
+  }, [highlight]);
+  useEffect(() => {
+    if (!pressed.current || busy) return;
+    if (mine || fallback || error || item) {
+      pressed.current = false;
+      after.current?.focus();
+    }
+  }, [mine, fallback, error, item, busy]);
+  const setAfter = (el: HTMLElement | null) => {
+    if (el) after.current = el;
+  };
 
   return (
     <article aria-labelledby={titleId} className={cx('rounded-2xl border border-rule bg-raised', dense ? 'p-4' : 'p-5 sm:p-6')}>
@@ -85,6 +107,23 @@ export function ApproveCard({
             {r.originalText}
           </p>
         </details>
+      )}
+
+      {appeal && (
+        <div className="mt-3 rounded-xl border border-frost-ink/45 bg-frost/40 p-3 text-[0.86rem] leading-snug text-ink">
+          <p className="flex items-center gap-1.5 font-semibold text-frost-ink">
+            <RotateCcw size={14} aria-hidden /> {view.requester.displayName} asked for another look
+          </p>
+          <p className="mt-1 text-ink-2">
+            {appeal.firstDecline.organizerId === me.id ? 'You' : appeal.firstDecline.name} declined it at {clockTime(appeal.firstDecline.at)}: {appeal.firstDecline.reasonLabel.toLowerCase()}
+            {appeal.firstDecline.note ? ` (“${appeal.firstDecline.note}”)` : ''}.
+          </p>
+          <p className="mt-1.5" lang={r.lang} dir={dirOf(r.lang)}>
+            “{appeal.text}”
+          </p>
+          {appeal.textEn && appeal.textEn !== appeal.text && <p className="mt-0.5 text-ink-2">“{appeal.textEn}”</p>}
+          <p className="mt-1.5 text-ink-2">{declinedFirst ? 'You declined it the first time, so someone else decides now.' : 'A different organizer decides this time.'}</p>
+        </div>
       )}
 
       <div className={cx('mt-3 border-t border-rule pt-3', dense ? 'space-y-2' : 'space-y-3')}>
@@ -144,24 +183,28 @@ export function ApproveCard({
               <strong className="font-semibold">Not claimed yet.</strong> {view.requester.displayName} got claim help in {lang.en}. The money waits 30 days.
             </p>
           ) : item ? (
-            <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-3 text-[0.9rem] text-ink">
+            <p ref={setAfter} tabIndex={-1} role="status" className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-3 text-[0.9rem] text-ink">
               <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden />
               Sending {money(item.amountCents)} through PayPal…
             </p>
           ) : r.status === 'declined' ? (
-            <p className="rounded-xl bg-sunk px-3 py-3 text-[0.9rem] text-ink-2">Declined. {view.requester.displayName} was told why, in {lang.en}, with a way to appeal.</p>
+            <p className="rounded-xl bg-sunk px-3 py-3 text-[0.9rem] text-ink-2">{view.appeal?.closed ? `Declined again by a second organizer. ${view.requester.displayName} was told why, in ${lang.en}.` : `Declined. ${view.requester.displayName} was told why, in ${lang.en}, with a way to ask for another look.`}</p>
           ) : block ? (
             <button type="button" disabled className="flex h-14 w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-rule bg-sunk text-[1rem] font-semibold text-ink-3">
               <Ban size={18} aria-hidden /> Approve disabled
             </button>
           ) : mine ? (
-            <p className="flex h-14 items-center gap-2 rounded-2xl border border-rule px-4 text-[0.92rem] text-ink-2">
-              <Check size={18} className="text-pine" aria-hidden /> You approved. Waiting for {count < view.approvalsRequired ? 'one more organizer' : 'PayPal'}.
+            <p ref={setAfter} tabIndex={-1} role="status" className="flex min-h-14 items-center gap-2 rounded-2xl border border-rule px-4 py-2 text-[0.92rem] text-ink-2">
+              <Check size={18} className="shrink-0 text-pine" aria-hidden /> You approved. Waiting for {count < view.approvalsRequired ? 'one more organizer' : 'PayPal'}.
             </p>
           ) : (
             <button
+              ref={approveBtn}
               type="button"
-              onClick={onApprove}
+              onClick={() => {
+                pressed.current = true;
+                onApprove?.();
+              }}
               disabled={busy || !onApprove}
               className={cx(
                 'relative flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-[1.06rem] font-semibold text-raised transition-transform active:scale-[0.98] disabled:opacity-70',
@@ -176,17 +219,17 @@ export function ApproveCard({
           {fallback && !mine && !item && (
             <div role="status" className="mt-2 rounded-xl border border-dashed border-rule-strong p-3 text-[0.82rem] leading-snug text-ink-2">
               <p>{fallback.reason} This demo can sign with {fallback.label} instead. The card will say so.</p>
-              <button type="button" onClick={fallback.onUseDemoKey} disabled={busy} className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-full border border-rule-strong px-3.5 font-medium text-ink hover:bg-sunk disabled:opacity-60">
+              <button ref={setAfter} type="button" onClick={() => { pressed.current = true; fallback.onUseDemoKey(); }} disabled={busy} className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-full border border-rule-strong px-3.5 font-medium text-ink hover:bg-sunk disabled:opacity-60">
                 <KeyRound size={15} aria-hidden /> Approve with {fallback.label}
               </button>
             </div>
           )}
           {error && (
-            <p role="alert" className="mt-2 text-[0.85rem] text-signal">
+            <p ref={setAfter} tabIndex={-1} role="alert" className="mt-2 text-[0.85rem] text-signal">
               {error}
             </p>
           )}
-          {onDecline && !item && r.status === 'awaiting_approval' && !block && (
+          {onDecline && !item && r.status === 'awaiting_approval' && !block && !declinedFirst && (
             <button type="button" onClick={onDecline} className="mt-1 flex min-h-11 w-full items-center justify-center text-[0.9rem] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
               Decline with a reason
             </button>

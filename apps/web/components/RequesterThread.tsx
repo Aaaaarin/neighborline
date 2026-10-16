@@ -73,11 +73,12 @@ export function RequesterThread({
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    // Scroll only this conversation, never the page around it. Follow the newest message, but never
-    // past the neighbor's own last message: their words and our answer to them stay on screen together.
+    // Scroll only this conversation, never the page around it. Follow the newest message, except right
+    // after a voice note: never scroll past its transcript, so what they said and what we understood
+    // (the read-back) are on screen together. Later messages (the money) always come fully into view.
     const bottom = el.scrollHeight - el.clientHeight;
     const mine = [...el.querySelectorAll<HTMLElement>('[data-from="neighbor"]')].at(-1);
-    const top = mine ? Math.min(bottom, Math.max(0, mine.offsetTop - 8)) : bottom;
+    const top = mine?.dataset.kind === 'voice' ? Math.min(bottom, Math.max(0, mine.offsetTop - 8)) : bottom;
     el.scrollTo({ top, behavior: first.current ? 'auto' : 'smooth' });
     first.current = false;
   }, [messages.length, messages.at(-1)?.text, awaitingConfirmation, translated]);
@@ -144,7 +145,7 @@ function Bubble({ m, translated, lang, timeOf }: { m: ThreadMessage; translated:
   }
 
   return (
-    <div className={cx('max-w-[86%] animate-rise', mine ? 'self-end' : 'self-start')} data-from={m.from}>
+    <div className={cx('max-w-[86%] animate-rise', mine ? 'self-end' : 'self-start')} data-from={m.from} data-kind={m.kind}>
       <div
         className={cx(
           'rounded-[20px] px-3.5 py-2.5',
@@ -223,7 +224,7 @@ function Isolated({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         i % 2 === 1 ? (
-          <bdi key={i} dir="ltr">
+          <bdi key={i} dir="ltr" className="whitespace-nowrap">
             {p}
           </bdi>
         ) : (

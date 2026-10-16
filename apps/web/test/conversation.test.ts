@@ -81,12 +81,12 @@ describe('decline: idempotent, honest, with a real appeal', () => {
 
   it('declining twice sends one message; "other" without a note never mentions a note', async () => {
     const id = await filed();
-    const a = await h.engine.decline({ requestId: id, organizerId: 'org_dana', reasonCode: 'other' });
-    expect(a.message.textEn).not.toMatch(/note/i);
-    const [b, c] = await Promise.all([
+    const [a, b, c] = await Promise.all([
+      h.engine.decline({ requestId: id, organizerId: 'org_dana', reasonCode: 'other' }),
       h.engine.decline({ requestId: id, organizerId: 'org_marcus', reasonCode: 'outside_area' }),
       h.engine.decline({ requestId: id, organizerId: 'org_dana', reasonCode: 'other' }),
     ]);
+    expect(a.message.textEn).not.toMatch(/note/i);
     expect(b.status).toBe('declined');
     expect(c.status).toBe('declined');
     const sent = (await listNotifications(await db(), id)).filter((n) => n.messageKey === 'declined_with_appeal');

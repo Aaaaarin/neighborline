@@ -290,7 +290,21 @@ export class Engine implements Services {
     tick(0);
   }
 
+  /** One decline at a time per request (the db transition check is read-then-write). */
+  private declineLocks = new Map<string, Promise<unknown>>();
+
   async decline(input: { requestId: string; organizerId: string; reasonCode: DeclineReasonCode; note?: string }) {
+    const prev = this.declineLocks.get(input.requestId) ?? Promise.resolve();
+    const next = prev.catch(() => undefined).then(() => this.declineOnce(input));
+    this.declineLocks.set(input.requestId, next);
+    try {
+      return await next;
+    } finally {
+      if (this.declineLocks.get(input.requestId) === next) this.declineLocks.delete(input.requestId);
+    }
+  }
+
+  private async declineOnce(input: { requestId: string; organizerId: string; reasonCode: DeclineReasonCode; note?: string }) {
     const ctx = await this.base();
     const r = await this.loadReq(ctx, input.requestId);
     const org = (await listOrganizers(ctx.db, ctx.gen.group.id)).find((o) => o.id === input.organizerId);

@@ -61,8 +61,12 @@ test.describe('/demo stage (real engine, fake PayPal)', () => {
 
     await expect(page.getByText('Your turn')).toBeVisible();
     const marcus = page.getByRole('region', { name: 'Marcus’s phone, organizer' });
-    await marcus.getByRole('button', { name: 'Approve $150' }).click();
-    await marcus.getByRole('button', { name: 'Approve with Marcus’s demo key' }).click();
+    // Keyboard users: "Your turn" puts focus on Approve; after it, focus lands on the fallback, never <body>.
+    await expect(marcus.getByRole('button', { name: 'Approve $150' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(marcus.getByRole('button', { name: 'Approve with Marcus’s demo key' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(marcus.getByText(/You approved|landed/).first()).toBeVisible();
 
     await expect(page.getByRole('list', { name: 'PayPal rail events' }).getByText('Item SUCCESS · money landed')).toBeVisible();
     await expect(marcus.getByText('Marcus: signed with demo key')).toBeVisible();

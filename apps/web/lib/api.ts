@@ -97,7 +97,7 @@ export const api = {
   policyChallenge: (input: { draftHash: string; organizerId?: string }) => post<ApprovalChallenge>('/api/policy/challenge', input),
   signPolicy: (input: PolicySignInput) => post<PolicySignResult>('/api/policy/sign', input),
   decline: (id: string, input: { organizerId: string; reasonCode: DeclineReasonCode; note?: string }) =>
-    post<{ status: RequestStatus; message: { text: string; textEn: string; lang: Lang } }>(`/api/requests/${id}/decline`, input),
+    post<{ status: RequestStatus; message: { text: string; textEn: string; lang: Lang }; alreadyDeclined?: boolean }>(`/api/requests/${id}/decline`, input),
   previewDecline: (id: string, input: { reasonCode: DeclineReasonCode; note?: string }) =>
     post<{ text: string; textEn: string; lang: Lang }>(`/api/requests/${id}/decline/preview`, input),
   cancelItem: (batchId: string, itemId: string) => post<{ status: string }>(`/api/payouts/${batchId}/cancel-item`, { itemId }),

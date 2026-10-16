@@ -47,6 +47,8 @@ export function OrganizerQueue({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [declining, setDeclining] = useState<RequestView | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const heading = useRef<HTMLHeadingElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -93,14 +95,16 @@ export function OrganizerQueue({
         : 'Sign in with your passkey above to approve.';
 
   const waiting = items.filter((v) => v.request.status === 'awaiting_approval');
-  const mine = waiting.filter((v) => !v.approvals.some((a) => a.organizerId === me.id) && !v.request.railFlags.some((f) => f.severity === 'block'));
+  const mine = waiting.filter(
+    (v) => !v.approvals.some((a) => a.organizerId === me.id) && !v.request.railFlags.some((f) => f.severity === 'block') && v.appeal?.firstDecline.organizerId !== me.id,
+  );
   const decided = items.filter((v) => ['paying', 'paid', 'unclaimed', 'declined', 'returned', 'failed', 'cancelled'].includes(v.request.status)).slice(0, 12);
 
   return (
     <div className="mx-auto max-w-[560px] px-4 pb-16 pt-8 sm:px-6">
       <div>
         <p className="text-[0.95rem] text-ink-2">Eastside Mutual Aid</p>
-        <h1 className="mt-1 text-h3 text-ink">
+        <h1 ref={heading} tabIndex={-1} className="mt-1 text-h3 text-ink">
           {!canAct ? 'Approval queue' : mine.length === 0 ? 'You’re all caught up' : mine.length === 1 ? '1 request needs you' : `${mine.length} requests need you`}
         </h1>
       </div>
@@ -181,12 +185,28 @@ export function OrganizerQueue({
 
       <Devices roster={roster} session={session} onSignedOut={() => setSession(null)} />
 
-      {declining && <DeclineSheet view={declining} me={me} onClose={() => setDeclining(null)} onDone={() => void load()} />}
+      <p className="sr-only" role="status" aria-live="polite">
+        {notice}
+      </p>
+      {declining && (
+        <DeclineSheet
+          view={declining}
+          me={me}
+          onClose={() => {
+            setDeclining(null);
+            heading.current?.focus();
+          }}
+          onDone={(n) => {
+            setNotice(n);
+            void load();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function DeclineSheet({ view, me, onClose, onDone }: { view: RequestView; me: Organizer; onClose: () => void; onDone: () => void }) {
+function DeclineSheet({ view, me, onClose, onDone }: { view: RequestView; me: Organizer; onClose: () => void; onDone: (note: string) => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState<DeclineReasonCode>('needs_info');
   const [note, setNote] = useState('');
@@ -218,8 +238,8 @@ function DeclineSheet({ view, me, onClose, onDone }: { view: RequestView; me: Or
     setBusy(true);
     setError(null);
     try {
-      await api.decline(view.request.id, { organizerId: me.id, reasonCode: reason, note: note.trim() || undefined });
-      onDone();
+      const res = await api.decline(view.request.id, { organizerId: me.id, reasonCode: reason, note: note.trim() || undefined });
+      onDone(res.alreadyDeclined ? 'Another organizer had already declined this request. Nothing more was sent.' : `Declined. ${name} got the message in ${LANGUAGE_NAMES[lang].en}.`);
       ref.current?.close();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Couldn’t send the decline. Try again.');
@@ -252,7 +272,9 @@ function DeclineSheet({ view, me, onClose, onDone }: { view: RequestView; me: Or
           </button>
         </div>
         <p className="mt-1 text-[0.92rem] text-ink-2">
-          {name} gets this in {LANGUAGE_NAMES[lang].en}, with a way to ask a different organizer to look again.
+          {view.appeal && !view.appeal.closed
+            ? `This is the second look ${name} asked for, so the decision is final. ${name} gets it in ${LANGUAGE_NAMES[lang].en}.`
+            : `${name} gets this in ${LANGUAGE_NAMES[lang].en}, with a way to ask a different organizer to look again.`}
         </p>
         <fieldset className="mt-5">
           <legend className="text-[0.9rem] font-semibold">Reason</legend>
@@ -266,7 +288,7 @@ function DeclineSheet({ view, me, onClose, onDone }: { view: RequestView; me: Or
           </div>
         </fieldset>
         <label className="mt-4 block text-[0.9rem] font-semibold" htmlFor="decline-note">
-          Note to {name} <span className="font-normal text-ink-3">(optional{reason === 'other' ? ', but needed here' : ''})</span>
+          Note to {name} <span className="font-normal text-ink-3">{reason === 'other' ? '(needed for “Something else”)' : '(optional)'}</span>
         </label>
         <textarea
           id="decline-note"
@@ -303,7 +325,7 @@ function DeclineSheet({ view, me, onClose, onDone }: { view: RequestView; me: Or
           <button type="button" onClick={() => ref.current?.close()} className="h-12 rounded-full border border-rule-strong px-5 font-medium">
             Keep it in the queue
           </button>
-          <button type="submit" disabled={busy} className="flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 font-semibold text-raised disabled:opacity-60">
+          <button type="submit" disabled={busy || (reason === 'other' && !note.trim())} className="flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 font-semibold text-raised disabled:opacity-60">
             {busy && <LoaderCircle size={18} className="animate-spin" aria-hidden />}
             Decline and send to {name}
           </button>

@@ -110,7 +110,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
         </p>
       )}
 
-      <div className="mt-5 overflow-x-auto rounded-2xl border border-rule bg-raised">
+      <div className="mt-5 overflow-x-auto rounded-2xl border border-rule bg-raised" tabIndex={0} role="region" aria-label="Payout items, scrolls sideways on small screens">
         <table className="w-full min-w-[980px] text-[0.92rem]">
           <caption className="sr-only">Payout items</caption>
           <thead>

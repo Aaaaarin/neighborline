@@ -159,7 +159,7 @@ export default async function ReportPage() {
 
 function PayoutTable({ lines, link }: { lines: Awaited<ReturnType<ReturnType<typeof services>['getReport']>>['lines']; link: boolean }) {
   return (
-    <div className="mt-4 overflow-x-auto">
+    <div className="mt-4 overflow-x-auto rounded-lg" tabIndex={0} role="region" aria-label="Payouts with PayPal transaction ids, scrolls sideways on small screens">
       <table className="w-full min-w-[520px] text-[0.95rem]">
         <thead>
           <tr className="border-b border-rule-strong text-left text-[0.85rem] text-ink-3">

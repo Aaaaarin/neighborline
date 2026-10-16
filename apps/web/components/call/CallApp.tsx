@@ -1,14 +1,18 @@
 'use client';
 
 import type { Lang } from '@neighborline/core';
-import { Camera, Check, Keyboard, LoaderCircle, Mic, Play, SendHorizontal, X } from 'lucide-react';
+import { Camera, Keyboard, LoaderCircle, Mic, RotateCcw, SendHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, openStream } from '@/lib/api';
-import { dirOf, ui } from '@/lib/i18n';
+import { dirOf, fill, ui } from '@/lib/i18n';
 import { LANGUAGE_NAMES, cx } from '@/lib/format';
 import type { SampleVoiceNote, ScenarioId, ThreadView } from '@/lib/types';
 import { RequesterThread } from '../RequesterThread';
 import { LineAvatar } from '../stage/RequesterPhone';
+import { errorText, saved } from './call-session';
+import { MAX_CHARS, ReplyDock } from './ReplyDock';
+import { RecordButton, SampleNotes } from './ComposeParts';
+import { StatusSteps } from './StatusSteps';
 import { useRecorder } from './useRecorder';
 
 type Mode = 'compose' | 'typing' | 'sending' | 'thread';
@@ -29,17 +33,37 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
   const rec = useRecorder();
   const pressAt = useRef(0);
   const photoUrl = useRef<string | null>(null);
+  const replyRecording = useRef(false);
 
   const lang: Lang = thread?.lang ?? (picked === 'auto' ? 'en' : picked);
   const t = ui(picked === 'auto' && !thread ? 'en' : lang);
 
   const refresh = useCallback(async (id: string) => {
     try {
-      setThread(await api.thread(id));
-    } catch {
-      /* retry on next event */
+      const next = await api.thread(id);
+      setThread(next);
+      return next;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        // The demo was reset or the request is gone: start fresh instead of showing an empty phone.
+        saved.set(null);
+        setRequestId(null);
+        setThread(null);
+        setMode('compose');
+      }
+      return null;
     }
   }, []);
+
+  // Survive a refresh mid-conversation: the thread comes back from the server.
+  useEffect(() => {
+    const id = saved.get();
+    if (!id) return;
+    setRequestId(id);
+    void refresh(id).then((th) => {
+      if (th && th.messages.length) setMode('thread');
+    });
+  }, [refresh]);
 
   useEffect(() => {
     if (!requestId) return;
@@ -58,17 +82,21 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
     if (requestId) return requestId;
     const { requestId: id } = await api.startIntake({ groupSlug: 'eastside', channel, lang: picked === 'auto' ? undefined : picked });
     setRequestId(id);
+    saved.set(id);
     return id;
   };
 
-  const run = async (fn: () => Promise<void>) => {
+  /** Runs one step; on failure shows a translated error and returns to `back` (nothing typed is lost). */
+  const run = async (fn: () => Promise<void>, back?: Mode): Promise<boolean> => {
     setError(null);
     setBusy(true);
     try {
       await fn();
+      return true;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'We couldn’t reach Neighborline. Check your connection and try again.');
-      setMode((m) => (m === 'sending' ? 'compose' : m));
+      setError(errorText(e, t, lang));
+      if (back) setMode(back);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -84,12 +112,16 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
       setPhoto(null);
       await refresh(id);
       setMode('thread');
-    });
+    }, 'compose');
 
-  const sendText = () =>
-    run(async () => {
-      const body = text.trim();
-      if (!body) return;
+  const sendText = () => {
+    const body = text.trim();
+    if (!body) return;
+    if (body.length > MAX_CHARS) {
+      setError(t.tooLong);
+      return;
+    }
+    return run(async () => {
       if (fixing && requestId) {
         await api.confirm(requestId, { confirmed: false, corrections: body });
         setFixing(false);
@@ -102,10 +134,38 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
       const id = await ensureRequest('web_text');
       await api.submitText(id, { text: body, lang: picked === 'auto' ? undefined : picked });
       setText('');
-      setSimulated(true);
       await refresh(id);
       setMode('thread');
+    }, 'typing');
+  };
+
+  /** An answer to the line's question (or to a decline), typed or tapped. */
+  const reply = (body: string) =>
+    run(async () => {
+      if (!requestId) return;
+      if (body.length > MAX_CHARS) throw new ApiError(400, 'too long');
+      await api.submitText(requestId, { text: body });
+      await refresh(requestId);
     });
+
+  const replyAudio = (input: { audio?: Blob; sampleId?: ScenarioId }) =>
+    run(async () => {
+      if (!requestId) return;
+      const res = await api.submitAudio(requestId, input);
+      setSimulated(res.simulatedTranscript);
+      await refresh(requestId);
+    });
+
+  const toggleReplyRecording = async () => {
+    if (rec.state === 'recording') {
+      replyRecording.current = false;
+      const blob = await rec.stop();
+      if (blob && blob.size > 0) await replyAudio({ audio: blob });
+      return;
+    }
+    replyRecording.current = true;
+    await rec.start();
+  };
 
   const confirm = () =>
     run(async () => {
@@ -114,7 +174,19 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
       setThread(r.thread);
     });
 
+  const startOver = () => {
+    saved.set(null);
+    setRequestId(null);
+    setThread(null);
+    setText('');
+    setFixing(false);
+    setSimulated(false);
+    setError(null);
+    setMode('compose');
+  };
+
   const finishRecording = async () => {
+    if (replyRecording.current) return toggleReplyRecording();
     const blob = await rec.stop();
     if (blob && blob.size > 0) await sendAudio({ audio: blob });
   };
@@ -128,6 +200,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
     e.preventDefault();
     if (rec.state === 'recording') return void finishRecording();
     pressAt.current = performance.now();
+    replyRecording.current = false;
     void rec.start();
   };
   const onPointerUp = () => {
@@ -138,7 +211,10 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
     if (rec.state === 'recording') void finishRecording();
-    else void rec.start();
+    else {
+      replyRecording.current = false;
+      void rec.start();
+    }
   };
 
   const recording = rec.state === 'recording';
@@ -175,7 +251,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
                 onChange={(e) => setPicked(e.target.value as Lang | 'auto')}
                 className="h-10 max-w-[9.5rem] appearance-none rounded-full border border-rule-strong bg-raised ps-3.5 pe-8 text-[0.85rem] text-ink"
               >
-                <option value="auto">Any language</option>
+                <option value="auto">{t.auto.replace(/\s*[(（].*$/, '')}</option>
                 {PICKABLE.map((l) => (
                   <option key={l} value={l} lang={l}>
                     {LANGUAGE_NAMES[l].native}
@@ -194,29 +270,42 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
         <StatusSteps t={t} status={status} itemStatus={item ?? null} approvals={thread.approvalsCount} required={thread.approvalsRequired} lang={lang} />
       )}
 
-      {mode === 'thread' || (thread && mode !== 'typing') ? (
+      {mode === 'thread' && thread ? (
         <>
-          <RequesterThread
-            messages={thread?.messages ?? []}
-            lang={lang}
-            translated={translated}
-            awaitingConfirmation={!!thread?.awaitingConfirmation}
-            onConfirm={confirm}
-            onFix={() => {
-              setFixing(true);
-              setMode('typing');
-            }}
-            busy={busy}
-          />
+          <RequesterThread messages={thread.messages} lang={lang} translated={translated} awaitingConfirmation={false} busy={busy} />
           {simulated && (
             <p lang="en" dir="ltr" className="mx-4 mb-2 rounded-xl border border-dashed border-rule-strong px-3 py-2 text-[0.78rem] leading-snug text-ink-2">
               Offline demo: no live speech-to-text is configured, so a sample transcript stands in for your recording.
             </p>
           )}
           {status === 'awaiting_approval' && (
-            <p className="mx-4 mb-4 text-center text-[0.8rem] text-ink-3">
+            <p className="mx-4 mb-4 text-center text-[0.8rem] text-ink-3" lang="en" dir="ltr">
               Trying the demo on your own? <a className="font-semibold text-ink underline underline-offset-4" href="/organizer" target="_blank" rel="noreferrer">Open the organizer queue</a> and approve it as two organizers.
             </p>
+          )}
+          <ReplyDock
+            t={t}
+            lang={lang}
+            thread={thread}
+            busy={busy}
+            error={error}
+            rec={{ state: replyRecording.current || rec.state === 'denied' || rec.state === 'unsupported' ? rec.state : 'idle', seconds: rec.seconds }}
+            onConfirm={() => void confirm()}
+            onFix={() => {
+              setFixing(true);
+              setError(null);
+              setMode('typing');
+            }}
+            onReply={reply}
+            onRecord={() => void toggleReplyRecording()}
+            onSampleAnswer={() => void replyAudio({ sampleId: 'lan' })}
+          />
+          {!thread.question && !thread.awaitingConfirmation && (status === 'paid' || status === 'declined' || status === 'cancelled') && (
+            <div className="shrink-0 px-4 pb-4">
+              <button type="button" onClick={startOver} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-rule-strong text-[0.92rem] text-ink" lang={lang}>
+                <RotateCcw size={16} aria-hidden /> {t.startOver}
+              </button>
+            </div>
           )}
         </>
       ) : mode === 'sending' ? (
@@ -246,15 +335,34 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
             rows={6}
             autoFocus
             lang={lang}
-            placeholder={fixing ? 'What should we change?' : 'Power is out since the storm. I need a heater. My Venmo is @…'}
+            dir="auto"
+            maxLength={MAX_CHARS}
+            aria-describedby="say-count"
+            placeholder={fixing ? t.fixPlaceholder : t.askPlaceholder}
             className="min-h-40 w-full flex-1 resize-none rounded-2xl border border-rule-strong bg-raised p-4 text-[1.05rem] leading-relaxed text-ink placeholder:text-ink-3"
           />
+          <p id="say-count" className={cx('-mt-1 text-end text-[0.8rem] tabular', MAX_CHARS - text.length <= 0 ? 'text-signal' : 'text-ink-3', MAX_CHARS - text.length >= 300 && 'sr-only')} lang={lang} aria-live="polite">
+            {fill(t.charsLeft, { n: Math.max(0, MAX_CHARS - text.length) })}
+          </p>
+          {error && (
+            <p role="alert" className="text-[0.9rem] leading-snug text-signal" lang={lang}>
+              {error}
+            </p>
+          )}
           <div className="flex gap-2">
-            <button type="button" onClick={() => setMode(thread ? 'thread' : 'compose')} className="h-12 rounded-full border border-rule-strong px-5 text-ink">
-              <Mic size={18} aria-hidden className="inline" /> <span className="sr-only">Back to voice</span>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setFixing(false);
+                setMode(thread?.messages.length ? 'thread' : 'compose');
+              }}
+              className="h-12 rounded-full border border-rule-strong px-5 text-ink"
+            >
+              <Mic size={18} aria-hidden className="inline" /> <span className="sr-only">{t.backToVoice}</span>
             </button>
             <button type="submit" disabled={!text.trim() || busy} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-ink font-semibold text-raised disabled:opacity-50">
-              <SendHorizontal size={18} aria-hidden />
+              {busy ? <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden /> : <SendHorizontal size={18} className="rtl:-scale-x-100" aria-hidden />}
               <span lang={lang}>{t.send}</span>
             </button>
           </div>
@@ -268,37 +376,10 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
             {t.askSub}
           </p>
 
-          <div className="my-6 flex flex-col items-center">
-            <button
-              type="button"
-              aria-pressed={recording}
-              aria-label={recording ? `${t.recording}, ${rec.seconds} seconds. ${t.tapToStop}` : t.holdToTalk}
-              onPointerDown={onPointerDown}
-              onPointerUp={onPointerUp}
-              onKeyDown={onKey}
-              onContextMenu={(e) => e.preventDefault()}
-              disabled={busy}
-              className={cx(
-                'relative grid size-[132px] touch-none select-none place-items-center rounded-full text-raised transition-transform active:scale-[0.97]',
-                recording ? 'bg-frost-ink' : 'bg-ink',
-              )}
-              style={recording ? { boxShadow: `0 0 0 ${8 + rec.level * 22}px color-mix(in oklab, var(--frost-ink) 18%, transparent)` } : undefined}
-            >
-              {rec.state === 'starting' ? <LoaderCircle size={40} className="animate-spin" aria-hidden /> : <Mic size={44} strokeWidth={1.8} aria-hidden />}
-            </button>
-            <p className="mt-4 text-[1rem] font-semibold tabular text-ink" aria-live="polite" lang={lang}>
-              {recording ? `${t.recording} · 0:${String(rec.seconds).padStart(2, '0')}` : t.holdToTalk}
-            </p>
-            {recording && <p className="text-[0.85rem] text-ink-3" lang={lang}>{t.tapToStop}</p>}
-            {(rec.state === 'denied' || rec.state === 'unsupported') && (
-              <p role="alert" className="mt-3 max-w-[30ch] text-center text-[0.88rem] text-signal">
-                {rec.state === 'denied' ? 'The microphone is blocked.' : 'This browser can’t record audio.'} Use a sample voice note below, or type instead.
-              </p>
-            )}
-          </div>
+          <RecordButton t={t} lang={lang} rec={rec} recording={recording} disabled={busy} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onKeyDown={onKey} />
 
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setMode('typing')} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rule-strong bg-raised text-[0.95rem] text-ink" lang={lang}>
+            <button type="button" onClick={() => { setError(null); setMode('typing'); }} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rule-strong bg-raised text-[0.95rem] text-ink" lang={lang}>
               <Keyboard size={18} aria-hidden /> {t.typeInstead}
             </button>
             <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-rule-strong bg-raised text-[0.95rem] text-ink has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-ink" lang={lang}>
@@ -315,87 +396,14 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
             </p>
           )}
 
-          <details className="group mt-6 rounded-2xl border border-rule bg-raised">
-            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[0.92rem] font-medium text-ink [&::-webkit-details-marker]:hidden" lang={lang}>
-              {t.noMic}
-              <span aria-hidden className="text-ink-3 transition-transform group-open:rotate-180">▾</span>
-            </summary>
-            <ul className="border-t border-rule">
-              {samples.map((s) => (
-                <li key={s.id} className="border-b border-rule last:border-0">
-                  <button type="button" onClick={() => void sendAudio({ sampleId: s.id })} disabled={busy} className="flex w-full items-center gap-3 px-4 py-3 text-start hover:bg-sunk">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-frost text-frost-ink" aria-hidden>
-                      <Play size={14} fill="currentColor" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-[0.95rem] font-medium text-ink">
-                        <span lang={s.lang}>{s.languageName}</span> · {s.speaker} · 0:{String(s.seconds).padStart(2, '0')}
-                      </span>
-                      <span className="block truncate text-[0.82rem] text-ink-3">{s.gist}</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </details>
+          <SampleNotes samples={samples} label={t.noMic} lang={lang} disabled={busy} onPick={(id) => void sendAudio({ sampleId: id })} />
           {error && (
-            <p role="alert" className="mt-4 text-[0.9rem] text-signal">
+            <p role="alert" className="mt-4 text-[0.9rem] text-signal" lang={lang}>
               {error}
             </p>
           )}
         </div>
       )}
-      {error && mode !== 'compose' && (
-        <p role="alert" className="mx-4 mb-3 text-[0.9rem] text-signal">
-          {error}
-        </p>
-      )}
     </div>
-  );
-}
-
-function StatusSteps({
-  t,
-  status,
-  itemStatus,
-  approvals,
-  required,
-  lang,
-}: {
-  t: ReturnType<typeof ui>;
-  status: ThreadView['status'] | undefined;
-  itemStatus: ThreadView['itemStatus'];
-  approvals: number;
-  required: number;
-  lang: Lang;
-}) {
-  if (!status || status === 'intake' || status === 'needs_clarification') return null;
-  const declined = status === 'declined';
-  const third = declined ? t.declined : itemStatus === 'UNCLAIMED' ? t.claim : t.arrived;
-  const stage = declined ? 2 : status === 'awaiting_approval' ? 0 : status === 'paying' || status === 'approved' ? 1 : 2;
-  const steps = [`${t.waiting} · ${approvals}/${required}`, t.sending, third];
-  const warm = status === 'paid';
-  return (
-    <ol className="grid shrink-0 grid-cols-3 gap-1.5 px-4 py-3" aria-label="Status" lang={lang}>
-      {steps.map((s, i) => {
-        const done = i < stage || (i === stage && i === 2);
-        const current = i === stage;
-        return (
-          <li key={i} aria-current={current ? 'step' : undefined}>
-            <span
-              className={cx(
-                'block h-1.5 rounded-full',
-                done && i === 2 && warm ? 'bg-lamp' : done || current ? 'bg-ink' : 'bg-rule',
-                current && i !== 2 && 'animate-breathe',
-              )}
-            />
-            <span className={cx('mt-1.5 flex items-start gap-1 text-[0.72rem] leading-tight', current ? 'font-semibold text-ink' : 'text-ink-3')}>
-              {done && <Check size={12} className="mt-px shrink-0" aria-hidden />}
-              {s}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
   );
 }

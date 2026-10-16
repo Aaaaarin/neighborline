@@ -105,10 +105,13 @@ export default function Home() {
             Leave a voice note in any language. Two neighbors approve from their phones, PayPal sends the money to your PayPal or Venmo, and Neighborline messages you back in your thread, in your language. No app, no forms, no English required.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
-            <Link href="/demo" className="inline-flex h-13 items-center rounded-full bg-ink px-7 text-[1.05rem] font-semibold text-raised transition-transform active:scale-[0.98]">
+            <Link href="/call" className="inline-flex h-13 items-center rounded-full bg-ink px-7 text-[1.05rem] font-semibold text-raised transition-transform active:scale-[0.98]">
               Try the hotline
             </Link>
-            <Link href="/donate" className="inline-flex h-13 items-center rounded-full border border-ink/25 px-7 text-[1.05rem] font-semibold text-ink hover:bg-sunk">
+            <Link href="/demo?autoplay=1" className="inline-flex h-13 items-center rounded-full border border-ink/25 px-7 text-[1.05rem] font-semibold text-ink hover:bg-sunk">
+              Watch it happen live
+            </Link>
+            <Link href="/donate" className="inline-flex h-13 items-center px-3 text-[1.05rem] font-semibold text-ink underline decoration-ink/30 underline-offset-[6px] hover:decoration-ink">
               Donate
             </Link>
           </div>
@@ -131,9 +134,9 @@ export default function Home() {
               The morning after the ice storm
             </h2>
             <p className="mt-5 max-w-[42ch] serif-copy text-ink-2">
-              Eastside had no power for three days. This is one request, start to finish, from a demo run at real pace. The organizers tapped on cue; everything between their taps is the system, and it takes seconds.
+              Eastside had no power for two days. This is one request, start to finish, from a demo run at real pace. The organizers tapped on cue; everything between their taps is the system, and it takes seconds.
             </p>
-            <Link href="/demo" className="mt-6 inline-flex min-h-11 items-center text-[1rem] font-semibold text-ink underline decoration-ink/30 underline-offset-[6px] hover:decoration-ink">
+            <Link href="/demo?autoplay=1" className="mt-6 inline-flex min-h-11 items-center text-[1rem] font-semibold text-ink underline decoration-ink/30 underline-offset-[6px] hover:decoration-ink">
               Watch it happen live
             </Link>
           </div>

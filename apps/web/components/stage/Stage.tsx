@@ -129,12 +129,13 @@ export function Stage({
           <p className="hidden text-[0.9rem] text-ink-3 2xl:block">Eastside, the morning after the ice storm</p>
           <fieldset className="order-3 w-full min-w-0 xl:order-none xl:w-auto">
             <legend className="sr-only">Scenario</legend>
-            <div className="flex gap-1 overflow-x-auto rounded-full border border-rule bg-raised p-1">
+            {/* Wraps on phones so every scenario, the Impersonator included, is visible without sideways scrolling. */}
+            <div className="flex flex-wrap gap-1 rounded-[22px] border border-rule bg-raised p-1 xl:flex-nowrap xl:rounded-full">
               {scenarios.map((sc) => (
                 <label
                   key={sc.id}
                   className={cx(
-                    'relative flex min-h-10 shrink-0 cursor-pointer items-center rounded-full px-3.5 text-[0.9rem] transition-colors has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-ink',
+                    'relative flex min-h-10 shrink-0 cursor-pointer items-center rounded-full px-3 text-[0.9rem] sm:px-3.5 transition-colors has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-ink',
                     scenario === sc.id ? 'bg-ink text-raised' : 'text-ink-2 hover:bg-sunk',
                   )}
                   title={sc.blurb}
@@ -148,7 +149,7 @@ export function Stage({
             </div>
           </fieldset>
           <div className="ml-auto flex items-center gap-3">
-            <label className="flex min-h-10 cursor-pointer items-center gap-2.5 text-[0.9rem] text-ink-2">
+            <label className="flex min-h-10 cursor-pointer items-center gap-2.5 text-[0.9rem] leading-tight text-ink-2">
               <input
                 type="checkbox"
                 role="switch"
@@ -166,7 +167,7 @@ export function Stage({
               type="button"
               onClick={start}
               disabled={s.busy === 'play'}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-[0.95rem] font-semibold text-raised transition-transform active:scale-[0.98] disabled:opacity-70"
+              className="inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-full bg-ink px-5 text-[0.95rem] font-semibold text-raised transition-transform active:scale-[0.98] disabled:opacity-70"
             >
               {s.run ? <RotateCcw size={17} aria-hidden /> : <Play size={17} fill="currentColor" aria-hidden />}
               {s.run ? 'Play again' : 'Play scenario'}
@@ -177,6 +178,9 @@ export function Stage({
 
       <main id="main" className="flex-1 px-4 pb-10 pt-5 lg:px-8">
         <h1 className="sr-only">Neighborline live demo: {active.blurb}</h1>
+        <p className="sr-only" role="status" aria-live="polite">
+          {marcusTurn ? `Dana approved. Now approve ${s.view?.request.computed ? `$${s.view.request.computed.amountCents / 100}` : ''} as Marcus; the button has focus.` : ''}
+        </p>
         {s.error && (
           <p role="alert" className="mb-4 rounded-xl bg-signal-wash px-4 py-3 text-[0.95rem] text-signal">
             {s.error}

@@ -40,6 +40,7 @@ import { nowIso } from './events';
 import { demoSpentTodayCents } from './queries';
 import { appealAck, categoryLabelIn, householdAnswer, questionFor } from './conversation';
 import { getThread } from './views';
+import { ui } from '../../i18n';
 
 export async function startIntake(
   ctx: Ctx,
@@ -380,7 +381,7 @@ export async function confirmIntake(
     return done();
   }
   const lang = req.lang;
-  ctx.meta.message(requestId, { from: 'neighbor', kind: 'text', lang, text: tpl.quickReplies(lang).yes, textEn: 'Yes, that’s right' });
+  ctx.meta.message(requestId, { from: 'neighbor', kind: 'text', lang, text: ui(lang).yes, textEn: 'Yes, that’s right' });
   if (!req.payoutDestination || !req.extracted) {
     await updateRequest(ctx.db, requestId, { status: 'needs_clarification', confirmedByRequester: true }, { actor: 'requester' });
     const ask = ctx.meta.ensure(requestId).question?.key === 'ask_payout' ? ctx.meta.ensure(requestId).question!.text : render('ask_payout', lang);
