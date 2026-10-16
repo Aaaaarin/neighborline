@@ -9,7 +9,7 @@ PayPal-blue buttons.
 **Copy (3 words):** **Voice note → cash**
 
 The only other text on the image is the stopwatch's frozen time, `0:{T}`. `{T}` is the real value from the
-recorded `speed=1` take (about 0:29). It must match the video and the gallery image exactly.
+recorded `speed=1` take (about 0:22.5 in fake mode, measured Oct 16, 2026). It must match the video and the gallery image exactly.
 
 **Composition (Devpost 3:2 at 1500×1000; YouTube 16:9 at 1280×720 uses the same layout, re-flowed):**
 
@@ -19,7 +19,7 @@ recorded `speed=1` take (about 0:29). It must match the video and the gallery im
 │   ┌───────────┐      Voice note                              │
 │   │  phone    │      → cash                (Literata 600,    │
 │   │  (warm,   │                             ink #18202E,      │
-│   │   amber   │      0:29                   ~13% of height)   │
+│   │   amber   │      0:22                   ~13% of height)   │
 │   │   wash)   │      (stopwatch digits, amber #B06A00,        │
 │   │  "$150"   │       ~30% of image height, light weight,     │
 │   │  "Tiền đã │       tabular)                                │
@@ -66,9 +66,9 @@ one carries its message even without the caption field. Paste the same caption i
 
 | # | Image | Source and state | Caption |
 |---|---|---|---|
-| 1 | **Hero** | The thumbnail itself (1500×1000) | "A Vietnamese voice note becomes Venmo cash, approved by two neighbors. 0:{T} from voice note to PayPal SUCCESS." |
+| 1 | **Hero** | The thumbnail itself (1500×1000) | "A Vietnamese voice note becomes Venmo cash, approved by two neighbors. 0:{T} from voice note to PayPal SUCCESS, with the organizers tapping on cue; about 3 s of it is the system." |
 | 2 | **The whole loop** | `/demo?scenario=lan&speed=1&autoplay=1` at 1920×1080, captured after the stopwatch freezes, so the frozen time equals `{T}` and the rail shows the batch id, the verified webhook and the callback. `apps/web/screenshots/demo-1920-lan-done.png` is now taken at `speed=1` and shows the people/system split under the frozen time; re-shoot only if `{T}` differs | "One request, start to finish: read back in Vietnamese, $150 from the group's rules, two approvals, one Payouts batch, a signature-verified SUCCESS webhook." |
-| 3 | **Unclaimed, then rescued** | `/demo?scenario=rosa&speed=1&autoplay=1` after SUCCESS. `apps/web/screenshots/demo-1920-rosa-done.png` (speed 1) | "Rosa's PayPal email had no account yet. PayPal reported UNCLAIMED; Neighborline explained how to claim it, in Spanish. Then SUCCESS." |
+| 3 | **Unclaimed, then rescued** | `/demo?scenario=rosa&speed=1&autoplay=1` after SUCCESS. `apps/web/screenshots/demo-1920-rosa-done.png` (speed 1) | "Rosa's PayPal email had no account yet. PayPal reported UNCLAIMED; Neighborline explained how to claim it, in Spanish. Then SUCCESS (her claim is simulated by our PayPal stand-in)." |
 | 4 | **Impersonator blocked** | `apps/web/screenshots/demo-1920-blocked-done.png` (speed 1; "Lookalike handle blocked" and "Approve disabled" on both phones). Usable as is | "'@eastside-mutuaiaid' is one letter from the group's handle. Approve is disabled on every phone; no money moves." |
 | 5 | **Know your agent** | `/trust` at 1920 wide, DPR 2, clipped to the "Know your agent: who can do what" section: the dashed "Cannot move money" box and the chain down to the dark approval-service card. Use `shot.mjs` with a clip, or crop `trust-1920.png` (full page, about y 950–1930 at 1×) | "The AI agents that talk to neighbors can't move money. Code computes amounts; two humans approve; webhooks are verified." |
 

@@ -29,13 +29,14 @@ video-build/                      # working dir (scratchpad or tools/video/; do 
 cd /home/claude/neighborline
 export PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 pnpm install
-# Pick the mode. Sandbox only if apps/web/lib/server/services.ts no longer returns MockEngine.
-grep -n "return new MockEngine" apps/web/lib/server/services.ts && echo "FAKE MODE: use the 'simulated' labels"
+# Pick the mode. The web app always runs the real engine; use sandbox only after the real-sandbox spike passed
+# (README "Sandbox reality"). In fake mode use the 'simulated' labels. The engine also needs dev-db, fake PayPal and
+# the approver: docs/submission/video/build.mjs starts all four on its own ports (see video/README.md).
 PAYPAL_MODE=${PAYPAL_MODE:-fake} AI_MODE=${AI_MODE:-fixture} DEMO_MODE=true \
   pnpm --filter @neighborline/web build && \
   (PORT=3100 pnpm --filter @neighborline/web exec next start -p 3100 > /tmp/web.log 2>&1 &)
 npx wait-on http://localhost:3100/demo          # or: until curl -sf localhost:3100/demo >/dev/null; do sleep 1; done
-curl -sf -X POST localhost:3100/api/demo/reset
+# No reset needed: each fresh browser context is a new visitor with its own runs (/api/demo/reset is not public).
 ```
 
 **Sharpness test.** Before recording the real takes, check whether Playwright's recorder delivers true 2× pixels:
@@ -55,15 +56,16 @@ Read `probe-crop.png`. The stopwatch digits must be crisp, not soft.
 
 ## Step 1. The timing we can rely on
 
-Every stage take runs `mock-scenario-runner.ts`. Times are measured from `request.created` (stage t0) and divided by
-`speed`. The real engine must keep these timings (INTEGRATION.md: "Keep mock-scenario-runner.ts's timeline").
-[VERIFY after integration: re-measure from the markers rather than trusting this table.]
+Every stage take runs the real engine through `apps/web/lib/server/engine/scenario-runner.ts`; only the human beats
+are scripted (`BEATS`: note arrives 1.5 s, listening 7 s, each organizer's look 6 s, claim 12 s, all divided by
+`speed`). Times below are from `request.created` (stage t0), measured Oct 16, 2026 from `/api/stream` on a production
+build in fake mode. The pipeline re-measures them from each take's markers, so treat these as a guide.
 
-| Scenario (speed) | Transcribed | Read-back | Confirmed | Approval 1 | Approval 2 + batch | UNCLAIMED | SUCCESS (clock stops) | Callback |
-|---|---|---|---|---|---|---|---|---|
-| `lan` (1) | 2.6 s | 4.8 s | 9.5 s | 16.5 s | 23.5 s | – | ≈ 28.9 s | ≈ 30.5 s |
-| `rosa` (2) | 1.3 s | 2.4 s | 4.75 s | 8.25 s | 11.75 s | ≈ 14.4 s | ≈ 19.7 s | ≈ 20.5 s |
-| `blocked` (1) | – | – | – | – | – | flagged 1.8 s (clock stops) | – | reply 3.8 s |
+| Scenario (speed) | Transcribed + read-back | Confirmed | Approval 1 | Approval 2 + batch | UNCLAIMED | SUCCESS (clock stops) | Message back |
+|---|---|---|---|---|---|---|---|
+| `lan` (1) | 1.6 s | 8.6 s | 14.7 s | 20.8 s / 21.0 s | – | 22.5 s | 22.5 s |
+| `rosa` (2) | 0.8 s | 4.3 s | 7.4 s | 10.5 s / 10.6 s | 12.1 s | 18.2 s | 12.1 s (claim help), 18.2 s (paid) |
+| `blocked` (1) | 1.2 s | – | – | – | – | flagged 1.2 s (clock stops) | 1.2 s |
 
 The script places stage t0 at **video 0:02** (Lan), **1:00** (Rosa) and **1:27.5** (impersonator).
 
@@ -89,7 +91,7 @@ const HIDE = `::-webkit-scrollbar{display:none} *{caret-color:transparent!import
 
 const browser = await chromium.launch({ args: ['--lang=en-US', '--disable-features=Translate', '--hide-scrollbars'] });
 for (const [id, t] of Object.entries(TAKES)) {
-  await fetch(BASE + '/api/demo/reset', { method: 'POST' });               // fresh state every take
+  // no reset: a new browser context is a new visitor, with its own runs
   const ctx = await browser.newContext({
     viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2, colorScheme: 'light', locale: 'en-US',
     reducedMotion: 'no-preference',
@@ -112,7 +114,7 @@ for (const [id, t] of Object.entries(TAKES)) {
   await page.getByText(t.done).waitFor({ timeout: 90_000 });
   const tDone = Date.now() - t0;
   // The large stopwatch is the last visible role="timer" (the small one is in the <lg tab bar, hidden at 1920).
-  const clock = await page.getByRole('timer').last().innerText();     // e.g. "0:28.9"
+  const clock = await page.getByRole('timer').last().innerText();     // e.g. "0:22.5"
   await page.waitForTimeout(t.tail);                                      // hold on the final state
   writeFileSync(`${OUT}${id}.markers.json`, JSON.stringify({ tFlash, tPlay, tDone, clock }, null, 2));
   const video = page.video();
@@ -133,7 +135,7 @@ ffmpeg -i takes/lan.webm -vf "fps=30,signalstats,metadata=print:key=lavfi.signal
 Stage t0 is about 50–150 ms after the click, because `request.created` is emitted on the server; that is close enough
 for this edit.
 
-Record the stopwatch value (`clock` in the markers, e.g. `0:28.9`). Put it into `{T}` in VO line V3, the 0:33 lower
+Record the stopwatch value (`clock` in the markers, e.g. `0:22.5`). Put it into `{T}` in VO line V3, the 0:33 lower
 third and the thumbnail before generating TTS.
 
 > **CDP screencast fallback** (only if step 0 failed): open a CDP session (`ctx.newCDPSession(page)`), call
@@ -231,11 +233,11 @@ curl -sS https://api.openai.com/v1/audio/speech -H "Authorization: Bearer $OPENA
   -H "Content-Type: application/json" -d @- -o vo/lan_voice.wav
 ```
 
-- **Voices.** `coral` matches the product's read-back voice (`OPENAI_TTS_VOICE=coral`). Audition `sage` and `ballad` for Mrs. Lan. [VERIFY the current voice list in the OpenAI audio docs.] Keep one narrator voice for the whole video.
+- **Voices.** `coral` matches the product's read-back voice (`OPENAI_TTS_VOICE=coral`). Audition `sage` and `ballad` for Mrs. Lan (check the voice list in the OpenAI text-to-speech docs before generating). Keep one narrator voice for the whole video.
 - **Fit to the windows.** If a line is longer than its window in the script, regenerate it with "a little brisker" added to the instructions. Only as a last resort, apply `atempo` ≤ 1.08. Never speed up the Vietnamese voice.
 - **Phone-speaker feel** for `lan_voice.wav`: `-af "highpass=f=250,lowpass=f=3800,acompressor=threshold=-18dB:ratio=3"`.
-- **No key yet?** Build a muted-but-captioned preview first (the story must work muted anyway). The local fallback is Piper TTS (`en_US-lessac-medium`; Vietnamese `vi_VN-vais1000-medium` [VERIFY it exists]). Do not publish with `espeak`.
-- **Native-speaker check.** Even with no human in the loop for recording, send `vo/lan_voice.wav` and the on-screen Vietnamese and Spanish translations for review before publishing. [VERIFY who reviews.]
+- **No key yet?** Build a muted-but-captioned preview first (the story must work muted anyway). The local fallback is Piper TTS (`en_US-lessac-medium`; Vietnamese `vi_VN-vais1000-medium`; confirm it is in the Piper voice list before relying on it). Do not publish with `espeak`.
+- **Native-speaker check.** Even with no human in the loop for recording, send `vo/lan_voice.wav` and the on-screen Vietnamese and Spanish translations for review before publishing. The reviewer is still to be found (BACKLOG, blocked on a human).
 
 ---
 
@@ -251,7 +253,7 @@ curl -sS https://api.openai.com/v1/audio/speech -H "Authorization: Bearer $OPENA
 
 ```bash
 mkdir -p fonts
-# Preferred: the full static TTF from Google Fonts (OFL) [VERIFY network access to github.com]
+# Preferred: the full static TTF from Google Fonts (OFL); if github.com is not reachable from the recorder, use the Fontsource files already in `node_modules`
 curl -sSL -o fonts/BeVietnamPro-SemiBold.ttf \
   https://github.com/google/fonts/raw/main/ofl/bevietnampro/BeVietnamPro-SemiBold.ttf
 # Offline fallback: decompress Fontsource's .woff subsets (latin, latin-ext, vietnamese) to TTF.
