@@ -8,6 +8,7 @@ import { stopwatch } from '@/lib/format';
 import type { ThreadView } from '@/lib/types';
 
 const lan = SCENARIOS.lan;
+// Bubble times follow the story clock below: voice note at 0:00, read-back at 0:02, money at 0:22.
 const at = (min: number, sec: number) => new Date(Date.UTC(2026, 9, 4, 14, min, sec)).toISOString(); // 7:mm PDT
 const paid = tpl.paid('vi', { amount: '$150', wallet: 'VENMO', receiver: '@lan-nguyen54', tx: '4B2C8F2073253B0E1' });
 
@@ -20,12 +21,12 @@ const heroThread: ThreadView = {
   approvalsCount: 2,
   approvalsRequired: 2,
   messages: [
-    { id: 'h1', at: at(41, 2), from: 'neighbor', kind: 'voice', lang: 'vi', text: lan.transcript, textEn: lan.transcriptEn, meta: { audioSeconds: 24 } },
-    { id: 'h2', at: at(41, 9), from: 'line', kind: 'readback', lang: 'vi', text: lan.readback, textEn: lan.readbackEn },
-    { id: 'h3', at: at(41, 14), from: 'neighbor', kind: 'text', lang: 'vi', text: 'Đúng rồi', textEn: 'Yes, that’s right' },
+    { id: 'h1', at: at(41, 38), from: 'neighbor', kind: 'voice', lang: 'vi', text: lan.transcript, textEn: lan.transcriptEn, meta: { audioSeconds: 24 } },
+    { id: 'h2', at: at(41, 40), from: 'line', kind: 'readback', lang: 'vi', text: lan.readback, textEn: lan.readbackEn },
+    { id: 'h3', at: at(41, 45), from: 'neighbor', kind: 'text', lang: 'vi', text: 'Đúng rồi', textEn: 'Yes, that’s right' },
     {
       id: 'h4',
-      at: at(42, 31),
+      at: at(42, 0),
       from: 'line',
       kind: 'paid',
       lang: 'vi',
