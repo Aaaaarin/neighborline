@@ -17,7 +17,9 @@ export interface ResultMeta {
   measures: string;
   datasetSha256: string;
   datasetCases: number;
-  filters: { langs: string[] | null; sets: string[] | null; limit: number | null };
+  filters: { langs: string[] | null; sets: string[] | null; limit: number | null; split?: 'dev' | 'heldout' };
+  /** How many of the run's cases are in the held-out split (dataset/heldout.txt). */
+  heldOutCases?: number;
   gitCommit: string | null;
   node: string;
   durationMs: number;
@@ -27,6 +29,8 @@ export interface ResultMeta {
 export interface ResultFile {
   meta: ResultMeta;
   metrics: Metrics;
+  /** The same metrics on the dev split and on the held-out split (absent in results from before the split). */
+  splits?: { dev: Metrics; heldout: Metrics };
   cases: CaseResult[];
 }
 
@@ -66,9 +70,10 @@ function runSection(r: ResultFile): string {
   const out: string[] = [];
   out.push(`### ${runTitle(meta)}`, '');
   out.push(`- **What is measured:** ${meta.measures}`);
-  out.push(`- Run ${meta.date.slice(0, 16).replace('T', ' ')} UTC · commit \`${meta.gitCommit?.slice(0, 7) ?? 'unknown'}\` · dataset \`${meta.datasetSha256.slice(0, 12)}\` (${meta.datasetCases} cases) · Node ${meta.node} · ${ms(meta.durationMs)} total`);
+  out.push(`- Run ${meta.date.slice(0, 16).replace('T', ' ')} UTC · commit \`${meta.gitCommit?.slice(0, 7) ?? 'unknown'}\` · dataset \`${meta.datasetSha256.slice(0, 12)}\` (${meta.datasetCases} cases${meta.heldOutCases !== undefined ? `, ${meta.heldOutCases} held out` : ''}) · Node ${meta.node} · ${ms(meta.durationMs)} total`);
   if (meta.filters.langs || meta.filters.sets || meta.filters.limit) out.push(`- Filters: ${JSON.stringify(meta.filters)}`);
   out.push('');
+  if (r.splits) out.push('**Dev vs held-out** (rules are tuned on dev only; see "Held-out split" below)', '', splitTable(r), '');
 
   out.push('**Schema pipeline** (generate → zod + grounding → one repair → re-ask)', '');
   out.push('| Set | n | Schema-valid on first output | of which local fix only | Repaired (1 extra call) | Kept, ungrounded fields dropped | Re-asked (no usable record) | Needs clarification |');
@@ -145,22 +150,42 @@ function runSection(r: ResultFile): string {
   return out.join('\n');
 }
 
+/** Key metrics, one row each: [label, pick]. Shared by the headline and the dev / held-out table. */
+const KEY_ROWS: Array<[string, (m: Metrics) => Rate]> = [
+  ['Injection attempts flagged for review', (m) => m.injection.catch],
+  ['Benign controls wrongly flagged as injection', (m) => m.injection.falsePositiveBenign],
+  ['Impersonating destinations blocked (end to end)', (m) => m.impersonation.catch],
+  ['Impersonating destinations blocked (rail alone)', (m) => m.impersonation.catchRailOnly],
+  ['Legitimate destinations wrongly blocked', (m) => m.impersonation.falsePositive],
+  ['Payout destinations not in the transcript', (m) => m.safety.payoutHallucination],
+  ['Grounded but wrong destination (intake + benign)', (m) => m.safety.payoutNotGold],
+  ['Category correct (intake)', (m) => m.fields.intake.category],
+  ['Household size correct (intake)', (m) => m.fields.intake.household],
+  ['Payout destination exactly right (intake)', (m) => m.fields.intake.payout],
+  ['Status correct (intake)', (m) => m.fields.intake.status],
+];
+
 function headline(r: ResultFile): string {
   const m = r.metrics;
   return [
     '| Metric | Value |',
     '|---|---|',
-    `| Injection attempts flagged for review | ${full(m.injection.catch)} |`,
-    `| Benign controls wrongly flagged as injection | ${full(m.injection.falsePositiveBenign)} |`,
-    `| Impersonating destinations blocked (end to end) | ${full(m.impersonation.catch)} |`,
-    `| Impersonating destinations blocked (rail alone) | ${full(m.impersonation.catchRailOnly)} |`,
-    `| Legitimate destinations wrongly blocked | ${full(m.impersonation.falsePositive)} |`,
-    `| Payout destinations not in the transcript | ${full(m.safety.payoutHallucination)} |`,
-    `| Category correct (intake) | ${full(m.fields.intake.category)} |`,
-    `| Household size correct (intake) | ${full(m.fields.intake.household)} |`,
-    `| Payout destination exactly right (intake) | ${full(m.fields.intake.payout)} |`,
-    `| Status correct (intake) | ${full(m.fields.intake.status)} |`,
+    ...KEY_ROWS.map(([label, pick]) => `| ${label} | ${full(pick(m))} |`),
     `| Schema-valid on first output / repaired / re-asked | ${pct(m.pipeline.all.schemaValidFirstOutput)} / ${pct(m.pipeline.all.repaired)} / ${pct(m.pipeline.all.reAsked)} |`,
+  ].join('\n');
+}
+
+/**
+ * Dev vs held-out. Rules are tuned on dev only; the held-out ids (dataset/heldout.txt) were set
+ * aside before tuning, so a gap between the two columns is the overfitting signal.
+ */
+function splitTable(r: ResultFile): string {
+  if (!r.splits) return '';
+  const { dev, heldout } = r.splits;
+  return [
+    '| Metric | All | Dev (tuned on) | Held-out (never tuned on) |',
+    '|---|---|---|---|',
+    ...KEY_ROWS.map(([label, pick]) => `| ${label} | ${cell(pick(r.metrics))} | ${cell(pick(dev))} | ${cell(pick(heldout))} |`),
   ].join('\n');
 }
 
@@ -178,6 +203,7 @@ export function renderGenerated(results: readonly ResultFile[], cases: readonly 
     out.push(`## Headline: ${runTitle(fixture.meta)}, ${fixture.meta.date.slice(0, 10)}`, '');
     out.push('> These numbers measure the **offline keyword extractor**, not a language model. The rail, grounding and validation code is the production code. Live-model numbers appear below once a run with API keys has been committed.', '');
     out.push(headline(fixture), '');
+    if (fixture.splits) out.push('Dev vs held-out for the same run:', '', splitTable(fixture), '');
   }
   out.push('## Runs', '');
   out.push('| Run | Date | Injection caught | Benign flagged | Impersonation blocked | Category | Household | Payout | Status | Schema-valid 1st / repaired / re-asked |');

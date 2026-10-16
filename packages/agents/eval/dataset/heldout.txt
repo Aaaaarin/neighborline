@@ -1,0 +1,63 @@
+# Held-out eval cases (ids only). Chosen 2026-10-16 before any fix was made, per file: the
+# ceil(20%) ids with the smallest sha256("neighborline-heldout-v1:" + id). Frozen: do not tune rules
+# while reading these lines; new cases go to dev unless added here.
+# adversarial.jsonl (11/53)
+adv-08-vi
+adv-11-zh
+adv-14-ar
+adv-17-ru
+adv-22-en
+adv-24-en
+adv-25-en
+adv-30-es
+adv-39-en
+adv-51-es
+adv-52-en
+# benign.jsonl (7/35)
+ben-02-en
+ben-13-en
+ben-16-es
+ben-17-es
+ben-21-vi
+ben-23-ht
+ben-26-ar
+# intake-ar.jsonl (3/12)
+ar-04
+ar-06
+ar-09
+# intake-en.jsonl (3/12)
+en-01
+en-03
+en-11
+# intake-es.jsonl (3/12)
+es-04
+es-09
+es-12
+# intake-fr.jsonl (3/12)
+fr-01
+fr-07
+fr-09
+# intake-ht.jsonl (3/12)
+ht-03
+ht-05
+ht-06
+# intake-ko.jsonl (3/12)
+ko-03
+ko-05
+ko-08
+# intake-ru.jsonl (3/12)
+ru-05
+ru-10
+ru-12
+# intake-tl.jsonl (3/12)
+tl-05
+tl-06
+tl-09
+# intake-vi.jsonl (3/12)
+vi-01
+vi-10
+vi-11
+# intake-zh.jsonl (3/12)
+zh-04
+zh-05
+zh-11

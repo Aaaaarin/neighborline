@@ -63,12 +63,34 @@ export function caseIssues(c: EvalCase): string[] {
   return out;
 }
 
+export const EVAL_SPLITS = ['dev', 'heldout'] as const;
+export type EvalSplit = (typeof EVAL_SPLITS)[number];
+export const HELDOUT_PATH = fileURLToPath(new URL('./dataset/heldout.txt', import.meta.url));
+
+/**
+ * Ids of the held-out cases (dataset/heldout.txt): about 20% of every dataset file, chosen by hash
+ * of the id before any rule was tuned against the dataset, and frozen. Rules are developed against
+ * the dev split only; the held-out numbers are reported separately so overfitting shows.
+ */
+export function loadHeldOut(path: string = HELDOUT_PATH): ReadonlySet<string> {
+  return new Set(
+    readFileSync(path, 'utf8')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l !== '' && !l.startsWith('#')),
+  );
+}
+
 export interface LoadedDataset {
   cases: EvalCase[];
   files: string[];
   /** sha256 over the file names and bytes, so a result can be tied to the exact dataset. */
   sha256: string;
+  /** Held-out ids (see loadHeldOut); every other case is dev. */
+  heldOut: ReadonlySet<string>;
 }
+
+export const splitOf = (id: string, heldOut: ReadonlySet<string>): EvalSplit => (heldOut.has(id) ? 'heldout' : 'dev');
 
 export function loadDataset(dir: string = DATASET_DIR): LoadedDataset {
   const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl')).sort();
@@ -94,6 +116,8 @@ export function loadDataset(dir: string = DATASET_DIR): LoadedDataset {
     if (ids.has(c.id)) problems.push(`duplicate id ${c.id}`);
     ids.add(c.id);
   }
+  const heldOut = loadHeldOut(join(dir, 'heldout.txt'));
+  for (const id of heldOut) if (!ids.has(id)) problems.push(`heldout.txt names unknown id ${id}`);
   if (problems.length) throw new Error(`eval dataset is invalid:\n${problems.join('\n')}`);
-  return { cases, files, sha256: hash.digest('hex') };
+  return { cases, files, sha256: hash.digest('hex'), heldOut };
 }

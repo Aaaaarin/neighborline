@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { canonicalDestination, isGroundedDestination } from '../src/intake/spoken-handles.js';
 import { extractNumbers } from '../src/numbers.js';
 import { createFixtureLLM } from '../src/fixtures/responders.js';
-import { caseIssues, EVAL_LANGS, loadDataset, type EvalCase } from './dataset.js';
+import { caseIssues, EVAL_LANGS, EVAL_SETS, loadDataset, type EvalCase } from './dataset.js';
 import { percentile, rate } from './metrics.js';
 import { buildEvalLLM } from './providers.js';
 import { BEGIN, END, renderGenerated, spliceGenerated } from './report.js';
@@ -10,7 +10,7 @@ import { evalPolicy, runCase } from './run-case.js';
 import { parseArgs, runEval, type CliOptions } from './run.js';
 import { checkThresholds, loadThresholds } from './thresholds.js';
 
-const { cases } = loadDataset();
+const { cases, heldOut } = loadDataset();
 const byId = (id: string): EvalCase => {
   const c = cases.find((x) => x.id === id);
   if (!c) throw new Error(`no case ${id}`);
@@ -80,6 +80,15 @@ describe('dataset', () => {
     expect(amountGaps.sort()).toEqual(['ben-25-zh', 'zh-03', 'zh-04', 'zh-11']);
   });
 
+  it('holds out about 20% of every file (frozen in dataset/heldout.txt)', () => {
+    const files = [...EVAL_LANGS.map((l) => cases.filter((c) => c.set === 'intake' && c.lang === l)), ...EVAL_SETS.filter((s) => s !== 'intake').map((s) => cases.filter((c) => c.set === s))];
+    for (const xs of files) {
+      const share = xs.filter((c) => heldOut.has(c.id)).length / xs.length;
+      expect(share, xs[0]?.id).toBeGreaterThanOrEqual(0.15);
+      expect(share, xs[0]?.id).toBeLessThanOrEqual(0.3);
+    }
+  });
+
   it('label rules catch inconsistent lines', () => {
     const good = byId('en-05');
     expect(caseIssues(good)).toEqual([]);
@@ -131,7 +140,9 @@ describe('runEval', { timeout: 60_000 }, () => {
   it('fixture mode meets eval/thresholds.json (the CI gate)', async () => {
     const { result, thresholdFailures } = await runEval(opts({ check: true }));
     expect(thresholdFailures).toEqual([]);
-    expect(result.meta).toMatchObject({ mode: 'fixture', label: 'heuristic', dryRun: false, datasetCases: cases.length });
+    expect(result.meta).toMatchObject({ mode: 'fixture', label: 'heuristic', dryRun: false, datasetCases: cases.length, heldOutCases: heldOut.size });
+    expect(result.splits?.heldout.pipeline.all.n).toBe(heldOut.size);
+    expect(result.splits?.dev.pipeline.all.n).toBe(cases.length - heldOut.size);
     expect(result.metrics.safety.payoutHallucination.k).toBe(0);
     expect(result.metrics.safety.amountOverCap.k).toBe(0);
   });
@@ -176,6 +187,8 @@ describe('CLI and report', { timeout: 60_000 }, () => {
       mode: 'live', provider: 'openai-compatible', baseURL: 'http://localhost:11434/v1', model: 'qwen2.5:7b', langs: ['vi', 'ht'], check: true, concurrency: 4,
     });
     expect(parseArgs(['--price-in=3', '--price-out=15'], {})).toMatchObject({ priceIn: 3, priceOut: 15, mode: 'fixture', concurrency: 1 });
+    expect(parseArgs(['--split', 'dev'], {}).split).toBe('dev');
+    expect(() => parseArgs(['--split', 'test'], {})).toThrow(/--split/);
     expect(() => parseArgs(['--lang', 'xx'], {})).toThrow(/unknown xx/);
     expect(() => parseArgs(['--frobnicate'], {})).toThrow(/unknown flag/);
     expect(() => parseArgs(['--provider', 'gemini'], {})).toThrow(/--provider/);

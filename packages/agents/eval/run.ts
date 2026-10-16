@@ -8,7 +8,7 @@
  *        --base-url http://localhost:11434/v1 --model qwen2.5:7b-instruct
  *   pnpm --filter @neighborline/agents eval --mode live --provider openai --dry-run   # mock model
  *   … [--lang vi,ht] [--set intake,adversarial,benign] [--limit 20] [--concurrency 4]
- *     [--price-in 3 --price-out 15] [--check] [--no-write] [--out file.json]
+ *     [--split dev|heldout] [--price-in 3 --price-out 15] [--check] [--no-write] [--out file.json]
  *
  * Writes eval/results/<date>-<mode>-<model>.json and refreshes the generated block in docs/EVAL.md
  * (full, non-dry runs only). --check exits 1 when eval/thresholds.json is not met.
@@ -17,7 +17,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EVAL_LANGS, EVAL_SETS, loadDataset, type EvalCase } from './dataset.js';
+import { EVAL_LANGS, EVAL_SETS, EVAL_SPLITS, loadDataset, splitOf, type EvalCase, type EvalSplit } from './dataset.js';
 import { computeMetrics, type Metrics } from './metrics.js';
 import { buildEvalLLM, EVAL_PROVIDERS, type EvalMode, type EvalProvider } from './providers.js';
 import { renderGenerated, spliceGenerated, type ResultFile, type ResultMeta } from './report.js';
@@ -35,6 +35,8 @@ export interface CliOptions {
   baseURL?: string;
   langs: string[] | null;
   sets: string[] | null;
+  /** Only the dev or only the held-out cases (dataset/heldout.txt). Default: both, reported separately. */
+  split: EvalSplit | null;
   limit: number | null;
   concurrency: number;
   dryRun: boolean;
@@ -79,7 +81,7 @@ export function parseArgs(argv: readonly string[], env: Record<string, string | 
     if (!Number.isFinite(n) || n < 0) throw new Error(`--${k} must be a non-negative number`);
     return n;
   };
-  const known = new Set(['mode', 'provider', 'model', 'base-url', 'lang', 'set', 'limit', 'concurrency', 'dry-run', 'check', 'no-write', 'out', 'price-in', 'price-out', 'quiet']);
+  const known = new Set(['mode', 'provider', 'model', 'base-url', 'lang', 'set', 'split', 'limit', 'concurrency', 'dry-run', 'check', 'no-write', 'out', 'price-in', 'price-out', 'quiet']);
   for (const k of flags.keys()) if (!known.has(k)) throw new Error(`unknown flag --${k}`);
 
   const mode = (str('mode') ?? 'fixture') as EvalMode;
@@ -92,6 +94,8 @@ export function parseArgs(argv: readonly string[], env: Record<string, string | 
   const model = str('model');
   const baseURL = str('base-url');
   const out = str('out');
+  const split = str('split') ?? null;
+  if (split !== null && !(EVAL_SPLITS as readonly string[]).includes(split)) throw new Error(`--split must be one of ${EVAL_SPLITS.join(', ')}`);
   return {
     mode,
     ...(provider ? { provider } : {}),
@@ -99,6 +103,7 @@ export function parseArgs(argv: readonly string[], env: Record<string, string | 
     ...(baseURL ? { baseURL } : {}),
     langs: list('lang', EVAL_LANGS),
     sets: list('set', EVAL_SETS),
+    split: split as EvalSplit | null,
     limit: limit ?? null,
     concurrency: Math.max(1, Math.floor(num('concurrency') ?? (mode === 'live' ? 4 : 1))),
     dryRun: flags.has('dry-run'),
@@ -137,6 +142,7 @@ export async function runEval(opts: CliOptions, log: (s: string) => void = () =>
   let cases = dataset.cases;
   if (opts.langs) cases = cases.filter((c) => opts.langs?.includes(c.lang));
   if (opts.sets) cases = cases.filter((c) => opts.sets?.includes(c.set));
+  if (opts.split) cases = cases.filter((c) => splitOf(c.id, dataset.heldOut) === opts.split);
   if (opts.limit !== null) cases = cases.slice(0, opts.limit);
 
   const evalLLM = await buildEvalLLM({ mode: opts.mode, dryRun: opts.dryRun, cases, ...(opts.provider ? { provider: opts.provider } : {}), ...(opts.model ? { model: opts.model } : {}), ...(opts.baseURL ? { baseURL: opts.baseURL } : {}) });
@@ -155,7 +161,10 @@ export async function runEval(opts: CliOptions, log: (s: string) => void = () =>
     await evalLLM.close();
   }
   const prices = opts.priceIn !== undefined && opts.priceOut !== undefined ? { inPerM: opts.priceIn, outPerM: opts.priceOut } : null;
-  const metrics: Metrics = computeMetrics(results, goldIndex(cases), prices ? { priceInPerM: prices.inPerM, priceOutPerM: prices.outPerM } : {});
+  const mOpts = prices ? { priceInPerM: prices.inPerM, priceOutPerM: prices.outPerM } : {};
+  const metrics: Metrics = computeMetrics(results, goldIndex(cases), mOpts);
+  const ofSplit = (s: EvalSplit) => results.filter((r) => splitOf(r.id, dataset.heldOut) === s);
+  const splits = { dev: computeMetrics(ofSplit('dev'), goldIndex(cases), mOpts), heldout: computeMetrics(ofSplit('heldout'), goldIndex(cases), mOpts) };
   let gitCommit: string | null = null;
   try {
     gitCommit = execSync('git rev-parse HEAD', { cwd: EVAL_DIR, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
@@ -172,20 +181,21 @@ export async function runEval(opts: CliOptions, log: (s: string) => void = () =>
     measures: evalLLM.measures,
     datasetSha256: dataset.sha256,
     datasetCases: cases.length,
-    filters: { langs: opts.langs, sets: opts.sets, limit: opts.limit },
+    filters: { langs: opts.langs, sets: opts.sets, limit: opts.limit, ...(opts.split ? { split: opts.split } : {}) },
+    heldOutCases: cases.filter((c) => dataset.heldOut.has(c.id)).length,
     gitCommit,
     node: process.version,
     durationMs: Math.round(performance.now() - started),
     prices,
   };
-  const result: ResultFile = { meta, metrics, cases: results };
+  const result: ResultFile = { meta, metrics, splits, cases: results };
   const thresholdFailures = opts.check ? checkThresholds(metrics, loadThresholds(), opts.mode) : [];
   return { result, thresholdFailures };
 }
 
 /** Readable diffs: meta and metrics pretty-printed, one line per case. */
 export const serializeResult = (r: ResultFile): string =>
-  `{\n"meta": ${JSON.stringify(r.meta, null, 2)},\n"metrics": ${JSON.stringify(r.metrics)},\n"cases": [\n${r.cases.map((c) => JSON.stringify(c)).join(',\n')}\n]}\n`;
+  `{\n"meta": ${JSON.stringify(r.meta, null, 2)},\n"metrics": ${JSON.stringify(r.metrics)},\n${r.splits ? `"splits": ${JSON.stringify(r.splits)},\n` : ''}"cases": [\n${r.cases.map((c) => JSON.stringify(c)).join(',\n')}\n]}\n`;
 
 export const resultFileName = (m: ResultMeta): string => `${m.date.slice(0, 10)}-${m.dryRun ? 'dryrun' : m.mode}-${m.label}.json`;
 
@@ -218,13 +228,13 @@ async function main(): Promise<void> {
   console.log(summary(result));
 
   if (opts.write) {
-    const full = !opts.langs && !opts.sets && opts.limit === null;
+    const full = !opts.langs && !opts.sets && !opts.split && opts.limit === null;
     const file = opts.out ?? join(RESULTS_DIR, opts.dryRun ? 'dryrun' : '', resultFileName(result.meta));
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, serializeResult(result));
     console.log(`wrote ${file}`);
     if (full && !opts.dryRun && !opts.out) {
-      const all = loadResults().filter((r) => r.meta.datasetSha256 === result.meta.datasetSha256 && r.meta.filters.langs === null && r.meta.filters.sets === null && r.meta.filters.limit === null);
+      const all = loadResults().filter((r) => r.meta.datasetSha256 === result.meta.datasetSha256 && r.meta.filters.langs === null && r.meta.filters.sets === null && r.meta.filters.limit === null && !r.meta.filters.split);
       const doc = existsSync(DOC_PATH) ? readFileSync(DOC_PATH, 'utf8') : '# Neighborline AI evaluation\n';
       writeFileSync(DOC_PATH, spliceGenerated(doc, renderGenerated(all, loadDataset().cases)));
       console.log(`updated ${DOC_PATH}`);
