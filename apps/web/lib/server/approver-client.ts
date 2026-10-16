@@ -55,7 +55,11 @@ export class ApproverClient {
         body: raw,
         signal: AbortSignal.timeout(timeoutMs),
       });
-    } catch {
+    } catch (err) {
+      // A timeout on /execute is ambiguous: the approver may be mid-send. Never claim "nothing was sent".
+      if (path === APPROVER_ROUTES.execute && err instanceof Error && err.name === 'TimeoutError') {
+        throw new ApproverRefusal(504, 'paypal_unknown', 'The approval service didn’t answer in time; the payout may still be on its way. Tap Approve again in a minute: it can’t be paid twice.');
+      }
       throw new ApproverRefusal(503, 'unreachable', 'The approval service is unreachable. Nothing was sent; try again in a moment.');
     }
     const json = (await res.json().catch(() => ({}))) as Partial<ApproverError> & T;

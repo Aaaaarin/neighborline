@@ -18,15 +18,16 @@ import {
   revokeOrganizerCredential,
   touchOrganizerCredential,
 } from '@neighborline/db';
-import { expectedFor, hexToBytes, relyingParty, toB64url, verifyApprovalAssertion } from '@neighborline/passkeys';
+import { challengeFor, expectedFor, fromB64url, hexToBytes, newServerNonce, relyingParty, toB64url, verifyApprovalAssertion } from '@neighborline/passkeys';
 import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from '@simplewebauthn/server';
 import { decodeClientDataJSON, isoBase64URL } from '@simplewebauthn/server/helpers';
 import { timingSafeEqual } from 'node:crypto';
 import type { ApprovalChallenge, ApproveInput, OrganizerSession, PasskeyAssertionJSON, PasskeyRoster } from '../../types';
 import { HttpError } from '../errors';
 import { newChallenge, takeChallenge } from '../passkeys/challenges';
-import { demoModeOn, demoSign } from '../passkeys/demo-signer';
+import { DEMO_SEAT, demoModeOn, demoSign } from '../passkeys/demo-signer';
 import { inviteCodeFor } from '../passkeys/secret';
+import { bindingTag, DEMO_VISITOR_BINDING, demoRunTagOf } from '../security/visitor';
 import type { BaseCtx } from './context';
 
 type Ctx = Pick<BaseCtx, 'db' | 'env' | 'gen'>;
@@ -57,12 +58,14 @@ export async function roster(ctx: Ctx): Promise<PasskeyRoster> {
   const orgs = await listOrganizers(ctx.db, ctx.gen.group.id);
   return {
     demoMode: demoModeOn(ctx.env),
-    inviteRequired: !demoModeOn(ctx.env),
+    // A real organizer always needs an invite code (or a session as themselves), demo or not (QA P1-6).
+    inviteRequired: true,
     organizers: await Promise.all(
       orgs.map(async (o) => ({
         id: o.id,
         name: o.name,
-        passkeys: (await listOrganizerCredentials(ctx.db, o.id, { kind: 'passkey' })).map((c) => ({ id: c.id, deviceLabel: c.deviceLabel, createdAt: c.createdAt, lastUsedAt: c.lastUsedAt })),
+        // Demo-visitor passkeys are not the organizer's devices: they never appear in the roster.
+        passkeys: (await listOrganizerCredentials(ctx.db, o.id, { kind: 'passkey' })).filter((c) => !c.boundTo).map((c) => ({ id: c.id, deviceLabel: c.deviceLabel, createdAt: c.createdAt, lastUsedAt: c.lastUsedAt })),
       })),
     ),
   };
@@ -70,20 +73,26 @@ export async function roster(ctx: Ctx): Promise<PasskeyRoster> {
 
 /**
  * Who may enroll a passkey for an organizer: that organizer when already signed in (adding a
- * device), or anyone holding the organizer's invite code. DEMO_MODE waives the invite code
- * (demo people, demo data) and the UI says so.
+ * device), or anyone holding the organizer's invite code — in DEMO_MODE too. The one exception is the
+ * demo-visitor path (`demoVisitorTag`): in DEMO_MODE a /demo visitor may enroll their own device to
+ * play Marcus, and that credential is bound to the visitor ('demo-visitor:<tag>'): it signs only that
+ * visitor's own demo runs, never signs in, never signs a policy, and is not listed as Marcus's device.
  */
-function assertMayEnroll(ctx: Ctx, organizerId: string, inviteCode: string | undefined, session: OrganizerSession | null) {
+function assertMayEnroll(ctx: Ctx, organizerId: string, inviteCode: string | undefined, session: OrganizerSession | null, demoVisitorTag?: string) {
+  if (demoVisitorTag) {
+    if (!demoModeOn(ctx.env)) throw new HttpError(403, 'Demo passkeys are off (DEMO_MODE is off). Ask another organizer for an invite code.');
+    if (organizerId !== DEMO_SEAT) throw new HttpError(403, 'In this demo you can play Marcus only.');
+    return;
+  }
   if (session?.organizerId === organizerId) return;
-  if (demoModeOn(ctx.env)) return;
   if (!inviteCode || !sameCode(inviteCode.trim(), inviteCodeFor(organizerId, ctx.env))) {
     throw new HttpError(403, 'Ask another organizer for your invite code to set up a passkey.');
   }
 }
 
-export async function registrationOptions(ctx: Ctx, input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null }) {
+export async function registrationOptions(ctx: Ctx, input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string }) {
   const org = await organizer(ctx, input.organizerId);
-  assertMayEnroll(ctx, org.id, input.inviteCode, input.session);
+  assertMayEnroll(ctx, org.id, input.inviteCode, input.session, input.demoVisitorTag);
   const rp = relyingParty(ctx.env, input.origin);
   const existing = await listOrganizerCredentials(ctx.db, org.id, { kind: 'passkey' });
   const optionsJSON = await generateRegistrationOptions({
@@ -92,7 +101,7 @@ export async function registrationOptions(ctx: Ctx, input: { organizerId: string
     userName: org.handles.find((h) => h.includes('@') && !h.startsWith('@')) ?? org.name,
     userDisplayName: `${org.name} · ${ctx.gen.group.name}`,
     userID: new TextEncoder().encode(org.id),
-    challenge: newChallenge({ purpose: 'register', organizerId: org.id, origin: rp.origin, rpId: rp.rpId }),
+    challenge: newChallenge({ purpose: 'register', organizerId: org.id, origin: rp.origin, rpId: rp.rpId, ...(input.demoVisitorTag ? { boundTo: DEMO_VISITOR_BINDING(input.demoVisitorTag) } : {}) }),
     attestationType: 'none',
     excludeCredentials: existing.map((c) => ({ id: c.id, transports: c.transports })),
     authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
@@ -102,12 +111,13 @@ export async function registrationOptions(ctx: Ctx, input: { organizerId: string
 
 export async function register(
   ctx: Ctx,
-  input: { organizerId: string; origin: string | null; response: Parameters<typeof verifyRegistrationResponse>[0]['response']; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null },
+  input: { organizerId: string; origin: string | null; response: Parameters<typeof verifyRegistrationResponse>[0]['response']; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string },
 ): Promise<OrganizerSession> {
   const org = await organizer(ctx, input.organizerId);
-  assertMayEnroll(ctx, org.id, input.inviteCode, input.session);
+  assertMayEnroll(ctx, org.id, input.inviteCode, input.session, input.demoVisitorTag);
   const pending = takeChallenge(challengeOf(input.response.response.clientDataJSON), 'register');
-  if (!pending || pending.organizerId !== org.id) throw new HttpError(400, 'That passkey prompt expired. Try again.');
+  const boundTo = input.demoVisitorTag ? DEMO_VISITOR_BINDING(input.demoVisitorTag) : undefined;
+  if (!pending || pending.organizerId !== org.id || pending.boundTo !== boundTo) throw new HttpError(400, 'That passkey prompt expired. Try again.');
   let info;
   try {
     const v = await verifyRegistrationResponse({
@@ -122,7 +132,10 @@ export async function register(
   } catch (err) {
     throw new HttpError(400, `Couldn’t verify that passkey: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
-  const label = input.deviceLabel.trim().slice(0, 60) || `${org.name}’s passkey`;
+  let label = input.deviceLabel.trim().slice(0, 60) || `${org.name}’s passkey`;
+  // A demo visitor's device is always labelled as such ("Visitor’s Mac (as Marcus)"), never as Marcus's own.
+  if (boundTo && !label.startsWith('Visitor’s ')) label = `Visitor’s ${label}`.slice(0, 60);
+  if (boundTo && !label.includes(`(as ${org.name})`)) label = `${label.slice(0, 50)} (as ${org.name})`;
   try {
     await addOrganizerCredential(ctx.db, {
       id: info.credential.id,
@@ -133,6 +146,7 @@ export async function register(
       deviceLabel: label,
       kind: 'passkey',
       backedUp: info.credentialBackedUp,
+      ...(boundTo ? { boundTo, actor: `demo visitor ${input.demoVisitorTag}` } : {}),
     });
   } catch (err) {
     if (err instanceof RepoError) throw new HttpError(409, err.message);
@@ -154,6 +168,7 @@ export async function signIn(ctx: Ctx, input: { response: PasskeyAssertionJSON }
   if (!pending) throw new HttpError(400, 'That passkey prompt expired. Try again.');
   const cred = await getOrganizerCredential(ctx.db, input.response.id);
   if (!cred || cred.kind !== 'passkey') throw new HttpError(401, 'This passkey isn’t registered here. Set one up first.');
+  if (cred.boundTo) throw new HttpError(403, 'This is a demo passkey: it signs your own /demo runs as Marcus and can’t sign in as an organizer.');
   const org = await organizer(ctx, cred.organizerId);
   try {
     const v = await verifyAuthenticationResponse({
@@ -193,9 +208,14 @@ export async function currentApprovalHash(ctx: Ctx, requestIds: string[]): Promi
   }
 }
 
+/**
+ * Approval tap challenge = challengeFor(approvalHash, serverNonce): the hash commits to exactly what
+ * will be paid, the nonce (single use, 5 min, stored with the assertion) makes the signature
+ * unusable for any later approval with identical content (QA P2-12).
+ */
 export async function approvalChallenge(ctx: Ctx, input: { requestIds: string[]; origin: string | null; organizerId?: string; credentialIds?: string[] }): Promise<ApprovalChallenge> {
   const hash = await currentApprovalHash(ctx, input.requestIds);
-  const optionsJSON = await challengeOptionsFor(ctx, hash, input);
+  const optionsJSON = await challengeOptionsFor(ctx, hash, { ...input, nonce: newServerNonce() });
   return { approvalHash: hash, optionsJSON: optionsJSON as unknown as ApprovalChallenge['optionsJSON'] };
 }
 
@@ -212,7 +232,10 @@ export async function signTap(ctx: Ctx, input: ApproveInput & { origin: string |
     await organizer(ctx, organizerId);
     return { organizerId, assertion: await demoSign(ctx.db, ctx.env, { groupId: ctx.gen.group.id, organizerId, approvalHash: hash }) };
   }
-  const { organizerId, assertion } = await verifyPasskeyOver(ctx, input.signer.assertion, hash, input.organizerId);
+  const pending = takeChallenge(challengeOf(input.signer.assertion.response.clientDataJSON), 'approve');
+  if (!pending?.serverNonce || !pending.approvalHash) throw new HttpError(409, 'That approval prompt expired or was already used. Tap Approve again.');
+  if (pending.approvalHash !== hash) throw new HttpError(409, 'The request changed after the prompt opened. Review it again.');
+  const { organizerId, assertion } = await verifyPasskeyOver(ctx, input.signer.assertion, hash, input.organizerId, { serverNonce: pending.serverNonce, requestIds: input.requestIds });
   const stored = await recordApprovalAssertion(ctx.db, { organizerId, assertion });
   return { organizerId, assertion: stored.assertion };
 }
@@ -223,9 +246,23 @@ export async function signTap(ctx: Ctx, input: ApproveInput & { origin: string |
  * organizer who owns the credential (never the one the body claims) and the assertion to store.
  * Used for Approve taps (payout approval hash) and policy activation (policy draft hash).
  */
-export async function verifyPasskeyOver(ctx: Ctx, a: PasskeyAssertionJSON, hash: string, claimedOrganizerId?: string): Promise<{ organizerId: string; assertion: ApproverAssertion }> {
+export async function verifyPasskeyOver(
+  ctx: Ctx,
+  a: PasskeyAssertionJSON,
+  hash: string,
+  claimedOrganizerId?: string,
+  opts: { serverNonce?: string; requestIds?: readonly string[] } = {},
+): Promise<{ organizerId: string; assertion: ApproverAssertion }> {
   const cred = await getOrganizerCredential(ctx.db, a.id);
   if (!cred || cred.kind !== 'passkey') throw new HttpError(401, 'This passkey isn’t registered here.');
+  if (cred.boundTo) {
+    // A /demo visitor's own device playing Marcus: only that visitor's own demo runs, only in DEMO_MODE.
+    const tag = bindingTag(cred.boundTo);
+    const ids = opts.requestIds ?? [];
+    if (!demoModeOn(ctx.env) || !tag || !ids.length || !ids.every((id) => demoRunTagOf(id) === tag)) {
+      throw new HttpError(403, 'This demo passkey signs only your own /demo runs.');
+    }
+  }
   if (claimedOrganizerId && claimedOrganizerId !== cred.organizerId) throw new HttpError(403, 'That passkey belongs to a different organizer.');
   await organizer(ctx, cred.organizerId);
   const clientOrigin = (() => {
@@ -244,22 +281,39 @@ export async function verifyPasskeyOver(ctx: Ctx, a: PasskeyAssertionJSON, hash:
     signature: a.response.signature,
     ...(a.response.userHandle ? { userHandle: a.response.userHandle } : {}),
   };
-  const v = await verifyApprovalAssertion({ assertion: parts, approvalHash: hash, credential: { id: cred.id, publicKey: cred.publicKey, counter: cred.counter, kind: 'passkey' }, ...exp });
+  const v = await verifyApprovalAssertion({ assertion: parts, approvalHash: hash, credential: { id: cred.id, publicKey: cred.publicKey, counter: cred.counter, kind: 'passkey' }, ...exp, serverNonce: opts.serverNonce });
   if (!v.ok) throw new HttpError(409, `The signature doesn’t cover what’s on screen now (${v.reason}). Review it again.`);
   await touchOrganizerCredential(ctx.db, cred.id, v.newCounter);
-  const assertion: ApproverAssertion = { v: 1, kind: 'passkey', ...parts, rpId: v.rpId, origin: v.origin, approvalHash: hash, deviceLabel: cred.deviceLabel, verifiedAt: new Date().toISOString() };
+  const assertion: ApproverAssertion = {
+    v: 1,
+    kind: 'passkey',
+    ...parts,
+    rpId: v.rpId,
+    origin: v.origin,
+    approvalHash: hash,
+    deviceLabel: cred.deviceLabel,
+    verifiedAt: new Date().toISOString(),
+    ...(opts.serverNonce ? { serverNonce: opts.serverNonce } : {}),
+  };
   return { organizerId: cred.organizerId, assertion };
 }
 
-/** WebAuthn request options whose challenge is `hash` (32 bytes), optionally limited to one organizer's passkeys. */
-export async function challengeOptionsFor(ctx: Ctx, hash: string, input: { origin: string | null; organizerId?: string; credentialIds?: string[] }) {
+/**
+ * WebAuthn request options over `hash`, optionally limited to one organizer's passkeys. With a
+ * `nonce` the challenge is challengeFor(hash, nonce) and is remembered (single use) for the tap;
+ * without one it is the bare hash (policy drafts, whose signatures are re-verified from the audit log).
+ */
+export async function challengeOptionsFor(ctx: Ctx, hash: string, input: { origin: string | null; organizerId?: string; credentialIds?: string[]; nonce?: string }) {
   const rp = relyingParty(ctx.env, input.origin);
   let allow: Array<{ id: string; transports?: string[] }> | undefined;
-  if (input.organizerId) allow = (await listOrganizerCredentials(ctx.db, input.organizerId, { kind: 'passkey' })).map((c) => ({ id: c.id, transports: c.transports }));
+  if (input.organizerId) allow = (await listOrganizerCredentials(ctx.db, input.organizerId, { kind: 'passkey' })).filter((c) => !c.boundTo).map((c) => ({ id: c.id, transports: c.transports }));
   if (input.credentialIds?.length) allow = [...(allow ?? []), ...input.credentialIds.map((id) => ({ id }))];
+  const challenge = input.nonce
+    ? newChallenge({ purpose: 'approve', approvalHash: hash, serverNonce: input.nonce, origin: rp.origin, rpId: rp.rpId }, fromB64url(challengeFor(hash, input.nonce)))
+    : hexToBytes(hash);
   return generateAuthenticationOptions({
     rpID: rp.rpId,
-    challenge: hexToBytes(hash),
+    challenge,
     userVerification: 'required',
     ...(allow?.length ? { allowCredentials: allow } : {}),
   });
@@ -271,7 +325,7 @@ export async function challengeOptionsFor(ctx: Ctx, hash: string, input: { origi
 export async function liveSession(ctx: Ctx, s: OrganizerSession | null): Promise<OrganizerSession | null> {
   if (!s) return null;
   const cred = await getOrganizerCredential(ctx.db, s.credentialId);
-  return cred && cred.organizerId === s.organizerId ? s : null;
+  return cred && cred.organizerId === s.organizerId && !cred.boundTo ? s : null;
 }
 
 /**

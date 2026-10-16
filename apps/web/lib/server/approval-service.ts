@@ -26,7 +26,7 @@ import {
 } from '@neighborline/db';
 import type { ExecuteRequest } from '@neighborline/approver/protocol';
 import type { ApprovalResult } from '../types';
-import { ApproverClient, type Env } from './approver-client';
+import { ApproverClient, ApproverRefusal, type Env } from './approver-client';
 import type { EventBus } from './engine/events';
 import { nowIso } from './engine/events';
 import { HttpError } from './errors';
@@ -54,7 +54,13 @@ export class ApprovalService {
     this.approver = new ApproverClient(env);
   }
 
-  async approve(d: ApprovalDeps, input: { requestIds: string[]; organizerId: string; deviceLabel: string }): Promise<ApproveOutcome> {
+  /**
+   * Record one signed tap. Idempotent and race-safe: concurrent taps on the same request (a double
+   * tap, two organizers at once) all return 200 with the same approval / batch. A tap that loses a
+   * race (the request moved on to approved/paying between our read and our write) is re-run against
+   * the fresh state instead of failing with 409 (QA P2-1).
+   */
+  async approve(d: ApprovalDeps, input: { requestIds: string[]; organizerId: string; deviceLabel: string }, depth = 0): Promise<ApproveOutcome> {
     const required = d.group.requiredApprovals;
     const org = (await listOrganizers(d.db, d.group.id)).find((o) => o.id === input.organizerId);
     if (!org) throw new HttpError(403, 'Unknown organizer');
@@ -95,14 +101,20 @@ export class ApprovalService {
         try {
           approvalId = (await createOrGetApproval(d.db, { requestIds: ids, actor: org.id })).approval.id;
         } catch (err) {
-          if (err instanceof RepoError) throw new HttpError(409, `Not ready for approval: ${err.message}`);
+          if (err instanceof RepoError) {
+            if (depth < 3 && (await this.movedOn(d, ids))) return this.approve(d, input, depth + 1);
+            throw new HttpError(409, `Not ready for approval: ${err.message}`);
+          }
           throw err;
         }
       }
       const r = await addApproverTx(d.db, { approvalId, organizerId: org.id, deviceLabel: input.deviceLabel });
       if (!r.ok) {
         if (r.reason === 'NOT_AN_ORGANIZER' || r.reason === 'INVALID_APPROVER') throw new HttpError(403, 'Unknown organizer');
-        if (r.reason === 'ALREADY_EXECUTED') return this.approve(d, input);
+        if (r.reason === 'ALREADY_EXECUTED') {
+          if (depth < 3) return this.approve(d, input, depth + 1);
+          throw new HttpError(409, 'This approval was already executed.');
+        }
         // CONTENT_CHANGED / VOID: the request changed after the first signature → start a fresh approval.
         continue;
       }
@@ -113,6 +125,15 @@ export class ApprovalService {
       return { ...this.result(approvalId, count, required, out.bw), ...(out.sent ? { sent: out.sent } : {}) };
     }
     throw new HttpError(409, 'The request changed while it was being approved. Review it again.');
+  }
+
+  /** Did a concurrent tap move these requests past awaiting_approval (so re-reading will find its result)? */
+  private async movedOn(d: ApprovalDeps, ids: string[]): Promise<boolean> {
+    for (const id of ids) {
+      const r = await getRequest(d.db, id);
+      if (r && ['approved', 'paying', 'paid', 'unclaimed'].includes(r.status)) return true;
+    }
+    return false;
   }
 
   private result(approvalId: string, count: number, required: number, bw: BatchWithItems): ApprovalResult {
@@ -156,9 +177,32 @@ export class ApprovalService {
     };
   }
 
+  /**
+   * The approver reported `paypal_unknown`: PayPal may or may not have accepted the batch (timeout).
+   * The batch stays UNKNOWN (never FAILED) and we ask the approver again a few times; it re-checks
+   * policy and re-sends the SAME sender_batch_id, which PayPal answers with the original batch.
+   */
+  private scheduleResolve(d: ApprovalDeps, approvalId: string, attempt = 0) {
+    const delays = [5_000, 30_000, 120_000, 600_000];
+    const ms = delays[attempt];
+    if (ms === undefined) return;
+    const t = setTimeout(() => {
+      this.execute(d, approvalId).catch((err) => {
+        if (err instanceof ApproverRefusal && err.code === 'paypal_unknown') this.scheduleResolve(d, approvalId, attempt + 1);
+      });
+    }, ms);
+    t.unref?.();
+  }
+
   private async send(d: ApprovalDeps, approvalId: string): Promise<{ bw: BatchWithItems; sent?: SentBatch }> {
     const { req, requests } = await this.executeRequest(d.db, approvalId);
-    const res = await this.approver.execute(req);
+    let res;
+    try {
+      res = await this.approver.execute(req);
+    } catch (err) {
+      if (err instanceof ApproverRefusal && err.code === 'paypal_unknown') this.scheduleResolve(d, approvalId);
+      throw err;
+    }
     const bw = await getBatch(d.db, res.batchId);
     if (!bw) throw new HttpError(502, 'The approval service reported a batch this server cannot find');
     if (!res.sentNow) return { bw };

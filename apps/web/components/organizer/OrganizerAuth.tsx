@@ -35,8 +35,9 @@ export function SignedInBar({ session, onSignedOut }: { session: OrganizerSessio
 }
 
 /**
- * Signed out: sign in with a passkey, or (first run) create one. In DEMO_MODE a visitor can also
- * approve with an organizer's demo key — labelled as such on every card it signs.
+ * Signed out: sign in with a passkey, or (first run) create one with an invite code. In DEMO_MODE a
+ * visitor can also act as Marcus with his labelled demo key, on their own runs only (the server
+ * refuses anything else), so one visitor can never be two organizers.
  */
 export function SignInPanel({
   organizers,
@@ -146,9 +147,7 @@ export function SignInPanel({
               <input id={`${ids}-invite`} value={invite} onChange={(e) => setInvite(e.target.value)} autoComplete="one-time-code" className="mt-1.5 block h-11 w-full max-w-[16rem] rounded-xl border border-rule-strong bg-paper px-3 tracking-wide" required />
               <p className="mt-1 text-[0.8rem] text-ink-3">An existing organizer gets it for you, so nobody can enroll in your name.</p>
             </div>
-          ) : (
-            <p className="text-[0.85rem] text-ink-3">Demo: no invite code is needed and Dana, Marcus and Priya are fictional. A real group hands each organizer an invite code.</p>
-          )}
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" disabled={busy || !who} className="inline-flex h-12 items-center gap-2 rounded-full bg-ink px-5 font-semibold text-raised active:scale-[0.98] disabled:opacity-70">
               {busy ? <LoaderCircle size={18} className="animate-spin" aria-hidden /> : <Fingerprint size={18} aria-hidden />}
@@ -178,14 +177,18 @@ export function SignInPanel({
               className="h-11 rounded-full border border-rule-strong bg-paper px-4 text-[0.92rem] font-medium text-ink"
             >
               <option value="">nobody yet</option>
-              {organizers.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}’s demo key
-                </option>
-              ))}
+              {organizers
+                .filter((o) => o.id === 'org_marcus')
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}’s demo key
+                  </option>
+                ))}
             </select>
           </label>
-          <p className="mt-1.5 text-[0.8rem] text-ink-3">Demo keys are held by this server and sign the same way, but no person unlocks them. Every card they sign says “demo key”.</p>
+          <p className="mt-1.5 text-[0.8rem] text-ink-3">
+            In this demo you play Marcus. His demo key is held by this server and signs only requests you sent yourself (from /call or a /demo run); Dana is played by the demo script. Every card it signs says “demo key”.
+          </p>
         </div>
       )}
     </section>

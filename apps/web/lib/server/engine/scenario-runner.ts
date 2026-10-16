@@ -32,13 +32,14 @@ export interface RunnerHost {
   onReset(fn: () => void): void;
 }
 
-export async function playScenario(host: RunnerHost, ctx: Ctx, input: { scenario: ScenarioId; mode: PlayMode; speed?: number }): Promise<ScenarioRun> {
+export async function playScenario(host: RunnerHost, ctx: Ctx, input: { scenario: ScenarioId; mode: PlayMode; speed?: number; visitorTag?: string }): Promise<ScenarioRun> {
   const s = SCENARIOS[input.scenario];
   if (!s) throw new HttpError(400, 'Unknown scenario');
   const speed = Math.min(20, Math.max(0.25, input.speed ?? 1));
   const mode = input.mode;
   const svc = host.services;
-  const id = `${DEMO_PREFIX}${randomBytes(6).toString('hex')}`;
+  // req_demo_<visitorTag>_<hex>: the run belongs to the visitor who pressed Play (security/visitor.ts).
+  const id = input.visitorTag && /^[0-9a-f]{12}$/.test(input.visitorTag) ? `${DEMO_PREFIX}${input.visitorTag}_${randomBytes(6).toString('hex')}` : `${DEMO_PREFIX}${randomBytes(6).toString('hex')}`;
   const run: ScenarioRun = { requestId: id, scenario: s.id, mode, speed, manualOrganizerId: mode === 'manual' ? 'org_marcus' : null };
   ctx.meta.ensure(id, { displayName: s.requester.displayName, area: s.requester.area, scenario: s.id, speed, ...(s.payout.nameOnFile ? { nameOnFile: s.payout.nameOnFile } : {}) });
   await host.startDemoIntake(id, s.channel, s.lang);

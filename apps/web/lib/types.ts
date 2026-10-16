@@ -314,6 +314,8 @@ export interface LedgerRow {
   status: PayoutItemStatus;
   transactionId?: string;
   reconcile: ReconcileState;
+  /** Why the last reconcile did not match (status drift such as "we have SUCCESS, PayPal says reversed", amount, missing). */
+  reconcileDetail?: string;
 }
 
 export interface LedgerView {
@@ -342,6 +344,8 @@ export interface ReconcileResult {
   checked: number;
   matched: number;
   mismatched: number;
+  /** Items whose PayPal transaction_status disagrees with ours, or stuck PENDING (counted apart from mismatched). */
+  drift?: number;
   at: string;
   simulated: boolean;
 }

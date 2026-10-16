@@ -35,7 +35,7 @@ import { HttpError } from '../errors';
 import { log } from '../log';
 import type { BaseCtx } from './context';
 import { nowIso } from './events';
-import type { ReconcileCache } from './ledger';
+import { recordRun, type ReconcileCache } from './ledger';
 import { buildReportView } from './report';
 
 type AuditRow = typeof auditLog.$inferSelect;
@@ -96,6 +96,9 @@ export async function reconcileWindow(ctx: BaseCtx, cache: ReconcileCache, req: 
     return { senderItemId: r.senderItemId, ...(r.paypalItemId ? { paypalItemId: r.paypalItemId } : {}), ...(r.transactionId ? { transactionId: r.transactionId } : {}), local: { status: r.status as PayoutItemStatus, amountCents: r.amountCents } };
   };
   for (const m of report.amountMismatch) mismatches.push({ itemId: m.local.id, kind: 'amount_mismatch', ...localOf(m.local.id), paypal: { status: m.paypal.status, amountCents: Math.abs(m.paypal.amountCents) } });
+  for (const m of report.currencyMismatch) mismatches.push({ itemId: m.local.id, kind: 'amount_mismatch', ...localOf(m.local.id), paypal: { status: m.paypal.status, amountCents: Math.abs(m.paypal.amountCents) } });
+  for (const d of report.statusDrift) mismatches.push({ itemId: d.local.id, kind: 'status_mismatch', ...localOf(d.local.id), paypal: { status: d.paypal.status, amountCents: Math.abs(d.paypal.amountCents) } });
+  for (const l of report.stuckPending) mismatches.push({ itemId: l.id, kind: 'status_mismatch', ...localOf(l.id) });
   for (const l of report.missingAtPayPal) mismatches.push({ itemId: l.id, kind: 'missing_at_paypal', ...localOf(l.id) });
   for (const t of report.missingLocally) {
     if (knownTx.has(t.transactionId)) continue; // ours, created outside this window
@@ -106,10 +109,8 @@ export async function reconcileWindow(ctx: BaseCtx, cache: ReconcileCache, req: 
     itemId: l.id,
     paidAt: l.lastEventAt ?? end.toISOString(),
   }));
-  for (const m of report.matched) cache.states.set(m.local.id, 'matched');
-  for (const m of mismatches) if (byId.has(m.itemId)) cache.states.set(m.itemId, 'mismatch');
-  for (const p of pendingLag) cache.states.set(p.itemId, 'pending');
-  cache.at = nowIso();
+  await recordRun(ctx, cache, report, { start, end }, 'workflow');
+  for (const p of pendingLag) if (!cache.states.has(p.itemId) || cache.states.get(p.itemId) === 'pending') cache.states.set(p.itemId, 'pending');
   const out: ReconcileResponse = {
     window: { startDate: start.toISOString(), endDate: end.toISOString() },
     checked: local.length,

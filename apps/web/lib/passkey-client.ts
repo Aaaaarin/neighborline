@@ -64,6 +64,25 @@ export async function enrollPasskey(input: { organizerId: string; deviceLabel: s
   return session;
 }
 
+async function postJson<T>(path: string, json: unknown): Promise<T> {
+  const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(json), cache: 'no-store' });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new ApiError(res.status, data.error ?? `Request failed (${res.status})`);
+  return data as T;
+}
+
+/**
+ * /demo only: enroll THIS device as a demo-visitor passkey playing Marcus. No invite code, no
+ * organizer session: the server binds the credential to this browser's demo visitor id, so it signs
+ * only this visitor's own demo runs (never the shared queue, never a policy, never a sign-in).
+ */
+export async function enrollDemoVisitorPasskey(input: { organizerId: string; deviceLabel: string }): Promise<OrganizerSession> {
+  const { optionsJSON } = await postJson<{ optionsJSON: unknown }>('/api/organizer/passkeys/options', { organizerId: input.organizerId, demoVisitor: true });
+  const response = await startRegistration({ optionsJSON: optionsJSON as CreationOptions });
+  const { session } = await postJson<{ session: OrganizerSession }>('/api/organizer/passkeys', { ...input, demoVisitor: true, response });
+  return session;
+}
+
 export async function signInWithPasskey(): Promise<OrganizerSession> {
   const { optionsJSON } = await api.signInOptions();
   const response = await startAuthentication({ optionsJSON: optionsJSON as RequestOptions });
@@ -120,7 +139,7 @@ export async function approveAsVisitor(input: { requestIds: string[]; organizerI
   try {
     let cred = readVisitorCred(input.organizerId);
     if (!cred) {
-      const s = await enrollPasskey({ organizerId: input.organizerId, deviceLabel: visitorLabel(input.name) });
+      const s = await enrollDemoVisitorPasskey({ organizerId: input.organizerId, deviceLabel: visitorLabel(input.name) });
       cred = s.credentialId;
       writeVisitorCred(input.organizerId, cred);
     }
@@ -128,9 +147,9 @@ export async function approveAsVisitor(input: { requestIds: string[]; organizerI
       return { signedWith: 'passkey', result: await approveWithPasskey({ requestIds: input.requestIds, organizerId: input.organizerId, credentialIds: [cred] }) };
     } catch (err) {
       // The demo was reset (fresh database) and forgot this device's passkey: enroll once more.
-      if (err instanceof ApiError && err.status === 401) {
+      if (err instanceof ApiError && (err.status === 401 || (err.status === 403 && /demo passkey/.test(err.message)))) {
         writeVisitorCred(input.organizerId, null);
-        const s = await enrollPasskey({ organizerId: input.organizerId, deviceLabel: visitorLabel(input.name) });
+        const s = await enrollDemoVisitorPasskey({ organizerId: input.organizerId, deviceLabel: visitorLabel(input.name) });
         writeVisitorCred(input.organizerId, s.credentialId);
         return { signedWith: 'passkey', result: await approveWithPasskey({ requestIds: input.requestIds, organizerId: input.organizerId, credentialIds: [s.credentialId] }) };
       }

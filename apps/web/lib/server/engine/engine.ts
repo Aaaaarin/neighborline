@@ -143,8 +143,9 @@ export class Engine implements Services {
 
   /* ---------------- intake ---------------- */
 
-  async startIntake(input: { groupSlug: string; channel: Channel; lang?: Lang }) {
-    return intake.startIntake(await this.base(), input);
+  async startIntake(input: { groupSlug: string; channel: Channel; lang?: Lang; id?: string }) {
+    const { id, ...rest } = input;
+    return intake.startIntake(await this.base(), rest, id ? { id } : {});
   }
 
   async submitAudio(requestId: string, input: AudioInput) {
@@ -206,11 +207,11 @@ export class Engine implements Services {
     return passkeys.roster(await this.base());
   }
 
-  async passkeyRegistrationOptions(input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null }) {
+  async passkeyRegistrationOptions(input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string }) {
     return passkeys.registrationOptions(await this.base(), input);
   }
 
-  async passkeyRegister(input: { organizerId: string; origin: string | null; response: unknown; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null }) {
+  async passkeyRegister(input: { organizerId: string; origin: string | null; response: unknown; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string }) {
     return passkeys.register(await this.base(), input as Parameters<typeof passkeys.register>[1]);
   }
 
@@ -448,7 +449,7 @@ export class Engine implements Services {
 
   /* ---------------- demo stage ---------------- */
 
-  async playScenario(input: { scenario: ScenarioId; mode: PlayMode; speed?: number }) {
+  async playScenario(input: { scenario: ScenarioId; mode: PlayMode; speed?: number; visitorTag?: string }) {
     const st = await this.state;
     st.ctx.meta.prune();
     return playScenario(
@@ -491,6 +492,8 @@ export class Engine implements Services {
       for (const t of old.timers) clearTimeout(t);
       for (const c of old.cleanups) c();
       this.bus.clear();
+      // Stages with a run in flight show "the demo was reset, press Play" instead of hanging.
+      this.bus.broadcast({ kind: 'reset', at: nowIso() });
       retireGeneration(old.ctx.gen);
     })().finally(() => {
       this.resetting = null;

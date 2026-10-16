@@ -1,11 +1,15 @@
 /**
  * POST /api/webhooks/paypal: verify the signature over the raw bytes (paypal.webhooks →
- * verify-webhook-signature), dedupe on the event id (db.recordWebhookEvent), then apply.
+ * verify-webhook-signature), then apply AT LEAST ONCE: db.beginWebhookEvent records the event id and
+ * says new | retry | done; the event is marked processed only after its effects are applied. If the
+ * apply throws, we answer 500, PayPal retries, and the retry ('retry') applies it again. Every effect
+ * is idempotent (monotonic item state machine; donations keyed by order/transaction id), so applying
+ * twice is harmless; acknowledging without applying is what must never happen (QA P2-7).
  * PayPal retries for days, so anything unknown is acknowledged and ignored.
  */
 import { itemStatusForWebhookEvent } from '@neighborline/core';
 import { parseWebhookEvent, WebhookParseError } from '@neighborline/paypal';
-import { markWebhookProcessed, recordDonation, recordWebhookEvent, updateBatch } from '@neighborline/db';
+import { beginWebhookEvent, markWebhookProcessed, recordDonation, updateBatch } from '@neighborline/db';
 import { HttpError } from '../errors';
 import type { BaseCtx } from './context';
 import { nowIso } from './events';
@@ -34,8 +38,8 @@ export async function handleWebhook(ctx: BaseCtx, input: { headers: Record<strin
     throw err;
   }
   const resourceId = ev.kind === 'payout_item' ? ev.item.payoutItemId : ev.kind === 'payout_batch' ? ev.batchId : null;
-  const fresh = await recordWebhookEvent(ctx.db, { id: ev.eventId, eventType: ev.eventType, resourceId, verified: true, raw: ev.raw });
-  if (!fresh) return { verified: true, eventType }; // duplicate delivery: already applied
+  const state = await beginWebhookEvent(ctx.db, { id: ev.eventId, eventType: ev.eventType, resourceId, verified: true, raw: ev.raw });
+  if (state === 'done') return { verified: true, eventType }; // duplicate delivery of an applied event
 
   if (ev.kind === 'payout_item') {
     const item = await findItem(ctx.db, { paypalItemId: ev.item.payoutItemId, senderItemId: ev.item.senderItemId });

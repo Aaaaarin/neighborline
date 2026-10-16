@@ -24,6 +24,17 @@ export class EventBus {
     }
   }
 
+  /** A message that is not about any request (e.g. {kind: 'reset'}); not kept in the replay log. */
+  broadcast(msg: StreamMessage): void {
+    for (const l of this.listeners) {
+      try {
+        l(msg);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   subscribe(listener: (m: StreamMessage) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

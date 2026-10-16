@@ -82,7 +82,8 @@ export interface Services {
   approverUp?(): Promise<boolean>;
 
   /* intake (neighbor) */
-  startIntake(input: { groupSlug: string; channel: Channel; lang?: Lang }): Promise<{ requestId: string }>;
+  /** `id`: the route mints `req_v_<visitorTag>_…` so the visitor who started it owns it (security/visitor.ts). */
+  startIntake(input: { groupSlug: string; channel: Channel; lang?: Lang; id?: string }): Promise<{ requestId: string }>;
   submitAudio(requestId: string, input: AudioInput): Promise<IntakeResult>;
   submitText(requestId: string, input: { text: string; lang?: Lang }): Promise<IntakeResult>;
   confirmIntake(
@@ -105,8 +106,8 @@ export interface Services {
 
   /* organizer passkeys (WebAuthn) */
   passkeyRoster(): Promise<PasskeyRoster>;
-  passkeyRegistrationOptions(input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null }): Promise<{ optionsJSON: unknown }>;
-  passkeyRegister(input: { organizerId: string; origin: string | null; response: unknown; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null }): Promise<OrganizerSession>;
+  passkeyRegistrationOptions(input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string }): Promise<{ optionsJSON: unknown }>;
+  passkeyRegister(input: { organizerId: string; origin: string | null; response: unknown; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string }): Promise<OrganizerSession>;
   passkeySignInOptions(input: { origin: string | null }): Promise<{ optionsJSON: unknown }>;
   passkeySignIn(input: { response: PasskeyAssertionJSON }): Promise<OrganizerSession>;
   approvalChallenge(input: { requestIds: string[]; origin: string | null; organizerId?: string; credentialIds?: string[] }): Promise<ApprovalChallenge>;
@@ -158,7 +159,8 @@ export interface Services {
   lastRunSpeed(): SpeedSplit | null;
 
   /* demo stage only (DEMO_MODE=true) */
-  playScenario(input: { scenario: ScenarioId; mode: PlayMode; speed?: number }): Promise<ScenarioRun>;
+  /** `visitorTag`: the run's id becomes `req_demo_<tag>_…`, visible in full only to that visitor. */
+  playScenario(input: { scenario: ScenarioId; mode: PlayMode; speed?: number; visitorTag?: string }): Promise<ScenarioRun>;
   resetDemo(): Promise<void>;
 }
 
