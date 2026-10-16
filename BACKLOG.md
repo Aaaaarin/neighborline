@@ -2,39 +2,86 @@
 
 Ordered by impact on judging. ✅ done · 🔄 in progress · ⏳ blocked on human · ☐ todo
 
+Status as of Oct 16, 2026 (evening): 711 unit tests and 30 Playwright tests pass on `main`
+(`pnpm test`, `playwright test --list`).
+
 ## Blocked on human
-- ⏳ PayPal sandbox client id/secret (+ Payouts enabled) → real sandbox spike, webhook registration
-- ⏳ OpenAI API key (STT/TTS/LLM) → live AI hero take; Anthropic key optional
-- ⏳ Render account → hosting (render.yaml ready)
-- ⏳ Permission to make repo public; Devpost submission; YouTube upload
-- ⏳ Optional: Twilio account (voice line / WhatsApp sandbox) — "hotline" channel
-- ⏳ Native-speaker check of vi / es / ht copy (nice to have)
+- ⏳ PayPal sandbox client id/secret for the main app **and** a separate Payouts app (Payouts enabled) → real sandbox
+  spike, webhook registration on both apps
+- ⏳ OpenAI API key (STT/TTS/LLM, and the video voiceover) → live AI take; Anthropic key optional
+- ⏳ Render account (payment method or hackathon credit) → hosting (`render.yaml` ready)
+- ⏳ Decide the hosted PayPal mode: `render.yaml` says `PAYPAL_MODE=sandbox`, but Rosa's claim only plays in fake
+  mode and the sandbox spike hasn't run. Fake mode, honestly labelled, matches every screenshot and the video
+- ⏳ Permission to make the repo public; Devpost submission; public YouTube upload
+- ⏳ A native speaker to review the vi / es / ht copy and the video's Vietnamese voice and translations
+  (ko / ru / zh / ar UI strings too, if possible)
+- ⏳ Optional: Twilio account (voice line / WhatsApp sandbox) for the "hotline" channel
 
-## Wave 3 — close honesty gaps (claims on /trust must be true)
-- ✅ Approval service as a **separate process** (`apps/approver`): only process holding Payouts creds; web calls it with HMAC-signed requests carrying the two-person approval record; it re-verifies policy/rail/approval hash itself
-- ✅ Organizer authentication: per-organizer sessions; **passkey (WebAuthn) signatures bound into the approval hash**; demo mode issues demo sessions so judges can act as Marcus
-- ✅ Audio deleted after transcription (configurable retention), PII redaction in logs/traces
-- ✅ `/api/health` + `/api/internal/*` endpoints for Render Workflows (contract in workflows/src/contract.ts)
-- ✅ Dependency audit: upgrade vitest/next/etc., isolate agent-toolkit advisories; make audit job blocking for high+ in our direct deps
-- ✅ Arabic RTL in requester UI; k-anonymity threshold 5 in report
-- ✅ Report demo data consistent with seed (donor counts, payout counts); label demo data
-- ✅ One honest speed framing everywhere (machine time vs. human decision time)
-- ✅ paypal package metadata (repo URL, CHANGELOG method names)
+## Wave 3: close honesty gaps ✅
+- ✅ Approval service as a **separate process** (`apps/approver`): the only process with Payouts credentials; the web
+  app calls it over HMAC-signed requests; it re-verifies policy, rail, approval hash and signatures itself
+- ✅ Organizer authentication: sessions, **passkey (WebAuthn) signatures over the approval hash**, labelled demo keys
+- ✅ Audio deleted after transcription (configurable retention), PII redaction in logs and traces
+- ✅ `/api/health` + signed `/api/internal/*` for Render Workflows (`workflows/src/contract.ts`)
+- ✅ Dependency audit: vitest 4 / vite 7 / overrides; prod audit blocks CI on high and critical
+- ✅ Arabic RTL in the requester UI; k-anonymity threshold 5 in the report
+- ✅ Report demo data consistent with the seed; demo data labelled
+- ✅ One honest speed framing everywhere (system time vs. people's decision time)
+- ✅ `@neighborline/paypal` metadata (repo URL, CHANGELOG method names)
 
-## Wave 4 — real world
+## Wave 4b: product depth ✅
+- ✅ Rules editor: plain English → AI draft (a quote per cap) + code diff + queue preview → two signatures over the
+  draft hash activate; waiting requests re-priced
+- ✅ Alerts UI (organizer, ledger), Arabic message templates, passkey revocation, `seedDemoQueue` in one transaction
+- ✅ Red-team QA pass on a local production build ([QA-REPORT-1](docs/qa/QA-REPORT-1.md))
+- ✅ Draft 1 video via the automated pipeline (fixture mode, captions, no voiceover): `docs/submission/video/`
+
+## QA report 1 fixes ✅
+- ✅ P0-1 claims: README, DEMO, PAYPAL, SPEC, SECURITY, INTEGRATION, DEVPOST and the submission docs match the code
+  (no in-memory-engine claims, real test counts, measured 22 s run / 3 s system, every DEVPOST [VERIFY] resolved)
+- ✅ P1-1 / P1-2 / P2-5 / P2-6 `/call`: one clarifying question with quick answers in ten languages, voice or text
+  replies, translated errors and a 2,000-character counter, survives refresh, typed text never labelled a recording
+- ✅ P1-3 / P2-9 / P2-10 isolation and browser hardening: per-visitor demo sessions, reset needs the internal HMAC
+  (stages offer a replay), same-origin JSON-only writes, nonce CSP with `strict-dynamic`, HSTS, `frame-ancestors`
+- ✅ P1-4 redacted public reads and scoped streams; /trust privacy copy rewritten (NOTES-trust §2)
+- ✅ P1-5 REVIEW appeal goes to a different organizer; decline is idempotent; no phantom note
+- ✅ P1-6 `DEMO_MODE` fails closed (refused with live PayPal); signatures always required
+  (`NEIGHBORLINE_REQUIRE_PASSKEYS` removed); visitors sign only as Marcus on their own runs; /trust "In this demo"
+  generated from config
+- ✅ P2-1 concurrent taps all return 200 with one batch
+- ✅ P2-2 / P2-3 injection heuristics for ru, ko, tl, leetspeak and notes to the AI; excerpts cut at word boundaries
+- ✅ P2-7 at-least-once webhooks; P2-8 `UNKNOWN` on ambiguous PayPal errors with a policy re-check before re-send;
+  P2-11 approval id in `sender_batch_id`; P2-12 nonce-bound WebAuthn challenges; P2-14 reconcile detects status
+  drift, currency and stuck `PENDING`, persists every run, ledger shows the reason
+- ✅ P2-15 / P2-16 focus management; axe at phone width
+- ✅ P2-17 offline extractor reads zh, ar, ko, ru, fr, tl
+- ✅ P3: phone clocks follow the story clock, chips wrap on phones, Rosa's claim wait counts as the neighbor's time,
+  landing CTAs go to `/call` and autoplay, the `/call` placeholder is translated in all ten languages
+- ✅ CI: `ci.yml` was invalid YAML since 14:05 (unquoted `: ` in a step name), so no job ran; fixed
+
+## Still open (no human needed)
+- ☐ Re-take `home-1920.png` / `home-390.png`: the home story clock now reads 0:00–0:22 (measured), the committed
+  screenshots still show the old 0:31
+- ☐ Re-record the video takes with the current build (Lan now freezes at about 0:22.5) and re-cut Draft 1; then VO
+  once the OpenAI key arrives
+- ☐ Single-use, expiring invite codes stored hashed (QA P2-13, THREAT_MODEL R13)
+- ☐ Shared rate-limit store and bot protection before any real deployment (R9)
+- ☐ Venmo `note` and email subject in the neighbor's language; translate the organizer's free-text decline note (QA P3)
+- ☐ Stop `next build` with a custom `NEXT_DIST_DIR` from rewriting `apps/web/next-env.d.ts` and `tsconfig.json` (QA P3)
+- ☐ Not re-verified since QA: reloading `/demo?…&autoplay=1` mid-run starting a second run; `/report` CLS (QA P3)
+- ☐ `apps/web/scripts/screenshots.mjs` and `docs/submission/video/lib/record.mjs` still POST `/api/demo/reset`
+  unsigned (now a harmless 401; fresh browser contexts already isolate runs). Drop the call or sign it
+
+## Wave 4: real world
 - ☐ Real sandbox spike: Payouts PayPal + Venmo, webhooks, Transaction Search, Orders/Subscriptions buttons
-- ☐ Live AI: generate demo audio with TTS; real STT on recorded voice; latency budget
-- ☐ Deploy to Render; smoke test; keep-warm
-- ☐ Optional phone/WhatsApp channel via Twilio
+  ([checklist](docs/PAYPAL.md#to-verify-in-the-real-sandbox)) ⏳ credentials
+- ☐ Live AI: demo audio with TTS, real STT on a recorded voice note, latency budget ⏳ OpenAI key
+- ☐ Deploy to Render with the Blueprint (web + approver, Postgres, Workflows, scheduler); smoke test
+  (`scripts/verify-deploy.sh`); keep warm ⏳ Render account
+- ☐ Optional phone/WhatsApp channel via Twilio ⏳ account
 
-## Wave 4b — product depth (unblocked)
-- ✅ Rules editor: plain-English policy → AI-compiled draft (quote per cap) + code diff + queue preview → two passkey signatures over the draft hash activate; waiting requests re-priced
-- ✅ Alerts UI (organizer/ledger), Arabic message templates (decline and all others), passkey revocation, seedDemoQueue in one transaction
-- 🔄 Red-team QA pass on local build
-- 🔄 Draft video via automated pipeline (fixture mode, captions, no voiceover yet)
-
-## Wave 5 — win the room
-- ☐ Red-team QA pass (bugs, UX, copy) on hosted build
-- ☐ Video: automated recording pipeline → cut → captions → voiceover
-- ☐ Devpost write-up final, thumbnail, gallery
-- ☐ Sponsor prize: APIMatic Context Plugin (Payouts + Transaction Search) — decide
+## Wave 5: win the room
+- ☐ Red-team QA pass (bugs, UX, copy) on the hosted build
+- ☐ Video: re-record → cut → captions → voiceover → native-speaker check → public YouTube upload
+- ☐ Devpost: fill `{HOSTED_URL}`, `{VIDEO_ID}`, sandbox buyer; thumbnail and gallery (THUMBNAIL_BRIEF.md)
+- ☐ Sponsor prize: APIMatic Context Plugin (Payouts + Transaction Search): decide
