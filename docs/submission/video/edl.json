@@ -1,0 +1,516 @@
+{
+  "output": "/home/claude/video-out/neighborline-draft1.mp4",
+  "durationSeconds": 165,
+  "stopwatch": {
+    "lan": "0:22.3",
+    "lanSplit": [
+      "0:19.1",
+      "0:03.1"
+    ],
+    "rosa": "0:15.1",
+    "blocked": "0:01.2"
+  },
+  "takes": {
+    "lan": {
+      "url": "/demo?scenario=lan&speed=1",
+      "dpr": 1.5,
+      "playAt": 2.986,
+      "eventsAfterPlay": {
+        "created": 0.079,
+        "transcribed": 1.591,
+        "readback": 1.607,
+        "confirmed": 8.644,
+        "approval1": 14.709,
+        "approval2": 20.776,
+        "batch": 20.903,
+        "success": 22.384
+      }
+    },
+    "rosa": {
+      "url": "/demo?scenario=rosa&speed=2",
+      "dpr": 1.5,
+      "playAt": 1.475,
+      "eventsAfterPlay": {
+        "created": 0.063,
+        "transcribed": 0.83,
+        "readback": 0.848,
+        "confirmed": 4.378,
+        "approval1": 7.435,
+        "approval2": 10.513,
+        "batch": 10.612,
+        "unclaimed": 12.126,
+        "success": 15.187
+      }
+    },
+    "blocked": {
+      "url": "/demo?scenario=blocked&speed=1",
+      "dpr": 1.5,
+      "playAt": 1.463,
+      "eventsAfterPlay": {
+        "created": 0.063,
+        "transcribed": 1.265,
+        "flagged": 1.301
+      }
+    }
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "start": "0:00.0",
+      "end": "0:02.0",
+      "seconds": 2,
+      "script": "Shot 1 · Cold open",
+      "kind": "take",
+      "comp": "A",
+      "take": "lan",
+      "src": "P-2"
+    },
+    {
+      "id": "s02",
+      "start": "0:02.0",
+      "end": "0:12.0",
+      "seconds": 10,
+      "script": "Shot 2 · The voice note lands",
+      "kind": "take",
+      "comp": "A",
+      "take": "lan",
+      "src": "P+0"
+    },
+    {
+      "id": "s03",
+      "start": "0:12.0",
+      "end": "0:31.0",
+      "seconds": 19,
+      "script": "Shots 3–4 · Two phones buzz, approve, approve, paid",
+      "kind": "take",
+      "comp": "B",
+      "take": "lan",
+      "src": "P+10"
+    },
+    {
+      "id": "s05",
+      "start": "0:31.0",
+      "end": "0:46.0",
+      "seconds": 15,
+      "script": "Shot 5 · Push in on her phone",
+      "kind": "take",
+      "comp": "A",
+      "take": "lan",
+      "src": "P+29"
+    },
+    {
+      "id": "s06",
+      "start": "0:46.0",
+      "end": "1:00.0",
+      "seconds": 14,
+      "script": "Shot 6 · Name, problem, proof",
+      "kind": "card"
+    },
+    {
+      "id": "s07a",
+      "start": "1:00.0",
+      "end": "1:07.0",
+      "seconds": 7,
+      "script": "Shot 7 · Rosa (A)",
+      "kind": "take",
+      "comp": "A",
+      "take": "rosa",
+      "src": "P+0"
+    },
+    {
+      "id": "s07b",
+      "start": "1:07.0",
+      "end": "1:11.4",
+      "seconds": 4.4,
+      "script": "Shot 7 · Rosa (B: the same two-phone pattern)",
+      "kind": "take",
+      "comp": "B",
+      "take": "rosa",
+      "src": "P+7"
+    },
+    {
+      "id": "s07c",
+      "start": "1:11.4",
+      "end": "1:27.0",
+      "seconds": 15.6,
+      "script": "Shot 7 · Rosa (A: unclaimed → claim help → success)",
+      "kind": "take",
+      "comp": "A",
+      "take": "rosa",
+      "src": "P+11.4"
+    },
+    {
+      "id": "s08",
+      "start": "1:27.0",
+      "end": "1:36.0",
+      "seconds": 9,
+      "script": "Shot 8 · Impersonator blocked",
+      "kind": "take",
+      "comp": "C",
+      "take": "blocked",
+      "src": "P-0.5"
+    },
+    {
+      "id": "s09",
+      "start": "1:36.0",
+      "end": "1:46.0",
+      "seconds": 10,
+      "script": "Shot 9 · /trust: who can do what",
+      "kind": "pan"
+    },
+    {
+      "id": "s10",
+      "start": "1:46.0",
+      "end": "1:52.0",
+      "seconds": 6,
+      "script": "Shot 10 · The rail, full screen",
+      "kind": "stageEnd"
+    },
+    {
+      "id": "s11a",
+      "start": "1:52.0",
+      "end": "1:57.0",
+      "seconds": 5,
+      "script": "Shot 11 · Code card 1",
+      "kind": "code"
+    },
+    {
+      "id": "s11b",
+      "start": "1:57.0",
+      "end": "2:02.0",
+      "seconds": 5,
+      "script": "Shot 11 · Code card 2",
+      "kind": "code"
+    },
+    {
+      "id": "s11c",
+      "start": "2:02.0",
+      "end": "2:07.0",
+      "seconds": 5,
+      "script": "Shot 11 · Code card 3",
+      "kind": "code"
+    },
+    {
+      "id": "s11d",
+      "start": "2:07.0",
+      "end": "2:12.0",
+      "seconds": 5,
+      "script": "Shot 11 · Code card 4 (tests + reconcile)",
+      "kind": "code"
+    },
+    {
+      "id": "s12",
+      "start": "2:12.0",
+      "end": "2:30.0",
+      "seconds": 18,
+      "script": "Shot 12 · Where the money went",
+      "kind": "pan"
+    },
+    {
+      "id": "s13",
+      "start": "2:30.0",
+      "end": "2:45.0",
+      "seconds": 15,
+      "script": "Shot 13 · Close and ask",
+      "kind": "end",
+      "take": "lan"
+    }
+  ],
+  "vo": [
+    {
+      "id": "V1",
+      "text": "That's Mrs. Lan. Power out two days since the ice storm. She doesn't read English. She just left a voice note for her neighborhood hotline. Watch the clock.",
+      "start": "0:03.5",
+      "end": "0:12.0",
+      "window": 8.5,
+      "words": 28,
+      "wpm": 150,
+      "estSeconds": 11.2,
+      "fits": false,
+      "needWpm": 198
+    },
+    {
+      "id": "V2",
+      "text": "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers, on two phones.",
+      "start": "0:12.5",
+      "end": "0:24.0",
+      "window": 11.5,
+      "words": 30,
+      "wpm": 150,
+      "estSeconds": 12,
+      "fits": false,
+      "needWpm": 157
+    },
+    {
+      "id": "V3",
+      "text": "Paid, into her Venmo, with a message in Vietnamese. Twenty-two point three seconds from voice note to the SUCCESS webhook, on our PayPal stand-in. Our organizers tapped on cue; with real volunteers, it's as long as two neighbors take to check their phones.",
+      "start": "0:32.0",
+      "end": "0:45.8",
+      "window": 13.8,
+      "words": 43,
+      "wpm": 160,
+      "estSeconds": 16.13,
+      "fits": false,
+      "needWpm": 187
+    },
+    {
+      "id": "V4",
+      "text": "This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most groups still run on spreadsheets and a volunteer's personal Venmo.",
+      "start": "0:46.3",
+      "end": "1:00.0",
+      "window": 13.7,
+      "words": 35,
+      "wpm": 150,
+      "estSeconds": 14,
+      "fits": false,
+      "needWpm": 153
+    },
+    {
+      "id": "V5a",
+      "text": "Rosa asks for groceries, in Spanish. Same rules, two approvals.",
+      "start": "1:01.0",
+      "end": "1:05.0",
+      "window": 4,
+      "words": 10,
+      "wpm": 150,
+      "estSeconds": 4,
+      "fits": true,
+      "needWpm": 150
+    },
+    {
+      "id": "V5b",
+      "text": "Her email has no PayPal account yet, so PayPal reports the payout unclaimed.",
+      "start": "1:12.4",
+      "end": "1:17.6",
+      "window": 5.2,
+      "words": 13,
+      "wpm": 150,
+      "estSeconds": 5.2,
+      "fits": true,
+      "needWpm": 150
+    },
+    {
+      "id": "V5c",
+      "text": "Most systems stop there. Neighborline messages her, in Spanish, exactly how to claim it.",
+      "start": "1:18.0",
+      "end": "1:23.0",
+      "window": 5,
+      "words": 14,
+      "wpm": 155,
+      "estSeconds": 5.42,
+      "fits": false,
+      "needWpm": 168
+    },
+    {
+      "id": "V5d",
+      "text": "She does. Success.",
+      "start": "1:23.2",
+      "end": "1:25.5",
+      "window": 2.3,
+      "words": 3,
+      "wpm": 150,
+      "estSeconds": 1.2,
+      "fits": true,
+      "needWpm": 78
+    },
+    {
+      "id": "V6",
+      "text": "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves.",
+      "start": "1:28.0",
+      "end": "1:36.0",
+      "window": 8,
+      "words": 21,
+      "wpm": 155,
+      "estSeconds": 8.13,
+      "fits": false,
+      "needWpm": 158
+    },
+    {
+      "id": "V7a",
+      "text": "Under the hood: the agents that talk to neighbors have no PayPal tools at all. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers.",
+      "start": "1:36.3",
+      "end": "1:50.0",
+      "window": 13.7,
+      "words": 38,
+      "wpm": 165,
+      "estSeconds": 13.82,
+      "fits": false,
+      "needWpm": 166,
+      "note": "Retimed: the script gives part 1 only 1:36–1:46 (37 words = 222 wpm). It now runs into Shot 10."
+    },
+    {
+      "id": "V7b",
+      "text": "Every AI output is checked against a schema, repaired once, or the neighbor is asked again, never guessed.",
+      "start": "1:50.3",
+      "end": "1:57.6",
+      "window": 7.3,
+      "words": 18,
+      "wpm": 165,
+      "estSeconds": 6.55,
+      "fits": true,
+      "needWpm": 148,
+      "note": "Retimed: runs over code card 1, which is the schema-repair card it describes."
+    },
+    {
+      "id": "V7c",
+      "text": "The batch ID is a hash of that approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search.",
+      "start": "1:58.0",
+      "end": "2:11.5",
+      "window": 13.5,
+      "words": 28,
+      "wpm": 155,
+      "estSeconds": 10.84,
+      "fits": true,
+      "needWpm": 124
+    },
+    {
+      "id": "V8",
+      "text": "Donors give with PayPal or Venmo. The public report is AI-written around numbers that code pulls from the ledger, and it never names a neighbor. Built for the roughly nine hundred volunteer groups that mobilize when the storm hits.",
+      "start": "2:12.3",
+      "end": "2:29.5",
+      "window": 17.2,
+      "words": 39,
+      "wpm": 150,
+      "estSeconds": 15.6,
+      "fits": true,
+      "needWpm": 136
+    },
+    {
+      "id": "V9",
+      "text": "Neighborline is open source. Try the hotline yourself, no login, at the link below. Because the morning after a storm, help should sound like your own language.",
+      "start": "2:30.0",
+      "end": "2:41.0",
+      "window": 11,
+      "words": 27,
+      "wpm": 150,
+      "estSeconds": 10.8,
+      "fits": true,
+      "needWpm": 147
+    }
+  ],
+  "lowerThirds": [
+    {
+      "id": "lt-eastside",
+      "start": "0:02.0",
+      "end": "0:07.0",
+      "title": "Eastside, the morning after an ice storm",
+      "sub": "Mrs. Lan · Vietnamese · voice note"
+    },
+    {
+      "id": "lt-rules",
+      "start": "0:13.0",
+      "end": "0:18.0",
+      "title": "Amount computed by code from the group’s written rules",
+      "sub": "Policy v1 · Utility outage · up to $150"
+    },
+    {
+      "id": "lt-approval2",
+      "start": "0:23.0",
+      "end": "0:27.5",
+      "title": "Approval 2 of 2",
+      "sub": "Two different organizers, two different keys"
+    },
+    {
+      "id": "lt-success",
+      "start": "0:33.0",
+      "end": "0:44.0",
+      "title": "Voice note → PayPal SUCCESS: 0:22.3",
+      "sub": "Organizers tapped on cue in this demo · simulated PayPal sandbox"
+    },
+    {
+      "id": "lt-unclaimed",
+      "start": "1:12.2",
+      "end": "1:15.2",
+      "title": "PayPal webhook",
+      "sub": "PAYMENT.PAYOUTS-ITEM.UNCLAIMED"
+    },
+    {
+      "id": "lt-succeeded",
+      "start": "1:15.2",
+      "end": "1:20.7",
+      "title": "PayPal webhook",
+      "sub": "PAYMENT.PAYOUTS-ITEM.SUCCEEDED"
+    },
+    {
+      "id": "lt-blocked",
+      "start": "1:29.2",
+      "end": "1:36.0",
+      "title": "Blocked before any money moved · 0:01.2",
+      "sub": "Lookalike handle · Approve disabled on every phone"
+    },
+    {
+      "id": "lt-oss",
+      "start": "2:07.0",
+      "end": "2:12.0",
+      "title": "Open source · MIT",
+      "sub": "@neighborline/paypal + an MCP server that adds Payouts tools to the PayPal Agent Toolkit"
+    },
+    {
+      "id": "lt-seeded",
+      "start": "2:12.0",
+      "end": "2:30.0",
+      "title": "Seeded demo data · fictional group",
+      "sub": "The report’s figures are fixtures"
+    }
+  ],
+  "warnings": [
+    "V1: 28 words need 11.2s at 150 wpm but the window is 8.5s (198 wpm)",
+    "V2: 30 words need 12s at 150 wpm but the window is 11.5s (157 wpm)",
+    "V3: 43 words need 16.13s at 160 wpm but the window is 13.8s (187 wpm)",
+    "V4: 35 words need 14s at 150 wpm but the window is 13.7s (153 wpm)",
+    "V5c: 14 words need 5.42s at 155 wpm but the window is 5s (168 wpm)",
+    "V6: 21 words need 8.13s at 155 wpm but the window is 8s (158 wpm)",
+    "V7a: 38 words need 13.82s at 165 wpm but the window is 13.7s (166 wpm)"
+  ],
+  "tests": {
+    "total": 612,
+    "failed": false,
+    "rows": [
+      {
+        "pkg": "tools/fake-paypal",
+        "files": "2",
+        "tests": "15 passed"
+      },
+      {
+        "pkg": "packages/core",
+        "files": "10",
+        "tests": "270 passed"
+      },
+      {
+        "pkg": "packages/agents",
+        "files": "7",
+        "tests": "96 passed"
+      },
+      {
+        "pkg": "packages/passkeys",
+        "files": "1",
+        "tests": "11 passed"
+      },
+      {
+        "pkg": "packages/paypal",
+        "files": "9",
+        "tests": "79 passed"
+      },
+      {
+        "pkg": "packages/db",
+        "files": "6",
+        "tests": "62 passed"
+      },
+      {
+        "pkg": "tools/dev-db",
+        "files": "1",
+        "tests": "5 passed"
+      },
+      {
+        "pkg": "apps/approver",
+        "files": "2",
+        "tests": "22 passed"
+      },
+      {
+        "pkg": "apps/web",
+        "files": "9",
+        "tests": "52 passed"
+      }
+    ]
+  }
+}

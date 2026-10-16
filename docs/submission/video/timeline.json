@@ -1,0 +1,74 @@
+{
+  "$comment": "Single source of truth for Draft 1. Times are video timecodes (m:ss.s) from VIDEO_SCRIPT.md. Source points for stage takes are 'P+x' = seconds after the Play click in that take (takes/<id>.markers.json). Anchors {take, event, offset} resolve to the video time at which that stage event is on screen. {T} / {T_words} / {BLOCK_T} are filled from the recorded stopwatch values. build.mjs validates every VO line against its window at its target wpm and prints the fit.",
+  "output": { "width": 1920, "height": 1080, "fps": 30, "maxSeconds": 170, "file": "neighborline-draft1.mp4" },
+  "paypalMode": "fake",
+  "corner": {
+    "from": "0:00",
+    "to": "2:30",
+    "text": { "fake": "Simulated PayPal sandbox · fictional people · AI voices", "sandbox": "PayPal sandbox · test money · fictional people · AI voices" }
+  },
+  "shots": [
+    { "id": "s01", "script": "Shot 1 · Cold open", "start": "0:00", "end": "0:02", "kind": "take", "take": "lan", "src": "P-2", "comp": "A" },
+    { "id": "s02", "script": "Shot 2 · The voice note lands", "start": "0:02", "end": "0:12", "kind": "take", "take": "lan", "src": "P+0", "comp": "A" },
+    { "id": "s03", "script": "Shots 3–4 · Two phones buzz, approve, approve, paid", "start": "0:12", "end": "0:31", "kind": "take", "take": "lan", "src": "P+10", "comp": "B" },
+    { "id": "s05", "script": "Shot 5 · Push in on her phone", "start": "0:31", "end": "0:46", "kind": "take", "take": "lan", "src": "P+29", "comp": "A", "push": { "to": 1.04, "focus": "phone" } },
+    { "id": "s06", "script": "Shot 6 · Name, problem, proof", "start": "0:46", "end": "1:00", "kind": "card", "card": "title", "fadeIn": 0.18, "fadeOut": 0.32 },
+    { "id": "s07a", "script": "Shot 7 · Rosa (A)", "start": "1:00", "end": "1:07", "kind": "take", "take": "rosa", "src": "P+0", "comp": "A" },
+    { "id": "s07b", "script": "Shot 7 · Rosa (B: the same two-phone pattern)", "start": "1:07", "end": "1:11.4", "kind": "take", "take": "rosa", "src": "P+7", "comp": "B" },
+    { "id": "s07c", "script": "Shot 7 · Rosa (A: unclaimed → claim help → success)", "start": "1:11.4", "end": "1:27", "kind": "take", "take": "rosa", "src": "P+11.4", "comp": "A" },
+    { "id": "s08", "script": "Shot 8 · Impersonator blocked", "start": "1:27", "end": "1:36", "kind": "take", "take": "blocked", "src": "P-0.5", "comp": "C" },
+    { "id": "s09", "script": "Shot 9 · /trust: who can do what", "start": "1:36", "end": "1:46", "kind": "pan", "still": "trust", "anchor": "Know your agent", "panCss": 150 },
+    { "id": "s10", "script": "Shot 10 · The rail, full screen", "start": "1:46", "end": "1:52", "kind": "stageEnd", "push": { "to": 1.55, "focus": "rail" } },
+    { "id": "s11a", "script": "Shot 11 · Code card 1", "start": "1:52", "end": "1:57", "kind": "code", "card": "code-1" },
+    { "id": "s11b", "script": "Shot 11 · Code card 2", "start": "1:57", "end": "2:02", "kind": "code", "card": "code-2" },
+    { "id": "s11c", "script": "Shot 11 · Code card 3", "start": "2:02", "end": "2:07", "kind": "code", "card": "code-3" },
+    { "id": "s11d", "script": "Shot 11 · Code card 4 (tests + reconcile)", "start": "2:07", "end": "2:12", "kind": "code", "card": "code-4" },
+    { "id": "s12", "script": "Shot 12 · Where the money went", "start": "2:12", "end": "2:30", "kind": "pan", "still": "report", "anchor": "Where the money went", "hold": 6, "panTo": "Are approvals fair across languages" },
+    { "id": "s13", "script": "Shot 13 · Close and ask", "start": "2:30", "end": "2:45", "kind": "end", "take": "lan", "crossfadeAt": 0.5, "litAt": "2:41" }
+  ],
+  "vo": [
+    { "id": "V1", "start": "0:03.5", "end": "0:12", "wpm": 150, "text": "That's Mrs. Lan. Power out two days since the ice storm. She doesn't read English. She just left a voice note for her neighborhood hotline. Watch the clock." },
+    { "id": "V2", "start": "0:12.5", "end": "0:24", "wpm": 150, "text": "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers, on two phones." },
+    {
+      "id": "V3", "start": "0:32", "end": "0:45.8", "wpm": 160,
+      "text": { "sandbox": "Paid, into her Venmo, with a message in Vietnamese. {T_words} seconds from voice note to PayPal's SUCCESS webhook. Our organizers tapped on cue; with real volunteers, it's as long as two neighbors take to check their phones.",
+                "fake": "Paid, into her Venmo, with a message in Vietnamese. {T_words} seconds from voice note to the SUCCESS webhook, on our PayPal stand-in. Our organizers tapped on cue; with real volunteers, it's as long as two neighbors take to check their phones." }
+    },
+    { "id": "V4", "start": "0:46.3", "end": "1:00", "wpm": 150, "text": "This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most groups still run on spreadsheets and a volunteer's personal Venmo." },
+    { "id": "V5a", "start": "1:01", "end": "1:05", "wpm": 150, "text": "Rosa asks for groceries, in Spanish. Same rules, two approvals." },
+    { "id": "V5b", "start": "1:12.6", "end": "1:17.8", "wpm": 150, "anchor": { "take": "rosa", "event": "unclaimed", "offset": 0.3 }, "text": "Her email has no PayPal account yet, so PayPal reports the payout unclaimed." },
+    { "id": "V5c", "start": "1:18", "end": "1:23", "wpm": 155, "text": "Most systems stop there. Neighborline messages her, in Spanish, exactly how to claim it." },
+    { "id": "V5d", "start": "1:23.2", "end": "1:25.5", "wpm": 150, "text": "She does. Success." },
+    { "id": "V6", "start": "1:28", "end": "1:36", "wpm": 155, "text": "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves." },
+    { "id": "V7a", "start": "1:36.3", "end": "1:50", "wpm": 165, "note": "Retimed: the script gives part 1 only 1:36–1:46 (37 words = 222 wpm). It now runs into Shot 10.", "text": "Under the hood: the agents that talk to neighbors have no PayPal tools at all. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers." },
+    { "id": "V7b", "start": "1:50.3", "end": "1:57.6", "wpm": 165, "note": "Retimed: runs over code card 1, which is the schema-repair card it describes.", "text": "Every AI output is checked against a schema, repaired once, or the neighbor is asked again, never guessed." },
+    { "id": "V7c", "start": "1:58", "end": "2:11.5", "wpm": 155, "text": "The batch ID is a hash of that approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search." },
+    { "id": "V8", "start": "2:12.3", "end": "2:29.5", "wpm": 150, "text": "Donors give with PayPal or Venmo. The public report is AI-written around numbers that code pulls from the ledger, and it never names a neighbor. Built for the roughly nine hundred volunteer groups that mobilize when the storm hits." },
+    { "id": "V9", "start": "2:30", "end": "2:41", "wpm": 150, "text": "Neighborline is open source. Try the hotline yourself, no login, at the link below. Because the morning after a storm, help should sound like your own language." }
+  ],
+  "quotes": [
+    { "id": "lan-words", "start": "0:00.2", "end": "0:03.4", "who": "Mrs. Lan, in Vietnamese", "text": "“Hello, this is Lan on Hawthorne Street. My power has been out for two days…”" }
+  ],
+  "lowerThirds": [
+    { "id": "lt-eastside", "start": "0:02", "end": "0:07", "title": "Eastside, the morning after an ice storm", "sub": "Mrs. Lan · Vietnamese · voice note" },
+    { "id": "lt-rules", "start": "0:13", "end": "0:18", "title": "Amount computed by code from the group’s written rules", "sub": "Policy v1 · Utility outage · up to $150" },
+    { "id": "lt-approval2", "anchor": { "take": "lan", "event": "approval2", "offset": 0.2 }, "duration": 4.5, "title": "Approval 2 of 2", "sub": "Two different organizers, two different keys" },
+    { "id": "lt-success", "start": "0:33", "end": "0:44", "title": "Voice note → PayPal SUCCESS: {T}", "sub": { "fake": "Organizers tapped on cue in this demo · simulated PayPal sandbox", "sandbox": "Organizers tapped on cue in this demo · PayPal sandbox" } },
+    { "id": "lt-unclaimed", "anchor": { "take": "rosa", "event": "unclaimed", "offset": 0.1 }, "until": { "take": "rosa", "event": "success", "offset": 0 }, "title": "PayPal webhook", "sub": "PAYMENT.PAYOUTS-ITEM.UNCLAIMED", "mono": true },
+    { "id": "lt-succeeded", "anchor": { "take": "rosa", "event": "success", "offset": 0 }, "duration": 5.5, "title": "PayPal webhook", "sub": "PAYMENT.PAYOUTS-ITEM.SUCCEEDED", "mono": true },
+    { "id": "lt-blocked", "anchor": { "take": "blocked", "event": "flagged", "offset": 0.4 }, "end": "1:36", "title": "Blocked before any money moved · {BLOCK_T}", "sub": "Lookalike handle · Approve disabled on every phone" },
+    { "id": "lt-oss", "start": "2:07", "end": "2:12", "title": "Open source · MIT", "sub": "@neighborline/paypal + an MCP server that adds Payouts tools to the PayPal Agent Toolkit", "place": "card" },
+    { "id": "lt-seeded", "start": "2:12", "end": "2:30", "title": "Seeded demo data · fictional group", "sub": "The report’s figures are fixtures", "place": "bottom" }
+  ],
+  "pills": [
+    { "id": "pill-2x", "start": "1:00", "end": "1:27", "text": "Shown at 2× speed" }
+  ],
+  "overlays": [
+    { "id": "ov-handles", "start": "1:30", "end": "1:36", "card": "ov-handles" }
+  ],
+  "endCard": {
+    "hostedUrl": "{HOSTED_URL}/demo",
+    "repo": "github.com/Aaaaarin/neighborline",
+    "event": "Built for the PayPal AI Hackathon"
+  }
+}
