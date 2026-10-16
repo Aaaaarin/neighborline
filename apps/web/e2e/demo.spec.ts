@@ -82,6 +82,21 @@ test.describe('/demo stage (real engine, fake PayPal)', () => {
     await expect(page.getByText('Stopped · blocked before any money moved')).toBeVisible();
     await expect(page.getByText('PayPal Payouts batch created')).toHaveCount(0);
   });
+
+  test('autoplay runs once: a reload mid-run does not start a second run', async ({ page }) => {
+    const plays: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/demo/play') plays.push(r.url());
+    });
+    await page.goto('/demo?scenario=jean&speed=4&autoplay=1');
+    await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible();
+    await expect(page).not.toHaveURL(/autoplay=1/);
+    expect(new URL(page.url()).searchParams.get('scenario')).toBe('jean');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Play scenario' })).toBeVisible();
+    await page.waitForTimeout(1500);
+    expect(plays).toHaveLength(1);
+  });
 });
 
 test('approvals are idempotent, need two different organizers, and a visitor only ever plays Marcus', async ({ request }) => {
