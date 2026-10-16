@@ -98,8 +98,19 @@ export function Stage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario, mode, initial.speed, s.play]);
 
+  // Autoplay once per page load: drop `autoplay=1` from the address first, so a reload mid-run shows
+  // the stage idle instead of paying a second run (QA-1 P3), and the ref keeps StrictMode's double
+  // effect from starting two runs.
+  const autoplayed = useRef(false);
   useEffect(() => {
-    if (initial.autoplay) start();
+    if (!initial.autoplay || autoplayed.current) return;
+    autoplayed.current = true;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('autoplay')) {
+      url.searchParams.delete('autoplay');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+    start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
