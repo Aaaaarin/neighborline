@@ -3,16 +3,17 @@
 [![CI](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml/badge.svg)](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6)
-![Unit tests](https://img.shields.io/badge/unit%20tests-612-2d6a4f)
+![Unit tests](https://img.shields.io/badge/unit%20tests-711-2d6a4f)
+![E2E tests](https://img.shields.io/badge/Playwright-30-2d6a4f)
 
 **A hotline, not a dashboard.** A neighbor leaves a voice note in their own language. Two volunteer organizers
 approve it on their phones. PayPal or Venmo cash lands. Then the neighbor gets a message back in their language.
 
 ![The /demo stage at real pace: Mrs. Lan's Vietnamese voice note, two signed approvals, one PayPal Payouts batch, a verified SUCCESS webhook; the stopwatch splits neighbors' decision time from system time.](apps/web/screenshots/demo-1920-lan-done.png)
 
-<sub>The `/demo` stage at real pace. Left: the neighbor's phone. Middle: two organizers. Right: every PayPal event,
-with a stopwatch that stops when PayPal reports `SUCCESS` and splits the neighbors' decision time from system time. The stage runs in fake/fixture mode: see
-[Sandbox reality](#sandbox-reality).</sub>
+<sub>The `/demo` stage. Left: the neighbor's phone. Middle: two organizers. Right: every PayPal event, with a
+stopwatch that stops when PayPal reports `SUCCESS` and splits the neighbors' decision time from system time. Shown in
+fake PayPal and fixture AI mode: see [Sandbox reality](#sandbox-reality).</sub>
 
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT licensed.
 
@@ -20,17 +21,17 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT
 
 ## Contents
 
-[Try it in 30 seconds](#try-it-in-30-seconds) · [The problem](#the-problem) · [How it works](#how-it-works) ·
+[Try it](#try-it-in-30-seconds) · [The problem](#the-problem) · [How it works](#how-it-works) ·
 [What the AI does, and never does](#what-the-ai-does-and-never-does) · [PayPal integration](#paypal-integration) ·
 [MCP server](#the-mcp-server-payouts-for-agents-with-two-humans-in-the-loop) · [AI tools used](#ai-tools-used) ·
-[Architecture](#architecture) · [Testing](#testing) · [Sandbox reality](#sandbox-reality) ·
-[Live-mode reality](#live-mode-reality) · [Accessibility](#accessibility) · [Roadmap](#roadmap) · [Docs](#docs)
+[Architecture](#architecture) · [Security and privacy](#security-and-privacy) · [Testing](#testing) ·
+[Sandbox reality](#sandbox-reality) · [Live-mode reality](#live-mode-reality) · [Accessibility](#accessibility) ·
+[Roadmap](#roadmap) · [Docs](#docs)
 
 ## Try it in 30 seconds
 
-**Hosted:** `https://<hosted-url-coming-soon>` *(placeholder: the hosted demo is not deployed yet)*
-
-**Locally, with no credentials:**
+**Hosted:** not deployed yet (the Render Blueprint is ready in [`render.yaml`](render.yaml)). Until then, run it
+locally with no credentials:
 
 ```bash
 corepack enable            # pnpm 10 (pinned in package.json)
@@ -38,17 +39,18 @@ pnpm i && pnpm dev         # Node 22 recommended (engines: >=20)
 open http://localhost:3000/demo
 ```
 
-Press **Play scenario**. Mrs. Lan's Vietnamese voice note becomes a $150 Venmo payout in about 10 seconds of stage
-time. Then try:
+Press **Play scenario**. Mrs. Lan's Vietnamese voice note becomes a $150 Venmo payout and a message back in
+Vietnamese. At real pace the run takes about **22 s**: about 20 s of it is the scripted neighbor and organizers
+reading and tapping, and the stopwatch shows the system's share separately (about **3 s**). Then try:
 
 | URL | What you see |
 |---|---|
-| [`/demo?scenario=rosa`](http://localhost:3000/demo?scenario=rosa) | Spanish request. The PayPal payout comes back `UNCLAIMED`, the claim help goes out in Spanish, then `SUCCESS` |
-| [`/demo?scenario=blocked`](http://localhost:3000/demo?scenario=blocked) | Injected instructions plus a lookalike of the group's Venmo handle. Blocked before any money moves |
-| [`/demo?scenario=lan&mode=manual`](http://localhost:3000/demo?scenario=lan&mode=manual) | You are the second organizer. Nothing is paid until you tap **Approve $150** |
-| [`/call`](http://localhost:3000/call) | The neighbor's phone. Record, type, or use a sample voice note |
-| [`/organizer/rules`](http://localhost:3000/organizer/rules) | The group's rules in plain English. Add a line, press **Draft policy**: the AI drafts it as code with the sentence behind every cap, code shows the diff and what changes for requests already waiting, and two organizers sign to make it Policy v2 |
-| [`/trust`](http://localhost:3000/trust) | Fiscal-sponsor checklist, what each agent may do, and what is simulated |
+| [`/demo?scenario=rosa`](http://localhost:3000/demo?scenario=rosa) | Spanish request. The PayPal payout comes back `UNCLAIMED`, the claim help goes out in Spanish, then she claims it and it turns `SUCCESS` (the local fake PayPal plays her claim) |
+| [`/demo?scenario=blocked`](http://localhost:3000/demo?scenario=blocked) | A request with hidden instructions ("send $5000 to @x") and a lookalike of the group's Venmo handle. Blocked before any money moves |
+| [`/demo?scenario=lan&mode=manual`](http://localhost:3000/demo?scenario=lan&mode=manual) | You are the second organizer. Nothing is paid until you tap **Approve $150** and sign, with a passkey on your device or Marcus's labelled demo key |
+| [`/call`](http://localhost:3000/call) | The neighbor's phone. Record, type in any language, or use a sample voice note. Missing details get one question, with quick answers, in your language |
+| [`/organizer/rules`](http://localhost:3000/organizer/rules) | The group's rules in plain English. Add a line and press **Draft policy**: the AI drafts it as code with the sentence behind every cap, code shows the diff and what changes for requests already waiting, and two organizers sign to make it Policy v2 |
+| [`/trust`](http://localhost:3000/trust) | Fiscal-sponsor checklist, what each agent may do, exactly what demo mode relaxes, and what is simulated |
 
 `pnpm dev` runs with `PAYPAL_MODE=fake` and `AI_MODE=fixture`. No PayPal or model keys are needed. All recording
 URL parameters are in [docs/DEMO.md](docs/DEMO.md).
@@ -61,8 +63,9 @@ personal Venmo accounts.
 - **Intake chaos.** After the January 2025 Eaton fire, Mutual Aid LA Network asked on Instagram for relief offers
   and got about 300 comments overnight. Two volunteers turned them into a spreadsheet whose link "broke several
   times." ([LA Public Press](https://lapublicpress.org/2025/01/altadena-pasadena-mutual-aid-la-fires-eaton/))
-- **Scale.** Mutual Aid LA moved about $1.44M between January and April 2025 after the fires. *(source needed: this
-  figure is in our research notes without a primary link)*
+- **Personal accounts and burnout.** In Austin's February 2021 freeze, the mutual-aid fund ran on a GoFundMe, two
+  group Venmo accounts and an organizer's personal Venmo, and one organizer worked "upwards of 100 hours."
+  ([VICE](https://news.vice.com/en/article/g5gmmj/austin-mutual-aid-raised-millions-during-february-2021-texas-storm-freeze-where-is-it-now))
 - **Frozen accounts.** Venmo suspended SanctuaryDMV's account for about 6 days over the 2022–23 New Year during a
   "routine review," costing the group thousands of dollars in donations.
   ([DCist](https://dcist.com/story/23/01/04/venmo-sanctuarydmv-mutual-aid-migrants-dc))
@@ -73,8 +76,8 @@ personal Venmo accounts.
 - **Language.** The people who most need fast cash are often the people least served by English-only Google Forms.
 
 Neighborline is the safe payout desk for these groups. It handles multilingual intake, applies the group's own rules
-in code, requires two approvals, and pays through PayPal Payouts from a fiscal sponsor's business account. It never
-uses a volunteer's personal Venmo.
+in code, requires two signed approvals, and pays through PayPal Payouts from a fiscal sponsor's business account. It
+never uses a volunteer's personal Venmo.
 
 ## How it works
 
@@ -99,14 +102,14 @@ sequenceDiagram
     C->>C: checkRail: lookalike handles, self-payment, reused destination, velocity, prompt injection
     C-->>A: Card: $150 · "Policy v1 · Utility outage · up to $150" · checks passed
     C-->>B: Same card on a second phone
-    A->>S: Approve (signature 1)
-    B->>S: Approve (signature 2, different organizer)
+    A->>S: Approve: passkey signs H(approval hash ‖ one-time server nonce)
+    B->>S: Approve: a different organizer's passkey, same hash, its own nonce
     S->>S: Re-derive from the DB: approval hash, 2 distinct organizers, signatures, amounts, rail checks
     S->>P: POST /v1/payments/payouts · sender_batch_id = "nl_" + H(approval id ‖ hash)[0..24] · PayPal-Request-Id
     P-->>S: 201 payout_batch_id, PENDING
     P->>W: PAYMENT.PAYOUTS-ITEM.SUCCEEDED (or UNCLAIMED)
     W->>P: POST /v1/notifications/verify-webhook-signature (raw body)
-    W->>W: Dedupe event id (applied at least once), monotonic item state machine
+    W->>W: Dedupe on event id (applied at least once), monotonic item state machine
     W->>T: Item SUCCESS
     T-->>N: "Đã gửi $150 vào Venmo của bạn" (vetted template, amount filled by code)
 ```
@@ -144,15 +147,16 @@ Every model output goes through **validate → repair once → re-ask the human*
 
 ## PayPal integration
 
-Everything below is implemented in [`@neighborline/paypal`](packages/paypal) and tested against
-[`tools/fake-paypal`](tools/fake-paypal), a local PayPal look-alike, unless the last column says otherwise. Verified
-API facts and sources are in [docs/PAYPAL.md](docs/PAYPAL.md).
+Everything below is implemented in [`@neighborline/paypal`](packages/paypal) and used by the running app: the
+approver process calls Payouts, the web app calls the rest. It is tested end to end against
+[`tools/fake-paypal`](tools/fake-paypal), a local PayPal look-alike; the real-sandbox run is still to do (see
+[Sandbox reality](#sandbox-reality)). Verified API facts and sources are in [docs/PAYPAL.md](docs/PAYPAL.md).
 
 | PayPal feature | Endpoint / surface | Why we use it | Code |
 |---|---|---|---|
 | OAuth 2.0 client credentials | `POST /v1/oauth2/token` | Cached token, early single-flight refresh, one refresh on 401 | [`client.ts`](packages/paypal/src/client.ts) |
 | **Payouts**: create batch | `POST /v1/payments/payouts` | One batch pays PayPal and Venmo recipients together | [`payouts.ts`](packages/paypal/src/payouts.ts) |
-| **Payouts**: idempotency | `sender_batch_id` + `PayPal-Request-Id` | `sender_batch_id` is derived from the two-person approval hash. Retries and double taps return the original batch | [`payouts.ts`](packages/paypal/src/payouts.ts), [`core/approvals.ts`](packages/core/src/approvals.ts) |
+| **Payouts**: idempotency | `sender_batch_id` + `PayPal-Request-Id` | `sender_batch_id` = `nl_` + 24 hex of SHA-256(domain ‖ approval id ‖ approval hash). Retries and double taps return the original batch; a timeout leaves the batch `UNKNOWN` and it is re-sent with the same id | [`payouts.ts`](packages/paypal/src/payouts.ts), [`core/approvals.ts`](packages/core/src/approvals.ts) |
 | **Payouts**: duplicate resolution | HATEOAS link in the duplicate-batch error | Follows PayPal's link to the original batch instead of failing | [`payouts.ts`](packages/paypal/src/payouts.ts) |
 | **Payouts**: Venmo | `recipient_wallet: VENMO`, `USER_HANDLE`, required `note`, `application_context.social_feed_privacy: PRIVATE` | Venmo is where many neighbors already are. Aid is never posted to a public feed | [`payouts.ts`](packages/paypal/src/payouts.ts) |
 | **Payouts**: purpose code | `items[].purpose` | Aid must not be labeled a goods sale (PayPal's default is `GOODS`). The value is checked against PayPal's enum | [`payouts.ts`](packages/paypal/src/payouts.ts) |
@@ -165,17 +169,11 @@ API facts and sources are in [docs/PAYPAL.md](docs/PAYPAL.md).
 | Webhooks: simulator | `POST /v1/notifications/simulate-event` | Wiring tests. Simulated events cannot be verified, which is PayPal's documented behavior | [`webhooks.ts`](packages/paypal/src/webhooks.ts) |
 | **Orders v2** (donations) | `POST /v2/checkout/orders`, `POST /v2/checkout/orders/{id}/capture`, `GET` | One-time gifts. `items[].category: DONATION`, `NO_SHIPPING`. Capture is idempotent (`ORDER_ALREADY_CAPTURED` returns the existing capture) | [`orders.ts`](packages/paypal/src/orders.ts) |
 | **Subscriptions** (monthly gifts) | `POST/GET /v1/catalogs/products`, `POST/GET /v1/billing/plans`, `GET /v1/billing/subscriptions/{id}` | `ensureDonationTiers` creates $10/$25/$50 monthly plans idempotently | [`subscriptions.ts`](packages/paypal/src/subscriptions.ts) |
-| **Transaction Search** | `GET /v1/reporting/transactions` | Reconcile payouts against PayPal's ledger. Ranges over 31 days are chunked. Items younger than the 3-hour reporting lag are `pendingLag`, not errors | [`reporting.ts`](packages/paypal/src/reporting.ts), [`reconcile.ts`](packages/paypal/src/reconcile.ts) |
+| **Transaction Search** | `GET /v1/reporting/transactions` | Reconcile payouts against PayPal's ledger: amount, currency and `transaction_status` (status drift such as a reversal after `SUCCESS`), plus items stuck `PENDING` for 24 h. Ranges over 31 days are chunked; items younger than the 3-hour reporting lag are `pendingLag`, not errors. Every run is kept and shown on `/ledger` | [`reporting.ts`](packages/paypal/src/reporting.ts), [`reconcile.ts`](packages/paypal/src/reconcile.ts) |
 | **JS SDK** | Smart Buttons with `enable-funding=venmo,paylater`, Pay Later `messages`, subscriptions with `vault=true` | Donor page. Without `NEXT_PUBLIC_PAYPAL_CLIENT_ID` it shows a clearly labeled simulated button | [`DonateForm.tsx`](apps/web/components/donate/DonateForm.tsx) |
 | **Agent Toolkit** | `@paypal/agent-toolkit`, tool `list_transactions` only | Donation inflows for the transparency report. Called with fixed arguments: no model chooses the call | [`inflows.ts`](packages/agents/src/report/inflows.ts) |
-| Negative testing | `PayPal-Mock-Response` header (Orders); `ERRPYO*` test values in `items[0].note` (Payouts) | Error paths in sandbox | [`client.ts`](packages/paypal/src/client.ts), [`fake-paypal`](tools/fake-paypal) |
-| Errors and retries | `{name, debug_id, details[]}` | Typed errors carry `debug_id`. Only 429 and 5xx are retried, with jitter and `Retry-After`. Writes replay only with an idempotency key | [`errors.ts`](packages/paypal/src/errors.ts), [`retry.ts`](packages/paypal/src/retry.ts) |
-
-> **Integration status (Oct 16, 2026).** The packages above are complete and tested. The web app's routes currently
-> run on an in-memory engine ([`apps/web/lib/server/mock-engine.ts`](apps/web/lib/server/mock-engine.ts)) that emits
-> the same events. Wiring the routes to `@neighborline/core`, `/db`, `/paypal` and `/agents` is in progress (see
-> [`apps/web/INTEGRATION.md`](apps/web/INTEGRATION.md)). Until it lands, the stage's PayPal ids are generated locally
-> and labeled "Sandbox: simulated".
+| Negative testing | `PayPal-Mock-Response` header (Orders); `ERRPYO*` test values in `items[0].note` (Payouts) | Error paths in sandbox | [`client.ts`](packages/paypal/src/client.ts), [`payouts-negative.ts`](tools/fake-paypal/src/routes/payouts-negative.ts) |
+| Errors and retries | `{name, debug_id, details[]}` | Typed errors carry `debug_id`. Only 429 and 5xx are retried, with jitter and `Retry-After`. Writes replay only with an idempotency key. `isAmbiguousPayPalError` tells a timeout (maybe paid) from a definite rejection | [`errors.ts`](packages/paypal/src/errors.ts), [`retry.ts`](packages/paypal/src/retry.ts) |
 
 ## The MCP server: Payouts for agents, with two humans in the loop
 
@@ -239,7 +237,8 @@ packages/core       Domain contract (zod), policy engine, amounts, rail protecti
                     state machines, i18n catalog, transparency report math, PII redaction. Pure: no I/O
 packages/db         Drizzle schema + repositories. Postgres in production, PGlite (embedded) for dev/tests.
                     Two-signature table, passkey credentials, append-only hash-chained audit log
-packages/passkeys   WebAuthn where the challenge is the approval hash; one verifier for web and approver
+packages/passkeys   WebAuthn: the challenge binds the approval hash to a one-time server nonce; one verifier for
+                    web and approver
 packages/paypal     @neighborline/paypal: typed PayPal client + neighborline-payouts-mcp (publishable, MIT)
 packages/agents     LLM/STT/TTS providers + intake, policy compiler, notify and report agents
 tools/fake-paypal   Local PayPal look-alike: OAuth, Payouts, Orders, Billing, Transaction Search, signed webhooks
@@ -256,54 +255,63 @@ approver is a second process in the web instance with its own environment ([docs
 published, and [a drift test](packages/paypal/src/core-compat.test.ts) keeps its state machine identical to core's.
 More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Security and privacy
+
+The full STRIDE model is in [THREAT_MODEL.md](THREAT_MODEL.md); these are the controls a judge can try.
+
+- **Two people, two signatures.** Every payout needs two different organizers, each signing a WebAuthn challenge
+  that binds the approval hash (requests, amounts, destinations, policy version) to a single-use server nonce. The
+  approval service, the only process with Payouts credentials, re-verifies both signatures with the stored public
+  keys and nonces, recomputes every amount from the policy, and refuses unsigned approvers outright.
+- **Demo mode fails closed and is narrow.** `DEMO_MODE` is on only when explicitly set or when PayPal is the local
+  fake, and the approval service refuses to start with `DEMO_MODE=true` and live PayPal. In the demo, Dana's taps are
+  scripted with a labelled server-held demo key; you play Marcus with his demo key or your own passkey, which this
+  server ties to your browser, and either one signs only runs you started yourself. Real organizer seats always need
+  an invite code. `/trust` prints exactly what is relaxed, generated from the running config.
+- **Payout idempotency.** `sender_batch_id` = 24 hex of SHA-256(domain ‖ approval id ‖ approval hash). Double taps and
+  retries share one id; a timeout leaves the batch `UNKNOWN` (never `FAILED`) and it is resolved by re-sending the same
+  id after a fresh policy re-check.
+- **Webhooks are verified, then applied at least once.** An event is marked processed only after its effects are
+  applied, and every effect is idempotent.
+- **Reconcile.** Nightly (on Render) and on demand, against Transaction Search: amount, currency and status
+  (`transaction_status` S/P/D/V against our item status), items stuck `PENDING` for 24 h, and every run kept and shown
+  on `/ledger`.
+- **Neighbors' details stay private.** Public reads are redacted: first name and area, masked destination, no
+  transcript, phone number or address. Each visitor sees their own runs in full and never another visitor's; the
+  demo reset is not public. Logs and AI traces are redacted, raw audio is deleted after transcription, and the public
+  report is k-anonymous (k = 5).
+- **Browser hardening.** Every state-changing API call must be same-origin and (except uploads) `application/json`.
+  Bodies are capped (64 KB JSON, 2-minute / 4 MB voice notes). Intake and live-AI calls are rate-limited per IP, per
+  visitor and globally. A CSP with a per-request nonce and `strict-dynamic` (PayPal and Venmo hosts allowed for the JS
+  SDK), `frame-ancestors 'none'`, HSTS in production, and a `Permissions-Policy` limited to the microphone and passkeys.
+
 ## Testing
 
-| Package | Unit tests | What they cover |
+**711 unit and integration tests** (vitest, offline, `pnpm test`), **30 Playwright end-to-end tests**, and 18 tests
+for the Render Workflows tasks (`node --test`). Counts from a run on Oct 16, 2026.
+
+| Package | Tests | What they cover |
 |---|---|---|
-| `packages/core` | 270 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics (including polite pleas that must not flag), approval hashing (NIST SHA-256 vectors), state machines, i18n, k-anonymous report, PII redaction |
-| `packages/db` | 62 | Two distinct signers, voiding on content change, idempotent batch creation, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), passkey credentials, assertions and revocation, migration drift |
-| `packages/agents` | 96 | Validate → repair → re-ask, grounding (an injected "$5000 to @x" is dropped), data-tag escape, back-translation fact check, report number grounding, policy drafts with a quote per cap (offline parser: changed caps, a new `baby_supplies` rule, plain prose) |
-| `packages/passkeys` | 11 | Approval-hash challenge, WebAuthn verification, labelled demo authenticator |
-| `packages/paypal` | 79 | Payouts idempotency and duplicate resolution, Venmo rules, raw-body webhook verification, retries, Transaction Search chunking, reconcile, MCP approval tokens |
-| `apps/approver` | 22 | Pays a complete two-person record once; re-execute returns the same batch; replayed, unsigned and stale requests refused; tampered amount (with and without a recomputed hash), single approver forced to "complete", an inflated amount written into the database, a swapped-in lookalike destination and today's budget all refused before PayPal; passkey signatures re-verified; poll and cancel-unclaimed |
-| `apps/web` (vitest) | 52 | The real engine through the approver process (Lan, Rosa, lookalike, double taps, cancel, reset), the rules editor (draft → one signature is not enough → a signature over a tampered draft is refused → second signature activates v2 and re-prices the queue; a revoked device's signature stops counting), Arabic message templates, signed `/api/internal/*` jobs and `/api/health`, audio deletion and log redaction, and the least-privilege check that fails the build if web code can reach Payouts |
+| `packages/core` | 304 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics in every supported language (polite pleas must not flag), approval hashing (NIST SHA-256 vectors), `sender_batch_id` derivation, state machines, i18n, k-anonymous report, PII redaction |
+| `packages/db` | 65 | Two distinct signers, voiding on content change, idempotent batch creation, at-least-once webhooks, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), passkey credentials, assertions and revocation, persisted reconcile runs, migration drift |
+| `packages/agents` | 110 | Validate → repair → re-ask, grounding (an injected "$5000 to @x" is dropped), data-tag escape, back-translation fact check, report number grounding, policy drafts with a quote per cap, the offline extractor in ten languages, providers against fake Anthropic and OpenAI clients |
+| `packages/passkeys` | 14 | Challenges bound to the approval hash and a server nonce (a captured assertion is not reusable), WebAuthn verification, labelled demo authenticator, fail-closed `DEMO_MODE` |
+| `packages/paypal` | 83 | Payouts idempotency and duplicate resolution, ambiguous vs definite errors, Venmo rules, raw-body webhook verification, retries, Transaction Search chunking, reconcile (status drift, currency, stuck pending), MCP approval tokens |
+| `apps/approver` | 30 | Pays a complete two-person record once; replayed, unsigned and stale requests refused; tampered amounts, a forced single approver, an inflated amount written into the database, a lookalike destination and today's budget all refused before PayPal; nonce-bound signatures re-verified; a timeout is `UNKNOWN`, re-sent only after a fresh policy check; demo credentials refused when `DEMO_MODE` is off |
+| `apps/web` (vitest) | 85 | The real engine through the approver process (Lan, Rosa, lookalike, concurrent taps, cancel, reset), visitor isolation and redaction, same-origin/JSON guards and rate limits, decline and the REVIEW appeal, the rules editor, Arabic templates, signed `/api/internal/*` jobs, audio deletion and log redaction, and the least-privilege check that fails the build if web code can reach Payouts |
 | `tools/fake-paypal`, `tools/dev-db` | 15 + 5 | The fake's own contract; the shared dev database under concurrent pooled connections and reset |
-| `apps/web` (Playwright) | 19 | Same process layout as production (dev-db, fake PayPal, approver, web): Lan → `SUCCESS` with the clock frozen, a visitor approving as the second organizer with a passkey or demo key, lookalike blocked, approval idempotency over HTTP, mobile `/call`, the rules editor (Dana signs with a passkey, Marcus with a demo key, Policy v2 goes live), and axe WCAG 2.1 AA checks |
+| `apps/web` (Playwright) | 30 | Same process layout as production (dev-db, fake PayPal, approver, web build): Lan → `SUCCESS` with the clock frozen; a visitor approving as Marcus with a passkey or the demo key; lookalike blocked; idempotent approvals and visitor isolation over HTTP; cross-site and non-JSON requests refused; pages under the nonce CSP; organizer passkey enrollment; `/call` on a phone (Chinese clarifying question answered after a refresh, quick answers, the 2,000-character limit, decline and REVIEW); the rules editor; axe WCAG 2.1 AA on every page, at phone width and on the dark stage |
 
 ```bash
 pnpm test                                    # all unit tests (vitest), offline
 pnpm typecheck                               # tsc --noEmit, strict + noUncheckedIndexedAccess
 pnpm --filter @neighborline/paypal build     # tsup → dist (ESM + d.ts)
 pnpm --filter @neighborline/web test:e2e     # dev-db + fake PayPal + approver + web build on :3100, runs Playwright
+cd workflows && npm test                     # Render Workflows tasks (standalone package)
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs all of these, a dependency audit and a gitleaks
-secret scan on every push and pull request.
-
-## Security and privacy
-
-The full STRIDE model is in [THREAT_MODEL.md](THREAT_MODEL.md); these are the controls a judge can try.
-
-- **Two people, two signatures.** Each Approve tap is a WebAuthn signature over a challenge that binds the approval
-  hash (requests, amounts, destinations, policy version) to a single-use server nonce. The approval service, the only
-  process with Payouts credentials, re-verifies every signature with the stored public key and nonce, recomputes every
-  amount from the policy, and refuses an approver without a verified signature.
-- **Demo mode is explicit and narrow.** `DEMO_MODE` is on only when set (or with the local fake PayPal) and never with
-  live PayPal. In the demo, Dana's taps are scripted with a labelled server-held demo key, and you play Marcus with his
-  demo key or your own passkey, which this server ties to your browser: either signs only runs you started yourself.
-  Real organizer seats always need an invite code. `/trust` says exactly this, generated from the running config.
-- **Judges don't see or disturb each other.** Each browser's runs (`/demo` and `/call`) carry its signed visitor tag;
-  streams and reads are scoped to it, and the demo reset is not public.
-- **Neighbors' details stay private.** Anyone who is neither a signed-in organizer nor the sender gets a redacted view:
-  first name and neighborhood, masked destination, no transcript, phone number or address. Logs and AI traces are
-  redacted too; raw audio is deleted after transcription; the public report is k-anonymous (k = 5).
-- **Payouts are idempotent and honest about uncertainty.** One approval maps to one `sender_batch_id`; a timeout leaves
-  the batch `UNKNOWN` (never `FAILED`) and it is resolved by re-sending the same id after a fresh policy check.
-  Webhooks are verified and applied at least once. Reconcile compares amount, currency and status with Transaction
-  Search and keeps every run on `/ledger`.
-- **Browser hardening.** Same-origin and JSON-only state-changing API calls, body size caps (2-minute voice notes),
-  per-IP and per-visitor rate limits on intake and live AI, a nonce-based CSP (PayPal and Venmo SDK hosts allowed),
-  `frame-ancestors 'none'`, HSTS, and a `Permissions-Policy` that allows only the microphone and passkeys.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs typecheck, unit tests, both builds, Playwright, a
+blocking dependency audit and a gitleaks secret scan on every push and pull request.
 
 ## Sandbox reality
 
@@ -311,13 +319,17 @@ What is real and what is simulated today:
 
 | | Status |
 |---|---|
-| `/demo`, `/call`, `/organizer` and the other pages | Run on the real engine (core, db, agents, paypal) with the approver as a separate process. With `PAYPAL_MODE=fake` the PayPal ids come from `tools/fake-paypal` and are marked "Sandbox: simulated" |
+| `/demo`, `/call`, `/organizer` and the other pages | Run on the real engine (core, db, agents, paypal) with the approver as a separate process. With `PAYPAL_MODE=fake` the PayPal ids come from `tools/fake-paypal` and are labelled "Sandbox: simulated" |
+| Human beats on `/demo` | Scripted: the neighbor listening to the read-back (7 s) and each organizer reading the card (6 s), signed with labelled demo keys. Everything between them is real engine work |
 | `@neighborline/paypal` against PayPal's API shapes | Tested against `tools/fake-paypal`, which mirrors the documented request and response shapes, error bodies and webhook headers. The fake signs webhooks with HMAC where PayPal uses RSA |
-| Real PayPal sandbox | Supported by `PAYPAL_MODE=sandbox`. The sandbox spike list is in [docs/PAYPAL.md](docs/PAYPAL.md#to-verify-in-the-real-sandbox) |
+| Real PayPal sandbox | Supported by `PAYPAL_MODE=sandbox` but **not run yet** (waiting on sandbox credentials). The spike list is in [docs/PAYPAL.md](docs/PAYPAL.md#to-verify-in-the-real-sandbox) |
+| Rosa's claim | Played by the fake PayPal. In sandbox nobody can claim for her, so the item stays `UNCLAIMED` and an organizer can cancel it |
 | Venmo payouts in sandbox | **Unverified.** PayPal documents only a mock (`POSPYO003`). Sandbox also rejects `recipient_type: PHONE` |
 | Webhook simulator events | Cannot be verified by PayPal's postback API (documented). Real deliveries can |
 | Transaction Search | Lags up to 3 hours. Reconcile reports young items as `pendingLag` |
-| Speech, translation, read-back | Fixture mode replays prepared transcripts. `AI_MODE=live` calls real models |
+| Speech, translation, read-back | Fixture mode replays prepared transcripts. `AI_MODE=live` calls Claude or OpenAI; the providers are tested against fake clients, and a take with real models is still to record |
+| Nightly jobs (reconcile, unclaimed follow-ups, report) | Written and tested (`workflows/`); they run once the Render Blueprint is applied. Until then, **Reconcile now** on `/ledger` |
+| Hosting | Not deployed yet. [`render.yaml`](render.yaml) defines the stack ([docs/DEPLOY.md](docs/DEPLOY.md)) |
 | SMS, WhatsApp and phone callbacks | Not built. Messages appear on the neighbor's in-browser phone |
 
 ## Live-mode reality
@@ -342,7 +354,8 @@ The `/trust` page shows the fiscal-sponsor checklist on screen.
 ## Accessibility
 
 - WCAG 2.2 AA targets: text contrast ≥ 4.5:1 (body ≥ 7:1), every pair measured in [apps/web/DESIGN.md](apps/web/DESIGN.md).
-- Axe checks for WCAG 2.1 AA run in CI on every page and on the finished stage in dark mode.
+- Axe checks for WCAG 2.1 AA run in CI on every page, on `/demo`, `/call`, `/report` and `/ledger` at phone width,
+  and on the finished stage in dark mode.
 - Tap targets ≥ 44×44 px. The record button is 132 px and approve buttons are 56 px tall.
 - The neighbor's conversation, the approval count and the stopwatch result live in `aria-live="polite"` regions,
   so screen readers hear status changes, including the moment money arrives.
@@ -355,13 +368,17 @@ The `/trust` page shows the fiscal-sponsor checklist on screen.
 
 Not built yet, in rough priority order:
 
-1. Run the real PayPal sandbox spike (Payouts app + main app, webhooks on both).
-2. Give the approver its own container (Render private service, block ready in render.yaml) and its own Postgres role.
-3. Deploy the Render Workflows jobs (reconcile against Transaction Search, unclaimed follow-ups and report refresh, scheduled on Render): the tasks and the signed `/api/internal/*` endpoints exist; they run once the Blueprint is applied.
-4. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
-5. A shared rate-limit store and bot protection on intake (today: in-memory token buckets per IP and per visitor).
-6. Vetted catalog text for French, Tagalog, Korean and Russian (today they get a checked LLM translation or English).
-7. Hosting on Render.
+1. Run the real PayPal sandbox spike: Payouts (PayPal and Venmo), webhooks on both apps, Transaction Search, donor
+   buttons ([checklist](docs/PAYPAL.md#to-verify-in-the-real-sandbox)).
+2. Deploy to Render with the Blueprint, including the Render Workflows jobs (nightly reconcile, unclaimed follow-ups,
+   report refresh). The tasks and the signed `/api/internal/*` endpoints exist and are tested.
+3. Give the approver its own container (Render private service, block ready in `render.yaml`) and its own Postgres
+   role.
+4. Single-use, expiring invite codes stored hashed (today: one static code per organizer, THREAT_MODEL R13).
+5. A shared rate-limit store and bot protection on intake (today: in-memory token buckets per process).
+6. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
+7. Vetted catalog text for French, Tagalog, Korean and Russian, and a native-speaker review of the Vietnamese, Spanish
+   and Haitian Creole copy (today the four get a checked LLM translation or English).
 
 Good first issues are listed in [docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md).
 
