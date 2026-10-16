@@ -41,13 +41,14 @@ export function toE164(raw: string, region: string = DEFAULT_PHONE_REGION): stri
   const trimmed = raw.normalize('NFKC').trim();
   if (/[\p{L}]/u.test(trimmed)) return null;
   let digits = trimmed.replace(/\D/g, '');
-  const international = trimmed.startsWith('+') || digits.startsWith('00');
-  if (international) {
-    if (!trimmed.startsWith('+')) digits = digits.slice(2);
-    return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
-  }
   const r = PHONE_REGIONS[region.toUpperCase()] ?? PHONE_REGIONS[DEFAULT_PHONE_REGION];
   if (!r) return null;
+  // International dialing prefix: "+", "00" (most of the world) or "011" (North America).
+  const idd = trimmed.startsWith('+') ? '' : digits.startsWith('00') ? '00' : r.callingCode === '1' && digits.startsWith('011') ? '011' : null;
+  if (idd !== null) {
+    digits = digits.slice(idd.length);
+    return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
+  }
   const national = (n: string): boolean => r.nationalLengths.includes(n.length) && (!r.nationalPattern || r.nationalPattern.test(n));
   // Dialed with the country code but no "+" ("1 503 555 0147").
   if (digits.startsWith(r.callingCode) && national(digits.slice(r.callingCode.length))) return `+${digits}`;
