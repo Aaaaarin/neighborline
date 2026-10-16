@@ -27,8 +27,10 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }, testIgnore: /mobile\.spec\.ts/ },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }, testIgnore: /(mobile|rules)\.spec\.ts/ },
     { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec\.ts/ },
+    // Activating a new policy re-prices the shared queue, so the rules editor runs after everything else.
+    { name: 'rules', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }, testMatch: /rules\.spec\.ts/, dependencies: ['desktop', 'mobile'] },
   ],
   // Real engine in fake mode: dev-db + tools/fake-paypal + apps/approver + a production build.
   webServer: process.env.BASE_URL

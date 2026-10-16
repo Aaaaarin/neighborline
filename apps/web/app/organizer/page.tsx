@@ -11,10 +11,10 @@ export const dynamic = 'force-dynamic';
 export default async function OrganizerPage() {
   const svc = services();
   const [group, requests, roster, jar] = await Promise.all([svc.getGroup(), svc.listRequests(), svc.passkeyRoster(), cookies()]);
-  const session = decodeSession(jar.get(SESSION_COOKIE)?.value);
+  const session = await svc.liveSession(decodeSession(jar.get(SESSION_COOKIE)?.value));
   return (
     <PageShell footer={false}>
-      <OrganizerQueue organizers={group.organizers} initial={requests} session={session} roster={roster} />
+      <OrganizerQueue organizers={group.organizers} initial={requests} session={session} roster={roster} policyVersion={group.policy.version} alerts={group.alerts} />
     </PageShell>
   );
 }

@@ -5,7 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, openStream } from '@/lib/api';
 import { LANGUAGE_NAMES, clockTime, cx, money, walletLabel } from '@/lib/format';
 import { approveWithPasskey, passkeyErrorMessage } from '@/lib/passkey-client';
-import type { DeclineReasonCode, Organizer, OrganizerSession, PasskeyRoster, RequestView } from '@/lib/types';
+import type { DeclineReasonCode, Organizer, OrganizerAlert, OrganizerSession, PasskeyRoster, RequestView } from '@/lib/types';
+import Link from 'next/link';
+import { Alerts } from './Alerts';
+import { Devices } from './Devices';
+import { dirOf } from '@/lib/i18n';
 import { ApproveCard } from '../ApproveCard';
 import { SignInPanel, SignedInBar } from './OrganizerAuth';
 
@@ -24,11 +28,15 @@ export function OrganizerQueue({
   initial,
   session: initialSession,
   roster,
+  policyVersion,
+  alerts,
 }: {
   organizers: Organizer[];
   initial: RequestView[];
   session: OrganizerSession | null;
   roster: PasskeyRoster;
+  policyVersion: number;
+  alerts?: OrganizerAlert[];
 }) {
   const [session, setSession] = useState<OrganizerSession | null>(initialSession);
   const [demoAs, setDemoAs] = useState<string | null>(null);
@@ -97,8 +105,13 @@ export function OrganizerQueue({
         </h1>
       </div>
       <p className="mt-3 max-w-[52ch] text-[0.95rem] text-ink-2">
-        Every payout needs two different organizers, each signing on their own device. Amounts come from Policy v1 and can’t be edited here — if something looks wrong, decline with a reason.
+        Every payout needs two different organizers, each signing on their own device. Amounts come from Policy v{policyVersion} and can’t be edited here. If something looks wrong, decline with a reason; if a rule is wrong,{' '}
+        <Link href="/organizer/rules" className="font-semibold text-ink underline underline-offset-4">
+          change the rules
+        </Link>
+        .
       </p>
+      <Alerts alerts={alerts} className="mt-6" />
       {session ? (
         <SignedInBar session={session} onSignedOut={() => setSession(null)} />
       ) : (
@@ -165,6 +178,8 @@ export function OrganizerQueue({
           </ul>
         </section>
       )}
+
+      <Devices roster={roster} session={session} onSignedOut={() => setSession(null)} />
 
       {declining && <DeclineSheet view={declining} me={me} onClose={() => setDeclining(null)} onDone={() => void load()} />}
     </div>
@@ -266,7 +281,7 @@ function DeclineSheet({ view, me, onClose, onDone }: { view: RequestView; me: Or
           <p className="text-[0.8rem] font-semibold text-frost-ink">{name} will receive</p>
           {preview ? (
             <>
-              <p lang={lang} className="mt-1.5 whitespace-pre-line text-[0.95rem] leading-snug text-ink">
+              <p lang={lang} dir={dirOf(lang)} className="mt-1.5 whitespace-pre-line text-[0.95rem] leading-snug text-ink">
                 {preview.text}
               </p>
               {lang !== 'en' && (

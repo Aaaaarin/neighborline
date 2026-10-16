@@ -103,7 +103,7 @@ export default async function ReportPage() {
           <ChartFrame
             id="cat"
             title="By need"
-            subtitle="Policy v1 categories"
+            subtitle="By rule category"
             table={{ head: ['Category', 'Payouts', 'Sent'], rows: r.byCategory.map((c) => [c.label, c.payouts, money(c.paidCents)]) }}
           >
             <Bars data={r.byCategory.map((c) => ({ label: c.label, value: c.paidCents, display: money(c.paidCents), note: `${c.payouts} payouts` }))} />

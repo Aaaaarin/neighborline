@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-for (const path of ['/', '/demo', '/call', '/organizer', '/donate', '/report', '/trust', '/ledger']) {
+for (const path of ['/', '/demo', '/call', '/organizer', '/donate', '/report', '/trust', '/ledger', '/organizer/rules']) {
   test(`no serious accessibility violations on ${path}`, async ({ page }) => {
     await page.goto(path);
     await page.waitForTimeout(500);

@@ -189,10 +189,11 @@ export async function queueImpact(ctx: Ctx, draft: Policy, active: Policy | null
       note = `Moves from ${catNow} to ${catDraft}${active?.categories.some((c) => c.key === now.ruleKey) && !draft.categories.some((c) => c.key === now.ruleKey) ? ` (${catNow} is removed)` : ''}: ${formatUsd(now.amountCents)} → ${formatUsd(next.amountCents)}.`;
     } else if (now && next.amountCents !== now.amountCents) {
       outcome = next.amountCents > now.amountCents ? 'more' : 'less';
-      note = `${formatUsd(now.amountCents)} → ${formatUsd(next.amountCents)} under ${catDraft}.`;
+      const cap = draft.categories.find((c) => c.key === next.ruleKey);
+      note = cap && next.amountCents === cap.maxCents ? `${catDraft} now allows up to ${formatUsd(cap.maxCents)} per request.` : `Limited by the ${(next.limitedBy ?? 'category').replace(/_/g, ' ')} under v${draft.version}.`;
     } else {
       outcome = 'same';
-      note = `Stays ${formatUsd(next.amountCents)} under ${catDraft}.`;
+      note = `Same amount under v${draft.version}.`;
     }
     const meta = ctx.meta.get(r.id);
     rows.push({

@@ -2,6 +2,7 @@
 // Usage: BASE_URL=http://localhost:3100 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scripts/screenshots.mjs [name-filter]
 // Every /demo run is played at real pace (speed=1), so the stopwatch and its people/system split are
 // what a judge would see. Passkey shots use Chromium's virtual WebAuthn authenticator (CDP).
+import { createHmac } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
@@ -120,4 +121,117 @@ const queue = [...shots];
 await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
   for (let s = queue.shift(); s; s = queue.shift()) await take(s);
 }));
+
+/* ---------- serial: flows that change server state (rules editor, alerts), each on a fresh demo ---------- */
+
+const resetDemo = () => fetch(`${base}/api/demo/reset`, { method: 'POST' });
+
+/** Raise the two organizer alerts the scheduled jobs raise (needs NEIGHBORLINE_INTERNAL_SECRET of the server). */
+async function raiseAlerts() {
+  const secret = process.env.NEIGHBORLINE_INTERNAL_SECRET;
+  if (!secret) return false;
+  const ledger = await (await fetch(`${base}/api/ledger`)).json();
+  const unclaimed = ledger.rows.find((r) => r.status === 'UNCLAIMED') ?? ledger.rows[0];
+  const other = ledger.rows.find((r) => r.status === 'SUCCESS' && r.itemId !== unclaimed.itemId);
+  const post = async (path, body) => {
+    const raw = JSON.stringify(body);
+    const ts = String(Math.floor(Date.now() / 1000));
+    const sig = 'v1=' + createHmac('sha256', secret).update(`${ts}.POST.${path}.${raw}`).digest('hex');
+    await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-neighborline-timestamp': ts, 'x-neighborline-signature': sig }, body: raw });
+  };
+  await post('/api/internal/organizer-alert', {
+    kind: 'unclaimed_day25', idempotencyKey: `day25:${unclaimed.itemId}`, itemIds: [unclaimed.itemId],
+    summary: `A ${unclaimed.categoryLabel.toLowerCase()} payout of $${(unclaimed.amountCents / 100).toFixed(0)} to ${unclaimed.receiverMasked} has not been claimed for 25 days.`,
+    deadline: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+  });
+  await post('/api/internal/organizer-alert', {
+    kind: 'reconcile_mismatch', idempotencyKey: `mismatch:${other.itemId}`, itemIds: [other.itemId],
+    summary: `Transaction Search shows a different amount for one payout of $${(other.amountCents / 100).toFixed(0)} (${other.requestRef}).`,
+  });
+  return true;
+}
+
+const RULES_EDIT = (t) =>
+  t.replace('up to $150 per request, at most $300', 'up to $120 per request, at most $300')
+    .replace('- Anything else:', '- Baby supplies (diapers, formula, wipes): up to $80 per request, $160 per household in 30 days.\n- Anything else:');
+
+/** /organizer/rules: draft → one signature → second signature (activated), at one viewport. */
+async function rulesFlow(tag, vp) {
+  const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: vp.width < 500 ? 2 : 1 });
+  const p = await ctx.newPage();
+  const shot = async (name, full = true) => {
+    await p.waitForTimeout(500);
+    await p.screenshot({ path: `${out}${name}.png`, fullPage: full });
+    console.log('saved', name);
+  };
+  try {
+    await p.goto(`${base}/organizer/rules`, { waitUntil: 'load' });
+    await p.evaluate(() => document.fonts.ready);
+    await shot(`rules-${tag}`, false);
+    const box = p.locator('#rules-text');
+    await box.fill(RULES_EDIT(await box.inputValue()));
+    await p.getByRole('button', { name: /Draft policy|Draft again/ }).click();
+    await p.getByRole('heading', { name: /Review draft v2/ }).waitFor({ timeout: 20_000 });
+    await p.getByRole('button', { name: 'Show line 7 of the rules' }).first().hover();
+    await shot(`rules-${tag}-draft`);
+    const pick = async (name) => {
+      await p.getByRole('combobox').selectOption({ label: `${name}’s demo key` });
+      await p.getByRole('button', { name: `Sign as ${name}` }).click();
+    };
+    await pick('Dana');
+    await p.getByText('Dana signed').waitFor({ timeout: 15_000 });
+    await p.getByText('Dana signed').scrollIntoViewIfNeeded();
+    await shot(`rules-${tag}-one-signature`, false);
+    await pick('Marcus');
+    await p.getByText(/Policy v2 is now active/).waitFor({ timeout: 20_000 });
+    await p.evaluate(() => window.scrollTo(0, 0));
+    await shot(`rules-${tag}-activated`, false);
+  } catch (err) {
+    console.error('FAILED', `rules-${tag}`, err instanceof Error ? err.message.split('\n')[0] : err);
+    process.exitCode = 1;
+  } finally {
+    await ctx.close();
+  }
+}
+
+const serial = [
+  { name: 'rules-1920', run: () => rulesFlow('1920', DESKTOP) },
+  { name: 'rules-390', run: () => rulesFlow('390', PHONE) },
+  {
+    name: 'alerts',
+    run: async () => {
+      if (!(await raiseAlerts())) return console.log('skipped alerts (set NEIGHBORLINE_INTERNAL_SECRET to the server’s)');
+      for (const s of [
+        { name: 'organizer-1920-alerts', path: '/organizer', vp: DESKTOP, full: true },
+        { name: 'organizer-390-alerts', path: '/organizer', vp: PHONE },
+        { name: 'ledger-1920-alerts', path: '/ledger', vp: DESKTOP },
+        { name: 'ledger-390-alerts', path: '/ledger', vp: PHONE },
+      ]) await take(s);
+    },
+  },
+  {
+    name: 'organizer-390-devices',
+    run: () =>
+      take({
+        name: 'organizer-390-devices',
+        path: '/organizer',
+        vp: PHONE,
+        before: withPasskeyDevice,
+        run: async (p) => {
+          await p.getByRole('button', { name: 'First time here? Set up a passkey' }).click();
+          await p.getByRole('radio', { name: /Dana/ }).check();
+          await p.getByRole('button', { name: /Create passkey for Dana/ }).click();
+          await p.getByText('Signed in as').waitFor({ timeout: 15_000 });
+          await p.getByText('Devices that can sign').click();
+          await p.getByRole('button', { name: 'Revoke', exact: true }).first().click();
+          await p.getByRole('button', { name: /^Revoke Dana/ }).scrollIntoViewIfNeeded();
+        },
+      }),
+  },
+].filter((s) => !only || only.test(s.name));
+for (const s of serial) {
+  await resetDemo();
+  await s.run();
+}
+if (serial.length) await resetDemo();
 await browser.close();

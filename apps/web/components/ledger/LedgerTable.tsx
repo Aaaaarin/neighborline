@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { LANGUAGE_NAMES, clockTime, cx, money, shortDate, shortId, walletLabel } from '@/lib/format';
 import type { LedgerView } from '@/lib/types';
+import { Alerts } from '../organizer/Alerts';
 
 const FILTERS: Array<[string, PayoutItemStatus[] | null]> = [
   ['All', null],
@@ -31,6 +32,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
   const [note, setNote] = useState<string | null>(null);
   const statuses = FILTERS[filter]![1];
   const rows = statuses ? view.rows.filter((r) => statuses.includes(r.status)) : view.rows;
+  const alerted = new Set((view.alerts ?? []).flatMap((a) => a.itemIds));
   const pending = view.rows.filter((r) => r.reconcile !== 'matched' && r.reconcile !== 'seeded' && r.status === 'SUCCESS').length;
 
   const reconcile = async () => {
@@ -49,6 +51,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
 
   return (
     <>
+      <Alerts alerts={view.alerts} items={new Map(view.rows.map((r) => [r.itemId, { requestRef: r.requestRef, amountCents: r.amountCents }]))} className="mt-8" />
       <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-y border-rule py-6 md:grid-cols-4">
         {[
           ['Landed', money(view.summary.paidCents)],
@@ -128,7 +131,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
               </tr>
             )}
             {rows.map((r) => (
-              <tr key={r.itemId} className="border-b border-rule last:border-0 hover:bg-paper/60">
+              <tr key={r.itemId} id={`item-${r.itemId}`} className={cx('scroll-mt-24 border-b border-rule last:border-0 hover:bg-paper/60 target:bg-frost', alerted.has(r.itemId) && 'shadow-[inset_3px_0_0_var(--ink)]')}>
                 <td className="whitespace-nowrap px-4 py-3 tabular text-ink-2">{shortDate(r.createdAt)}</td>
                 <td className="whitespace-nowrap px-4 py-3 id-text text-ink">{r.requestRef}</td>
                 <td className="px-4 py-3 text-ink">{r.categoryLabel}</td>
