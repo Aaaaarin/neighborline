@@ -9,7 +9,9 @@ import { eq } from 'drizzle-orm';
 import { appendAudit, getBatch, getRequest, listAudit, listItemsForRequest, payoutBatches, requests, verifyAuditChain } from '@neighborline/db';
 import { PayPalApiError, PayPalAuthError, PayPalTimeoutError, type PayoutsApi } from '@neighborline/paypal';
 import { APPROVER_ROUTES, RAIL_FALLBACK_ACTION } from './protocol.js';
-import { accountLevelReason, ManualRail } from './rails.js';
+import { payoutCopy, type Group, type HelpRequest } from '@neighborline/core';
+import type { BatchWithItems } from '@neighborline/db';
+import { accountLevelReason, ManualRail, PayPalPayoutsRail, railBatchFor } from './rails.js';
 import { approve, call, execute, executeBody, fileRequest, startFixture, type Fixture } from './test-helpers.js';
 
 const venmo = (h: string) => ({ wallet: 'VENMO' as const, type: 'USER_HANDLE' as const, value: h });
@@ -40,6 +42,47 @@ describe('accountLevelReason', () => {
     await expect(rail.send(batch, { attestation: { method: 'cash', receiptNote: 'short', recordedBy: 'org_dana' } })).rejects.toThrow(/receipt note/);
     const r = await rail.send(batch, { attestation: { method: 'check', receiptNote: '  Check #1042 handed to her at the door  ', recordedBy: 'org_dana' } });
     expect(r).toMatchObject({ rail: 'manual', reference: 'MANUAL-0123456789AB', attestation: { receiptNote: 'Check #1042 handed to her at the door' } });
+  });
+});
+
+describe('railBatchFor: what the neighbor reads in PayPal / Venmo', () => {
+  const group = { id: 'g1', name: 'Eastside Mutual Aid' } as Group;
+  const req = (id: string, lang: HelpRequest['lang']) => ({ id, lang }) as HelpRequest;
+  const item = (n: number, requestId: string, wallet: 'PAYPAL' | 'VENMO') => ({
+    senderItemId: `nl_item_${n}`,
+    requestId,
+    amountCents: 15_000,
+    receiver: wallet === 'VENMO' ? `@neighbor-${n}` : `n${n}@example.com`,
+    recipientType: wallet === 'VENMO' ? 'USER_HANDLE' : 'EMAIL',
+    wallet,
+  });
+  const bw = (items: ReturnType<typeof item>[]) => ({ batch: { senderBatchId: 'nl_batch_1' }, items }) as unknown as BatchWithItems;
+
+  it('each item note is in its neighbor\u2019s language; the subject too when the batch shares one language', () => {
+    const b = railBatchFor(group, [req('r1', 'vi')], bw([item(1, 'r1', 'VENMO')]));
+    expect(b.items[0]!.note).toBe(payoutCopy('vi', group.name).note);
+    expect(b.emailSubject).toBe(payoutCopy('vi', group.name).emailSubject);
+    expect(b.note).toBe(payoutCopy('en', group.name).note);
+  });
+
+  it('a batch that mixes languages: notes per neighbor, English subject', () => {
+    const b = railBatchFor(group, [req('r1', 'zh'), req('r2', 'es')], bw([item(1, 'r1', 'VENMO'), item(2, 'r2', 'PAYPAL')]));
+    expect(b.items.map((i) => i.note)).toEqual([payoutCopy('zh', group.name).note, payoutCopy('es', group.name).note]);
+    expect(b.emailSubject).toBe(payoutCopy('en', group.name).emailSubject);
+  });
+
+  it('the PayPal rail sends each item its own note (Venmo requires one)', async () => {
+    let sent: Parameters<PayoutsApi['createBatch']>[0] | undefined;
+    const api = {
+      createBatch: async (input: Parameters<PayoutsApi['createBatch']>[0]) => {
+        sent = input;
+        return { batchId: 'PB1', status: 'PENDING' };
+      },
+      getBatch: async () => ({ items: [] }),
+    } as unknown as PayoutsApi;
+    await new PayPalPayoutsRail(api).send(railBatchFor(group, [req('r1', 'ru')], bw([item(1, 'r1', 'VENMO')])));
+    expect(sent!.items[0]!.note).toBe(payoutCopy('ru', group.name).note);
+    expect(sent!.emailSubject).toBe(payoutCopy('ru', group.name).emailSubject);
   });
 });
 

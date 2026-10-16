@@ -12,5 +12,6 @@ export * from './sha256.js';
 export * from './approvals.js';
 export * from './state.js';
 export * from './i18n.js';
+export * from './payout-copy.js';
 export * from './report.js';
 export * from './redact.js';

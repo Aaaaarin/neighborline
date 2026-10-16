@@ -13,7 +13,7 @@
  * Payouts) are told apart from ambiguous errors (timeouts, 5xx: the batch may have landed → UNKNOWN,
  * never FAILED_RAIL) and from ordinary rejections (validation, insufficient funds → FAILED).
  */
-import type { Group, HelpRequest, Lang } from '@neighborline/core';
+import { batchEmailSubject, payoutCopy, type Group, type HelpRequest, type Lang } from '@neighborline/core';
 import type { BatchWithItems } from '@neighborline/db';
 import {
   PayPalApiError,
@@ -34,11 +34,14 @@ export type ManualMethod = 'cash' | 'check' | 'other';
 
 export interface RailItem extends Omit<PayoutItemInput, 'note' | 'purpose'> {
   senderItemId: string;
+  /** In the neighbor's language (core payoutCopy); `RailBatch.note` (English) when absent. */
+  note?: string;
 }
 
 export interface RailBatch {
   senderBatchId: string;
   emailSubject: string;
+  /** Default note (English, ASCII) for an item without its own. Venmo requires a note on every item. */
   note: string;
   purpose: PayoutItemInput['purpose'];
   items: RailItem[];
@@ -119,7 +122,7 @@ export class PayPalPayoutsRail implements PayoutRail {
       res = await this.payouts.createBatch({
         senderBatchId: batch.senderBatchId,
         emailSubject: batch.emailSubject,
-        items: batch.items.map((i) => ({ ...i, note: batch.note, purpose: batch.purpose })),
+        items: batch.items.map((i) => ({ ...i, note: i.note ?? batch.note, purpose: batch.purpose })),
       });
     } catch (err) {
       const reason = accountLevelReason(err);
@@ -137,15 +140,20 @@ export class PayPalPayoutsRail implements PayoutRail {
   }
 }
 
-/** One batch row → what a rail sends (or records). Amounts and receivers come from the batch items (db). */
+/**
+ * One batch row → what a rail sends (or records). Amounts and receivers come from the batch items (db).
+ * Each item's note (what Venmo and PayPal show the neighbor) is in that neighbor's language; the email
+ * subject is per batch, so it is in their language when the whole batch shares one (core payoutCopy).
+ */
 export function railBatchFor(group: Group, requests: readonly HelpRequest[], bw: BatchWithItems): RailBatch {
+  const langOf = (requestId: string): Lang | undefined => requests.find((r) => r.id === requestId)?.lang;
   return {
     senderBatchId: bw.batch.senderBatchId,
-    emailSubject: `Your neighbors at ${group.name} sent you help`,
-    note: `Mutual aid from your neighbors at ${group.name}. No need to pay it back.`,
+    emailSubject: batchEmailSubject(bw.items.map((it) => langOf(it.requestId) ?? 'en'), group.name),
+    note: payoutCopy('en', group.name).note,
     purpose: PAYOUT_PURPOSE,
     items: bw.items.map((it) => {
-      const lang = requests.find((r) => r.id === it.requestId)?.lang;
+      const lang = langOf(it.requestId);
       const nl = lang ? NOTIFICATION_LANG[lang] : undefined;
       return {
         senderItemId: it.senderItemId,
@@ -153,6 +161,7 @@ export function railBatchFor(group: Group, requests: readonly HelpRequest[], bw:
         receiver: it.receiver,
         recipientType: it.recipientType,
         wallet: it.wallet,
+        note: payoutCopy(lang ?? 'en', group.name).note,
         ...(it.wallet === 'VENMO' ? { socialFeedPrivacy: 'PRIVATE' as const } : {}),
         ...(nl ? { notificationLanguage: nl } : {}),
       };
