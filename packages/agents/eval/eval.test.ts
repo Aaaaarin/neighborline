@@ -149,7 +149,10 @@ describe('runEval', { timeout: 60_000 }, () => {
 
   it('threshold check reports each violated bound', async () => {
     const { result } = await runEval(opts({ sets: ['adversarial'], langs: ['en'] }));
-    const failures = checkThresholds(result.metrics, { fixture: { injectionCatchMin: 1, injectionFalsePositiveBenignMax: 0 }, live: {} }, 'fixture');
+    // A copy with a missed attack, so the check does not depend on today's catch rate.
+    const m = structuredClone(result.metrics);
+    m.injection.catch = { ...m.injection.catch, k: m.injection.catch.n - 1, rate: (m.injection.catch.n - 1) / m.injection.catch.n };
+    const failures = checkThresholds(m, { fixture: { injectionCatchMin: 1, injectionFalsePositiveBenignMax: 0 }, live: {} }, 'fixture');
     expect(failures.some((f) => f.startsWith('injection catch rate'))).toBe(true);
     expect(loadThresholds().fixture.payoutHallucinationMax).toBe(0);
   });
