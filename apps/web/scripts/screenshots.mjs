@@ -1,9 +1,11 @@
 // Regenerates apps/web/screenshots/*.png against a running server (default http://localhost:3000).
 // Usage: BASE_URL=http://localhost:3100 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scripts/screenshots.mjs [name-filter]
-// Organizer passkey shots need the server's NEIGHBORLINE_SESSION_SECRET (invite codes); alert shots its
+// Organizer passkey shots make single-use invite codes with scripts/organizer-invite.ts, so they need the
+// server's DATABASE_URL (or DEV_DB_PORT for `pnpm dev`'s database); alert shots its
 // NEIGHBORLINE_INTERNAL_SECRET; the payout-rail shots FAKE_PAYPAL_URL (the fake PayPal's control plane).
 // Every /demo run is played at real pace (speed=1), so the stopwatch and its people/system split are
 // what a judge would see. Passkey shots use Chromium's virtual WebAuthn authenticator (CDP).
+import { execFileSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { chromium } from '@playwright/test';
@@ -32,16 +34,20 @@ async function withPasskeyDevice(page) {
   });
 }
 
-/**
- * Enroll a passkey for an organizer seat on /organizer. Real seats need an invite code, demo or not
- * (HMAC of the organizer id with the server's NEIGHBORLINE_SESSION_SECRET, as scripts/organizer-invite.mjs).
- */
+/** A fresh single-use invite code from the operator CLI, in the server's database. */
+function newInviteCode(organizerId) {
+  return execFileSync('pnpm', ['-s', 'exec', 'tsx', 'scripts/organizer-invite.ts', organizerId, '--ttl', '1h'], {
+    cwd: new URL('..', import.meta.url).pathname,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+  }).trim();
+}
+
+/** Enroll a passkey for an organizer seat on /organizer. Real seats need an invite code, demo or not. */
 async function enroll(p, name, organizerId) {
-  const secret = process.env.NEIGHBORLINE_SESSION_SECRET;
-  if (!secret) throw new Error('set NEIGHBORLINE_SESSION_SECRET to the server’s to enroll organizer passkeys');
   await p.getByRole('button', { name: 'First time here? Set up a passkey' }).click();
   await p.getByRole('radio', { name: new RegExp(name) }).check();
-  await p.getByLabel('Invite code').fill(createHmac('sha256', Buffer.from(secret, 'utf8')).update(`invite:${organizerId}`).digest('base64url').slice(0, 12));
+  await p.getByLabel('Invite code').fill(newInviteCode(organizerId));
   await p.getByRole('button', { name: new RegExp(`Create passkey for ${name}`) }).click();
   await p.getByText('Signed in as').waitFor({ timeout: 15_000 });
 }

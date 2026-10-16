@@ -1,8 +1,20 @@
-import { createHmac } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-/** The invite code an existing organizer would hand out (HMAC of the organizer id; see lib/server/passkeys/secret.ts). */
+const webDir = fileURLToPath(new URL('..', import.meta.url));
+
+/**
+ * A fresh single-use invite code for an organizer, made the way an operator makes one
+ * (`pnpm --filter @neighborline/web organizer-invite <id>`), in the e2e database. Each call is a new
+ * code; a code enrolls one passkey once.
+ */
 export function inviteCode(organizerId: string): string {
-  const secret = process.env.NEIGHBORLINE_SESSION_SECRET;
-  if (!secret) throw new Error('playwright.config sets NEIGHBORLINE_SESSION_SECRET for the web server');
-  return createHmac('sha256', Buffer.from(secret, 'utf8')).update(`invite:${organizerId}`).digest('base64url').slice(0, 12);
+  const url = process.env.E2E_DATABASE_URL;
+  if (!url) throw new Error('playwright.config sets E2E_DATABASE_URL for the invite CLI');
+  return execFileSync('pnpm', ['-s', 'exec', 'tsx', 'scripts/organizer-invite.ts', organizerId, '--ttl', '1h'], {
+    cwd: webDir,
+    env: { ...process.env, DATABASE_URL: url },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
 }

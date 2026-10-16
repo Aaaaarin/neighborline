@@ -6,9 +6,11 @@ const FAKE_PORT = Number(process.env.E2E_FAKE_PAYPAL_PORT ?? 4110);
 const APPROVER_PORT = Number(process.env.E2E_APPROVER_PORT ?? 4120);
 const DB_PORT = Number(process.env.E2E_DEV_DB_PORT ?? 4130);
 const DATABASE_URL = `postgres://postgres@127.0.0.1:${DB_PORT}/postgres`;
+// e2e makes organizer invite codes with the CLI (scripts/organizer-invite.ts) in this database.
+process.env.E2E_DATABASE_URL ??= DATABASE_URL;
 // Per-run HMAC key shared by web and approver only (the fake PayPal and the database never see it).
 const APPROVER_SECRET = (process.env.NEIGHBORLINE_APPROVER_SECRET ??= randomBytes(32).toString('hex'));
-// Per-run session/invite key for the web server; e2e computes organizer invite codes from it.
+// Per-run session-cookie key for the web server.
 const SESSION_SECRET = (process.env.NEIGHBORLINE_SESSION_SECRET ??= randomBytes(32).toString('hex'));
 
 /**

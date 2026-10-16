@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { addOrganizerCredential, getApproval, listApprovalsForRequest, listAudit } from '@neighborline/db';
+import { createHash } from 'node:crypto';
+import { isoBase64URL, isoCBOR } from '@simplewebauthn/server/helpers';
+import { addOrganizerCredential, createOrganizerInvite, getApproval, getOrganizerCredential, listApprovalsForRequest, listAudit, listOrganizerInvites } from '@neighborline/db';
 import { approvalHashFromChallenge, challengeFor, createSoftwareAuthenticator, verifyApprovalAssertion } from '@neighborline/passkeys';
 import { startHarness, waitFor, type Harness } from './harness';
 import type { PasskeyAssertionJSON } from '../lib/types';
@@ -169,5 +171,83 @@ describe('demo-visitor passkeys and invite codes (QA P1-6)', () => {
     const sess = { organizerId: 'org_marcus', name: 'Marcus', credentialId: a.credentialId, deviceLabel: 'x', kind: 'passkey' as const };
     expect(await h.engine.liveSession(sess)).toBeNull();
     expect((await h.engine.passkeyRoster()).organizers.find((o) => o.id === 'org_marcus')!.passkeys.some((p) => p.id === a.credentialId)).toBe(false);
+  });
+});
+
+/**
+ * What a browser returns from navigator.credentials.create() for `a`, with "none" attestation:
+ * authData = rpIdHash | flags (UP, UV, AT) | signCount | aaguid | credIdLen | credId | COSE public key.
+ */
+function registrationResponse(a: ReturnType<typeof createSoftwareAuthenticator>, challenge: string, origin = ORIGIN, rpId = 'localhost') {
+  const credId = isoBase64URL.toBuffer(a.credentialId);
+  const len = Buffer.alloc(2);
+  len.writeUInt16BE(credId.length);
+  const authData = Buffer.concat([createHash('sha256').update(rpId).digest(), Buffer.from([0x45]), Buffer.alloc(4), Buffer.alloc(16), len, Buffer.from(credId), Buffer.from(isoBase64URL.toBuffer(a.publicKey))]);
+  const att = new Map<string, unknown>([['fmt', 'none'], ['attStmt', new Map()], ['authData', new Uint8Array(authData)]]);
+  const clientDataJSON = Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge, origin, crossOrigin: false })).toString('base64url');
+  return {
+    id: a.credentialId,
+    rawId: a.credentialId,
+    type: 'public-key' as const,
+    clientExtensionResults: {},
+    response: { clientDataJSON, attestationObject: Buffer.from(isoCBOR.encode(att as never)).toString('base64url'), transports: ['internal'] },
+  };
+}
+
+describe('invite codes are single use and expire (THREAT_MODEL R13)', () => {
+  async function enroll(organizerId: string, inviteCode: string) {
+    const a = createSoftwareAuthenticator({ userVerified: true });
+    const { optionsJSON } = await h.engine.passkeyRegistrationOptions({ organizerId, origin: ORIGIN, inviteCode, session: null });
+    const challenge = (optionsJSON as { challenge: string }).challenge;
+    const session = await h.engine.passkeyRegister({ organizerId, origin: ORIGIN, inviteCode, response: registrationResponse(a, challenge), deviceLabel: 'Priya’s phone', session: null });
+    return { a, session };
+  }
+
+  it('a code from the CLI enrolls one passkey, once; the second use is refused', async () => {
+    const { code } = await createOrganizerInvite(await db(), { organizerId: 'org_priya', createdBy: 'cli' });
+    const { a, session } = await enroll('org_priya', code);
+    expect(session).toMatchObject({ organizerId: 'org_priya', credentialId: a.credentialId });
+    expect(await getOrganizerCredential(await db(), a.credentialId)).not.toBeNull();
+    const [inv] = await listOrganizerInvites(await db(), 'org_priya');
+    expect(inv).toMatchObject({ usedCredentialId: a.credentialId });
+    await expect(h.engine.passkeyRegistrationOptions({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: code, session: null })).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('two devices racing on one code: only one passkey is stored', async () => {
+    const { code } = await createOrganizerInvite(await db(), { organizerId: 'org_priya', createdBy: 'cli' });
+    const a = createSoftwareAuthenticator({ userVerified: true });
+    const b = createSoftwareAuthenticator({ userVerified: true });
+    const optsA = await h.engine.passkeyRegistrationOptions({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: code, session: null });
+    const optsB = await h.engine.passkeyRegistrationOptions({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: code, session: null });
+    const results = await Promise.allSettled([
+      h.engine.passkeyRegister({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: code, response: registrationResponse(a, (optsA.optionsJSON as { challenge: string }).challenge), deviceLabel: 'A', session: null }),
+      h.engine.passkeyRegister({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: code, response: registrationResponse(b, (optsB.optionsJSON as { challenge: string }).challenge), deviceLabel: 'B', session: null }),
+    ]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(results.find((r) => r.status === 'rejected')).toMatchObject({ reason: { status: 403 } });
+    const stored = await Promise.all([a, b].map(async (x) => (await getOrganizerCredential(await db(), x.credentialId)) !== null));
+    expect(stored.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('expired, wrong and other organizers’ codes are refused; the old HMAC code no longer works', async () => {
+    const past = new Date(Date.now() - 2 * 3600_000);
+    const { code: expired } = await createOrganizerInvite(await db(), { organizerId: 'org_priya', createdBy: 'cli', ttlMs: 3600_000, now: past });
+    await expect(h.engine.passkeyRegistrationOptions({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: expired, session: null })).rejects.toMatchObject({ status: 403, message: expect.stringMatching(/expired or already used/) });
+    const { code: dana } = await createOrganizerInvite(await db(), { organizerId: 'org_dana', createdBy: 'cli' });
+    await expect(h.engine.passkeyRegistrationOptions({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: dana, session: null })).rejects.toMatchObject({ status: 403 });
+    const { createHmac } = await import('node:crypto');
+    const legacy = createHmac('sha256', Buffer.from(process.env.NEIGHBORLINE_SESSION_SECRET ?? 'x'.repeat(32))).update('invite:org_priya').digest('base64url').slice(0, 12);
+    await expect(h.engine.passkeyRegistrationOptions({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: legacy, session: null })).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('a code checked at the prompt but spent before the passkey returns is refused at registration', async () => {
+    const { code } = await createOrganizerInvite(await db(), { organizerId: 'org_priya', createdBy: 'cli' });
+    const a = createSoftwareAuthenticator({ userVerified: true });
+    const { optionsJSON } = await h.engine.passkeyRegistrationOptions({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: code, session: null });
+    await enroll('org_priya', code); // the same code, used on another device first
+    await expect(
+      h.engine.passkeyRegister({ organizerId: 'org_priya', origin: ORIGIN, inviteCode: code, response: registrationResponse(a, (optionsJSON as { challenge: string }).challenge), deviceLabel: 'late', session: null }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(await getOrganizerCredential(await db(), a.credentialId)).toBeNull();
   });
 });

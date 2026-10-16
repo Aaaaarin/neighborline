@@ -127,7 +127,7 @@ flowchart LR
 | `AI_MODE` | `fixture` (default), `live` | `createProviders()` picks fixture or real providers ([`create.ts`](../packages/agents/src/providers/create.ts)) |
 | `DATABASE_URL` | empty or a Postgres URL | `pnpm dev` and e2e set it to `tools/dev-db`; production uses Render Postgres. Without it the web app alone uses an in-process PGlite (tests) |
 | `DEMO_MODE` | empty, `true`, `false` | **Fails closed**: empty means on only with `PAYPAL_MODE=fake`; never on with `live` (the approver refuses to start). On: `/api/demo/play`, labelled demo keys (Dana scripted; a browser may sign only as Marcus and only on its own runs), demo-visitor passkeys, `req_demo_*` rehearsals excluded from caps. Off: none of that; every approval needs an organizer's passkey |
-| `NEIGHBORLINE_SESSION_SECRET` | ≥ 32 chars | Signs organizer session cookies, visitor cookies and invite codes. Unset: random per process |
+| `NEIGHBORLINE_SESSION_SECRET` | ≥ 32 chars | Signs organizer session cookies and visitor cookies. Unset: random per process. (Invite codes are random, single use and stored hashed in `organizer_invites`) |
 | `RATE_LIMITS`, `TRUST_PROXY_HOPS` | `on`/`off`, `1` | In-memory token buckets per IP, per visitor and global for live AI; which `X-Forwarded-For` entry is the client |
 | `AUDIO_RETENTION` | `none` (default), `24h` | What happens to raw voice recordings after transcription |
 

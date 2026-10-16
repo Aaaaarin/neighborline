@@ -112,8 +112,9 @@ database, never from the payload. `passkey` assertions require UV; `demo_key` on
   → `POST /api/organizer/passkeys` (attestation `none`, resident key + UV required). Stores
   `organizer_credentials(id, organizer_id, public_key (COSE, b64url), counter, transports, device_label, kind)`.
 - Who may enroll: the organizer when already signed in (adding a device), or anyone with that organizer's invite
-  code (`HMAC(NEIGHBORLINE_SESSION_SECRET, "invite:<organizerId>")[0..12]`, `pnpm --filter @neighborline/web organizer-invite <id>`).
-  `DEMO_MODE` waives the code (demo people, demo data) and the page says so.
+  code: single use, expiring, stored as SHA-256 in `organizer_invites` (`pnpm --filter @neighborline/web organizer-invite <id> [--ttl 72h]`
+  prints one; `register` spends it in the transaction that stores the passkey; THREAT_MODEL R13).
+  `DEMO_MODE` does not waive it (QA P1-6); a /demo visitor plays Marcus with a passkey bound to their own runs instead.
 - Sign-in (`/api/organizer/signin`) uses a discoverable credential and sets an HttpOnly HMAC cookie
   (`nl_organizer`, 12 h). The cookie only says who is looking at the queue; **it never authorizes a payout** —
   every tap is signed separately.
@@ -142,7 +143,7 @@ signatures activate the draft (`db.activatePolicy`); see `apps/web/lib/server/en
   are the control; a passkey proves a device holder, not a legal identity.
 - The approval challenge is deterministic (the hash), so an assertion can be replayed — but only for the same
   organizer over the same content, which is a no-op (idempotent approval). Counters are checked on the live tap.
-- Session secret: set `NEIGHBORLINE_SESSION_SECRET` (≥ 32 chars) in production, or sessions and invite codes
-  change on every restart.
+- Session secret: set `NEIGHBORLINE_SESSION_SECRET` (≥ 32 chars) in production, or sessions end on every
+  restart. (Invite codes do not depend on it.)
 - Demo keys are random per process; their public keys are stored per credential id, so old demo signatures stay
   verifiable after a restart.

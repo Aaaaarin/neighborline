@@ -352,9 +352,9 @@ Running this with real money needs more than code:
 - **SMS** needs carrier registration (US toll-free verification or A2P 10DLC), which takes days. This is why the phone
   line calls back by voice (no registration needed) and texts only once a verified sender is set.
 - **A Twilio number** for the phone line ([docs/PHONE.md](docs/PHONE.md)): three env vars and one webhook URL.
-- **Organizer authentication.** Passkeys with invite codes; set `DEMO_MODE=false` (the default outside fake mode) so no
+- **Organizer authentication.** Passkeys with single-use, expiring invite codes (`pnpm --filter @neighborline/web organizer-invite <id>`); set `DEMO_MODE=false` (the default outside fake mode) so no
   demo key can sign, and require an organizer session for `/organizer` and `/api/requests`. See
-  [THREAT_MODEL.md](THREAT_MODEL.md) (residual risks R1, R9, R12, R13).
+  [THREAT_MODEL.md](THREAT_MODEL.md) (residual risks R1, R9, R12).
 
 The `/trust` page shows the fiscal-sponsor checklist on screen.
 
@@ -381,10 +381,9 @@ Not built yet, in rough priority order:
    report refresh). The tasks and the signed `/api/internal/*` endpoints exist and are tested.
 3. Give the approver its own container (Render private service, block ready in `render.yaml`) and its own Postgres
    role.
-4. Single-use, expiring invite codes stored hashed (today: one static code per organizer, THREAT_MODEL R13).
-5. A shared rate-limit store and bot protection on intake (today: in-memory token buckets per process).
-6. Connect a Twilio number to the built phone line, then WhatsApp intake, then SMS once carrier registration clears.
-7. Vetted catalog text for French, Tagalog, Korean and Russian, and a native-speaker review of the Vietnamese, Spanish
+4. A shared rate-limit store and bot protection on intake (today: in-memory token buckets per process).
+5. Connect a Twilio number to the built phone line, then WhatsApp intake, then SMS once carrier registration clears.
+6. Vetted catalog text for French, Tagalog, Korean and Russian, and a native-speaker review of the Vietnamese, Spanish
    and Haitian Creole copy (today the four get a checked LLM translation or English).
 
 Good first issues are listed in [docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md).

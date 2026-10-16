@@ -9,6 +9,7 @@ import { approvalHash, type ApproverAssertion, type HelpRequest } from '@neighbo
 import {
   addOrganizerCredential,
   contentFromRequests,
+  findLiveOrganizerInvite,
   getOrganizerCredential,
   getRequest,
   listOrganizerCredentials,
@@ -21,12 +22,10 @@ import {
 import { challengeFor, expectedFor, fromB64url, hexToBytes, newServerNonce, relyingParty, toB64url, verifyApprovalAssertion } from '@neighborline/passkeys';
 import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from '@simplewebauthn/server';
 import { decodeClientDataJSON, isoBase64URL } from '@simplewebauthn/server/helpers';
-import { timingSafeEqual } from 'node:crypto';
 import type { ApprovalChallenge, ApproveInput, OrganizerSession, PasskeyAssertionJSON, PasskeyRoster } from '../../types';
 import { HttpError } from '../errors';
 import { newChallenge, takeChallenge } from '../passkeys/challenges';
 import { DEMO_SEAT, demoModeOn, demoSign } from '../passkeys/demo-signer';
-import { inviteCodeFor } from '../passkeys/secret';
 import { bindingTag, DEMO_VISITOR_BINDING, demoRunTagOf } from '../security/visitor';
 import type { BaseCtx } from './context';
 
@@ -45,12 +44,6 @@ const challengeOf = (clientDataJSON: string): string => {
     throw new HttpError(400, 'Malformed passkey response');
   }
 };
-
-function sameCode(a: string, b: string): boolean {
-  const x = Buffer.from(a);
-  const y = Buffer.from(b);
-  return x.length === y.length && timingSafeEqual(x, y);
-}
 
 /* ---------------- roster + enrollment ---------------- */
 
@@ -71,28 +64,35 @@ export async function roster(ctx: Ctx): Promise<PasskeyRoster> {
   };
 }
 
+const INVITE_REFUSED = 'That invite code is wrong, expired or already used. Ask another organizer for a new one.';
+
 /**
  * Who may enroll a passkey for an organizer: that organizer when already signed in (adding a
- * device), or anyone holding the organizer's invite code — in DEMO_MODE too. The one exception is the
- * demo-visitor path (`demoVisitorTag`): in DEMO_MODE a /demo visitor may enroll their own device to
- * play Marcus, and that credential is bound to the visitor ('demo-visitor:<tag>'): it signs only that
- * visitor's own demo runs, never signs in, never signs a policy, and is not listed as Marcus's device.
+ * device), or anyone holding a live invite code for that organizer, in DEMO_MODE too. Invite codes
+ * are single use and expire (THREAT_MODEL R13): this check only looks; `register` spends the code in
+ * the same transaction that stores the passkey. The one exception is the demo-visitor path
+ * (`demoVisitorTag`): in DEMO_MODE a /demo visitor may enroll their own device to play Marcus, and
+ * that credential is bound to the visitor ('demo-visitor:<tag>'): it signs only that visitor's own
+ * demo runs, never signs in, never signs a policy, and is not listed as Marcus's device.
+ *
+ * Returns the invite code to spend on enrollment, or null when none is needed.
  */
-function assertMayEnroll(ctx: Ctx, organizerId: string, inviteCode: string | undefined, session: OrganizerSession | null, demoVisitorTag?: string) {
+async function assertMayEnroll(ctx: Ctx, organizerId: string, inviteCode: string | undefined, session: OrganizerSession | null, demoVisitorTag?: string): Promise<string | null> {
   if (demoVisitorTag) {
     if (!demoModeOn(ctx.env)) throw new HttpError(403, 'Demo passkeys are off (DEMO_MODE is off). Ask another organizer for an invite code.');
     if (organizerId !== DEMO_SEAT) throw new HttpError(403, 'In this demo you can play Marcus only.');
-    return;
+    return null;
   }
-  if (session?.organizerId === organizerId) return;
-  if (!inviteCode || !sameCode(inviteCode.trim(), inviteCodeFor(organizerId, ctx.env))) {
-    throw new HttpError(403, 'Ask another organizer for your invite code to set up a passkey.');
-  }
+  if (session?.organizerId === organizerId) return null;
+  const code = inviteCode?.trim();
+  if (!code) throw new HttpError(403, 'Ask another organizer for your invite code to set up a passkey.');
+  if (!(await findLiveOrganizerInvite(ctx.db, { organizerId, code }))) throw new HttpError(403, INVITE_REFUSED);
+  return code;
 }
 
 export async function registrationOptions(ctx: Ctx, input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string }) {
   const org = await organizer(ctx, input.organizerId);
-  assertMayEnroll(ctx, org.id, input.inviteCode, input.session, input.demoVisitorTag);
+  await assertMayEnroll(ctx, org.id, input.inviteCode, input.session, input.demoVisitorTag);
   const rp = relyingParty(ctx.env, input.origin);
   const existing = await listOrganizerCredentials(ctx.db, org.id, { kind: 'passkey' });
   const optionsJSON = await generateRegistrationOptions({
@@ -114,7 +114,7 @@ export async function register(
   input: { organizerId: string; origin: string | null; response: Parameters<typeof verifyRegistrationResponse>[0]['response']; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null; demoVisitorTag?: string },
 ): Promise<OrganizerSession> {
   const org = await organizer(ctx, input.organizerId);
-  assertMayEnroll(ctx, org.id, input.inviteCode, input.session, input.demoVisitorTag);
+  const inviteCode = await assertMayEnroll(ctx, org.id, input.inviteCode, input.session, input.demoVisitorTag);
   const pending = takeChallenge(challengeOf(input.response.response.clientDataJSON), 'register');
   const boundTo = input.demoVisitorTag ? DEMO_VISITOR_BINDING(input.demoVisitorTag) : undefined;
   if (!pending || pending.organizerId !== org.id || pending.boundTo !== boundTo) throw new HttpError(400, 'That passkey prompt expired. Try again.');
@@ -147,8 +147,11 @@ export async function register(
       kind: 'passkey',
       backedUp: info.credentialBackedUp,
       ...(boundTo ? { boundTo, actor: `demo visitor ${input.demoVisitorTag}` } : {}),
+      // Spent in the same transaction: no passkey without a live code, and a code adds one passkey only.
+      ...(inviteCode ? { inviteCode } : {}),
     });
   } catch (err) {
+    if (err instanceof RepoError && err.code === 'INVALID') throw new HttpError(403, INVITE_REFUSED);
     if (err instanceof RepoError) throw new HttpError(409, err.message);
     throw err;
   }

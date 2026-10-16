@@ -144,8 +144,8 @@ export function SignInPanel({
               <label htmlFor={`${ids}-invite`} className="text-[0.9rem] font-semibold text-ink">
                 Invite code
               </label>
-              <input id={`${ids}-invite`} value={invite} onChange={(e) => setInvite(e.target.value)} autoComplete="one-time-code" className="mt-1.5 block h-11 w-full max-w-[16rem] rounded-xl border border-rule-strong bg-paper px-3 tracking-wide" required />
-              <p className="mt-1 text-[0.8rem] text-ink-3">An existing organizer gets it for you, so nobody can enroll in your name.</p>
+              <input id={`${ids}-invite`} value={invite} onChange={(e) => setInvite(e.target.value)} autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false} placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" className="mt-1.5 block h-11 w-full max-w-[20rem] rounded-xl border border-rule-strong bg-paper px-3 font-mono text-[0.95rem] tracking-wide" required />
+              <p className="mt-1 text-[0.8rem] text-ink-3">An existing organizer gets it for you, so nobody can enroll in your name. It works once and expires after a few days.</p>
             </div>
           ) : null}
           <div className="flex flex-wrap items-center gap-3">

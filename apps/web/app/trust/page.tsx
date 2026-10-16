@@ -120,7 +120,7 @@ export default async function TrustPage() {
             {[
               ['What is signed', 'The approval hash (SHA-256 over the request ids, each amount, wallet and receiver, and the policy version) together with a one-time number from our server, so a signature can never be reused for a later payout, even an identical one.'],
               ['Who signed', 'The owner of the key, read from our database, never from the request. A key can belong to one organizer only. The card shows it as “Signed with passkey · Dana’s iPhone”.'],
-              ['Joining as an organizer', 'A new organizer needs an invite code from an existing one to enroll their first passkey. Only the public half of the key is stored. In this demo you can also add a passkey for Marcus without a code, but it only ever signs your own demo runs.'],
+              ['Joining as an organizer', 'A new organizer needs an invite code from an existing one to enroll their first passkey. A code works once and expires; only its hash is stored. Only the public half of the key is stored. In this demo you can also add a passkey for Marcus without a code, but it only ever signs your own demo runs.'],
               ['Lost a phone', 'Any signed-in organizer can revoke a passkey on the organizer page. From then on it can’t sign in, approve or sign rules, and the approval service refuses approvals it signed that aren’t paid yet. The audit log records who revoked it.'],
               ['Changing the rules', 'The AI drafts new rules from the organizers’ own words, quoting the sentence behind every cap. A new policy version goes live only when two different organizers sign the hash of that exact draft; code then re-prices requests still waiting.'],
               [
