@@ -35,6 +35,18 @@ import type {
   ThreadView,
   TrustView,
 } from '../types';
+import type {
+  OrganizerAlertRequest,
+  OrganizerAlertResponse,
+  ReconcileRequest,
+  ReconcileResponse,
+  RenotifyRequest,
+  RenotifyResponse,
+  ReportRefreshRequest,
+  ReportRefreshResponse,
+  UnclaimedSweepRequest,
+  UnclaimedSweepResponse,
+} from './internal-contract';
 import { Engine } from './engine/engine';
 import { MockEngine } from './mock-engine';
 
@@ -48,8 +60,21 @@ export interface AudioInput {
   photo?: Blob;
 }
 
+/** Background jobs behind POST /api/internal/* (contract: lib/server/internal-contract.ts = workflows/src/contract.ts). */
+export interface InternalOps {
+  reconcileWindow(req: ReconcileRequest): Promise<ReconcileResponse>;
+  unclaimedSweep(req: UnclaimedSweepRequest): Promise<UnclaimedSweepResponse>;
+  renotify(req: RenotifyRequest): Promise<RenotifyResponse>;
+  organizerAlert(req: OrganizerAlertRequest): Promise<OrganizerAlertResponse>;
+  reportRefresh(req: ReportRefreshRequest): Promise<ReportRefreshResponse>;
+}
+
 export interface Services {
   readonly modes: RuntimeModes;
+  /** Present on the real engine only (the mock answers 501). */
+  readonly internal?: InternalOps;
+  /** Present on the real engine only: is the approver process reachable? */
+  approverUp?(): Promise<boolean>;
 
   /* intake (neighbor) */
   startIntake(input: { groupSlug: string; channel: Channel; lang?: Lang }): Promise<{ requestId: string }>;

@@ -42,6 +42,8 @@ export interface PolicyCategoryView {
 }
 
 export interface GroupView {
+  /** Open alerts for organizers (see OrganizerAlert), newest first. Empty/absent = nothing to show. */
+  alerts?: OrganizerAlert[];
   id: string;
   slug: string;
   name: string;
@@ -283,6 +285,21 @@ export interface LedgerView {
   summary: { paidCents: number; pendingCents: number; unclaimedCents: number; items: number; batches: number };
   lastReconciledAt: string | null;
   balanceCents: number;
+  /** Alerts raised by the background jobs (POST /api/internal/organizer-alert), newest first. */
+  alerts?: OrganizerAlert[];
+}
+
+/** Something a human organizer should look at, raised by a background job (Render Workflows). */
+export interface OrganizerAlert {
+  id: string;
+  /** unclaimed_day25: PayPal auto-returns an unclaimed payout on day 30. reconcile_mismatch: ledger ≠ PayPal. */
+  kind: 'unclaimed_day25' | 'reconcile_mismatch';
+  /** One English line (PII-redacted). */
+  summary: string;
+  /** Payout item ids (match LedgerRow.itemId). */
+  itemIds: string[];
+  deadline?: string;
+  createdAt: string;
 }
 
 export interface ReconcileResult {

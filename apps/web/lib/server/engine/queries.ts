@@ -1,7 +1,8 @@
 /** Read helpers the repo layer doesn't expose (all read-only). */
 import { and, asc, eq, gte, inArray, like, notInArray, or, sql } from 'drizzle-orm';
 import type { PayoutItem } from '@neighborline/core';
-import { approvalSignatures, approvals, groups, payoutBatches, payoutItems, requests, toBatch, toItem, type Db } from '@neighborline/db';
+import type { OrganizerAlert } from '../../types';
+import { approvalSignatures, approvals, auditLog, groups, payoutBatches, payoutItems, requests, toBatch, toItem, type Db } from '@neighborline/db';
 import { DEMO_PREFIX } from './context';
 
 const NOT_SPENT = ['FAILED', 'RETURNED', 'CANCELED', 'BLOCKED', 'REFUNDED', 'REVERSED'];
@@ -69,4 +70,17 @@ export async function confirmedAtByRequest(db: Db): Promise<Map<string, Date>> {
   const out = new Map<string, Date>();
   for (const r of list as Array<{ entity_id: string; at: string | Date }>) out.set(r.entity_id, new Date(r.at));
   return out;
+}
+
+/** Alerts for the organizer queue and the ledger (newest first). */
+export async function listAlerts(db: Db, limit = 20): Promise<OrganizerAlert[]> {
+  const rows = await db.select().from(auditLog).where(eq(auditLog.action, 'organizer.alert')).orderBy(sql`${auditLog.seq} desc`).limit(limit);
+  return rows.map((r) => ({
+    id: r.entityId,
+    kind: r.data.kind as OrganizerAlert['kind'],
+    summary: String(r.data.summary ?? ''),
+    itemIds: Array.isArray(r.data.itemIds) ? (r.data.itemIds as string[]) : [],
+    ...(typeof r.data.deadline === 'string' ? { deadline: r.data.deadline } : {}),
+    createdAt: r.at.toISOString(),
+  }));
 }

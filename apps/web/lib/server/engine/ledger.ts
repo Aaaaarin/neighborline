@@ -4,7 +4,7 @@ import { getActivePolicy, listDonations, listItems, listRequests } from '@neighb
 import { reconcile as reconcileItems, TRANSACTION_SEARCH_LAG_MS } from '@neighborline/paypal';
 import type { LedgerRow, LedgerView, ReconcileResult, ReconcileState } from '../../types';
 import { categoryLabelFor, type BaseCtx } from './context';
-import { allBatches } from './queries';
+import { allBatches, listAlerts } from './queries';
 
 /** Seeded history never went through this PayPal environment, so it is labelled, not "reconciled". */
 const isSeeded = (paypalItemId: string | undefined) => !!paypalItemId?.startsWith('SEEDITEM');
@@ -29,6 +29,7 @@ export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<
     getActivePolicy(ctx.db, g.id),
     listDonations(ctx.db, g.id),
   ]);
+  const alerts = await listAlerts(ctx.db);
   const reqById = new Map(reqs.map((r) => [r.id, r]));
   const batchById = new Map(batches.map((b) => [b.id, b]));
   const rows: LedgerRow[] = [];
@@ -62,6 +63,7 @@ export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<
     summary: { paidCents: paid, pendingCents: sum('PENDING') + sum('ONHOLD'), unclaimedCents: sum('UNCLAIMED'), items: rows.length, batches: new Set(rows.map((r) => r.batchId)).size },
     lastReconciledAt: cache.at,
     balanceCents: inCents - paid - sum('PENDING') - sum('ONHOLD') - sum('UNCLAIMED'),
+    ...(alerts.length ? { alerts } : {}),
   };
 }
 

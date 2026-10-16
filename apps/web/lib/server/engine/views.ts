@@ -14,6 +14,7 @@ import type { GroupView, Organizer, RequestView, ThreadMessage, ThreadView } fro
 import { QUEUE_PEOPLE } from './demo-extras';
 import { categoryLabelFor, type BaseCtx as Ctx } from './context';
 import { PAYOUT_PURPOSE } from './constants';
+import { listAlerts } from './queries';
 
 export function organizerView(o: DomainOrganizer): Organizer {
   const handle = o.handles.find((h) => h.startsWith('@')) ?? o.handles[0] ?? '';
@@ -26,7 +27,9 @@ export async function groupView(ctx: Ctx): Promise<GroupView> {
   const orgs = await listOrganizers(ctx.db, g.id);
   const simulated = ctx.cfg.paypalMode !== 'sandbox';
   const venmo = g.officialHandles.find((h) => h.wallet === 'VENMO') ?? g.officialHandles[0];
+  const alerts = await listAlerts(ctx.db);
   return {
+    ...(alerts.length ? { alerts } : {}),
     id: g.id,
     slug: g.slug,
     name: g.name,

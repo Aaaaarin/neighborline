@@ -21,20 +21,22 @@ import type {
 } from '../../types';
 import { ApprovalService, type SentBatch } from '../approval-service';
 import { HttpError } from '../errors';
+import { errorText, log } from '../log';
 import * as tpl from '../fixtures/templates';
 import { SAMPLE_VOICE_NOTES } from '../fixtures/scenarios';
 import { FakePayPalControl, createPublicPayPal, type PublicPayPal } from '../paypal';
-import type { AudioInput, Services } from '../services';
+import type { AudioInput, InternalOps, Services } from '../services';
 import type { BaseCtx, Ctx } from './context';
 import { openGeneration, retireGeneration, type DbGeneration } from './db-state';
 import * as donations from './donations';
+import * as internal from './internal';
 import { readConfig, type EngineConfig, type Env } from './env';
 import { EventBus, nowIso } from './events';
 import * as intake from './intake';
 import * as passkeys from './passkeys';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
 import { MetaStore } from './meta';
-import { buildReportView, buildTrust } from './report';
+import { buildTrust } from './report';
 import { playScenario } from './scenario-runner';
 import { applyItemStatus } from './settle';
 import { getRequestView, getThread, groupView, listRequestViews } from './views';
@@ -47,6 +49,7 @@ interface GenState {
   cleanups: Set<() => void>;
   reconcile: ReconcileCache;
   donations: donations.DonationState;
+  report: internal.ReportStore;
 }
 
 export interface EngineOptions {
@@ -75,7 +78,7 @@ export class Engine implements Services {
     this.approvals = new ApprovalService(this.env);
     this.modes = { paypalMode: this.cfg.paypalMode, aiMode: this.agents.providers.mode, engine: 'real' };
     this.state = openGeneration(this.cfg, 1).then((g) => this.makeState(g));
-    this.state.catch((err) => console.error('[engine] database boot failed:', err));
+    this.state.catch((err) => log.error('engine.db_boot_failed', { error: errorText(err) }));
   }
 
   /** Resolves when the database is migrated and seeded (tests, health checks). */
@@ -90,6 +93,7 @@ export class Engine implements Services {
       cleanups: new Set(),
       reconcile: { states: new Map(), at: null },
       donations: { orders: new Map(), tiers: null },
+      report: { latest: null },
       ctx: undefined as unknown as Ctx,
     };
     st.ctx = {
@@ -111,7 +115,7 @@ export class Engine implements Services {
           if (st.dead) return;
           Promise.resolve()
             .then(fn)
-            .catch((err) => console.warn('[engine] scheduled step failed:', err instanceof Error ? err.message : err));
+            .catch((err) => log.warn('engine.scheduled_step_failed', { error: errorText(err) }));
         }, Math.max(0, (ms * this.cfg.beatScale) / speed));
         st.timers.add(t);
       },
@@ -330,7 +334,29 @@ export class Engine implements Services {
   /* ---------------- transparency ---------------- */
 
   async getReport() {
-    return buildReportView(await this.base());
+    const st = await this.state;
+    return internal.currentReport(this.baseOf(st), st.report);
+  }
+
+  /* ---------------- background jobs (POST /api/internal/*, Render Workflows) ---------------- */
+
+  readonly internal: InternalOps = {
+    reconcileWindow: async (req) => {
+      const st = await this.state;
+      return internal.reconcileWindow(this.baseOf(st), st.reconcile, req);
+    },
+    unclaimedSweep: async (req) => internal.unclaimedSweep(await this.base(), req),
+    renotify: async (req) => internal.renotifyUnclaimed(await this.base(), req),
+    organizerAlert: async (req) => internal.organizerAlert(await this.base(), req),
+    reportRefresh: async (req) => {
+      const st = await this.state;
+      return internal.reportRefresh(this.baseOf(st), st.report, req);
+    },
+  };
+
+  /** For GET /api/health: is the approver process up (no secrets involved)? */
+  async approverUp(): Promise<boolean> {
+    return (await this.approvals.approver.health(1500)) !== null;
   }
 
   async getTrust() {

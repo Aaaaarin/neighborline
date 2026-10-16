@@ -9,6 +9,7 @@ import type { Channel, Lang } from '@neighborline/core';
 import type { PlayMode, ScenarioId, ScenarioRun } from '../../types';
 import { HttpError } from '../errors';
 import { SCENARIOS } from '../fixtures/scenarios';
+import { errorText, log } from '../log';
 import type { Services } from '../services';
 import { DEMO_PREFIX, type Ctx } from './context';
 
@@ -41,7 +42,7 @@ export async function playScenario(host: RunnerHost, ctx: Ctx, input: { scenario
   const run: ScenarioRun = { requestId: id, scenario: s.id, mode, speed, manualOrganizerId: mode === 'manual' ? 'org_marcus' : null };
   ctx.meta.ensure(id, { displayName: s.requester.displayName, area: s.requester.area, scenario: s.id, speed, ...(s.payout.nameOnFile ? { nameOnFile: s.payout.nameOnFile } : {}) });
   await host.startDemoIntake(id, s.channel, s.lang);
-  const warn = (step: string) => (err: unknown) => console.warn(`[scenario ${s.id}] ${step} failed:`, err instanceof Error ? err.message : err);
+  const warn = (step: string) => (err: unknown) => log.warn('scenario.step_failed', { scenario: s.id, step, error: errorText(err) });
 
   if (s.outcome === 'blocked') {
     // A text arrives; rail protection runs as soon as the destination is known.
