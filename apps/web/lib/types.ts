@@ -138,6 +138,11 @@ export interface RequestView {
   appeal?: AppealView;
   /** One-line summary of the schema pipeline behind the AI extraction (agents' trace.summary). */
   aiTrace?: { status: 'valid' | 'locally_fixed' | 'repaired' | 'invalid' | 'error'; summary: string };
+  /**
+   * Set when the reader is neither an organizer nor the visitor who sent it: first name + area,
+   * masked destination, no transcript (lib/server/security/redact.ts). Organizers sign in to see more.
+   */
+  redacted?: true;
 }
 
 export interface AppealView {
@@ -242,7 +247,9 @@ export interface ApprovalResult {
 /** Messages on GET /api/stream. `requestIds` scopes each event so many visitors can share one server. */
 export type StreamMessage =
   | { kind: 'hello'; serverTime: string }
-  | { kind: 'stage'; event: StageEvent; requestIds: string[] };
+  | { kind: 'stage'; event: StageEvent; requestIds: string[] }
+  /** The demo database was reset (nightly job): runs in progress are gone; the stage offers a replay. */
+  | { kind: 'reset'; at: string };
 
 export interface ScenarioRun {
   requestId: string;

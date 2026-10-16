@@ -22,6 +22,18 @@ export function useStage(organizers: Organizer[]) {
   const runRef = useRef<ScenarioRun | null>(null);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /** The demo database was reset under this run (nightly job): stop it and offer a replay, never hang. */
+  const onDemoReset = useCallback(() => {
+    if (!runRef.current) return;
+    runRef.current = null;
+    buffer.current = [];
+    setRun(null);
+    setView(null);
+    setThread(null);
+    setFallback(null);
+    setError('The demo was reset, so this run stopped. Press Play to run it again.');
+  }, []);
+
   const refresh = useCallback(() => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(async () => {
@@ -32,11 +44,13 @@ export function useStage(organizers: Organizer[]) {
         if (runRef.current?.requestId !== r.requestId) return;
         setView(v);
         setThread(t);
-      } catch {
-        /* transient; the next event retries */
+      } catch (e) {
+        // 404 for our own run means the demo was reset (or the server restarted on a fresh database).
+        if (e instanceof ApiError && e.status === 404 && runRef.current?.requestId === r.requestId) onDemoReset();
+        /* otherwise transient; the next event retries */
       }
     }, 40);
-  }, []);
+  }, [onDemoReset]);
 
   // One stream per run, filtered server-side to this request and replaying its history first,
   // so nothing is lost between "Play" and the stream opening.
@@ -54,6 +68,10 @@ export function useStage(organizers: Organizer[]) {
           skew.current = Date.now() - Date.parse(m.serverTime);
           return;
         }
+        if (m.kind === 'reset') {
+          onDemoReset();
+          return;
+        }
         const key = `${m.event.type}|${m.event.at}|${JSON.stringify(m.event).length}`;
         if (seen.has(key)) return;
         seen.add(key);
@@ -67,7 +85,7 @@ export function useStage(organizers: Organizer[]) {
       { requestId: runId, onStatus: setConn },
     );
     return close;
-  }, [runId, refresh]);
+  }, [runId, refresh, onDemoReset]);
 
   // Fallback polling if the event stream drops (proxies, flaky wifi).
   useEffect(() => {
