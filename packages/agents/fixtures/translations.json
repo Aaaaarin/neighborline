@@ -18,6 +18,168 @@
       "source": "Here is what I understood. Please tell me if it is right:",
       "translation": "Voici ce que j'ai compris. Dites-moi si c'est juste :",
       "backTranslation": "Here is what I understood. Tell me if it is right:"
+    },
+    {
+      "lang": "ko",
+      "source": "Here is what I understood. Please tell me if it is right:",
+      "translation": "제가 이해한 내용은 이렇습니다. 맞는지 알려 주세요:",
+      "backTranslation": "This is what I understood. Please let me know if it is right:"
+    },
+    {
+      "lang": "ru",
+      "source": "Here is what I understood. Please tell me if it is right:",
+      "translation": "Вот как мы поняли вашу просьбу. Скажите, пожалуйста, всё ли верно:",
+      "backTranslation": "Here is how we understood your request. Please tell us if everything is correct:"
+    },
+    {
+      "lang": "tl",
+      "source": "Here is what I understood. Please tell me if it is right:",
+      "translation": "Ito ang pagkakaintindi ko. Pakisabi kung tama:",
+      "backTranslation": "This is what I understood. Please say if it is correct:"
+    },
+    {
+      "lang": "ko",
+      "source": "If approved, the money goes to your {wallet}: {receiver}.",
+      "translation": "승인되면 {wallet} 계정 {receiver}(으)로 돈을 보내 드립니다.",
+      "backTranslation": "If approved, we will send the money to {wallet} account {receiver}."
+    },
+    {
+      "lang": "ru",
+      "source": "If approved, the money goes to your {wallet}: {receiver}.",
+      "translation": "Если просьбу одобрят, деньги придут на ваш {wallet}: {receiver}.",
+      "backTranslation": "If the request is approved, the money will come to your {wallet}: {receiver}."
+    },
+    {
+      "lang": "fr",
+      "source": "If approved, the money goes to your {wallet}: {receiver}.",
+      "translation": "Si c'est approuvé, l'argent sera envoyé sur votre {wallet} : {receiver}.",
+      "backTranslation": "If it is approved, the money will be sent to your {wallet}: {receiver}."
+    },
+    {
+      "lang": "tl",
+      "source": "If approved, the money goes to your {wallet}: {receiver}.",
+      "translation": "Kapag naaprubahan, ipapadala ang pera sa iyong {wallet}: {receiver}.",
+      "backTranslation": "When approved, the money will be sent to your {wallet}: {receiver}."
+    },
+    {
+      "lang": "ko",
+      "source": "Where should we send the money? You can give us a PayPal email or a Venmo username.",
+      "translation": "돈을 어디로 보내 드릴까요? PayPal 이메일이나 Venmo 사용자 이름을 알려 주세요.",
+      "backTranslation": "Where should we send the money? Please tell us a PayPal email or a Venmo username."
+    },
+    {
+      "lang": "ru",
+      "source": "Where should we send the money? You can give us a PayPal email or a Venmo username.",
+      "translation": "Куда отправить деньги? Напишите email вашего PayPal или имя пользователя в Venmo.",
+      "backTranslation": "Where should we send the money? Write the email of your PayPal or your username in Venmo."
+    },
+    {
+      "lang": "fr",
+      "source": "Where should we send the money? You can give us a PayPal email or a Venmo username.",
+      "translation": "Où devons-nous envoyer l'argent ? Vous pouvez nous donner une adresse e-mail PayPal ou un nom d'utilisateur Venmo.",
+      "backTranslation": "Where should we send the money? You can give us a PayPal email address or a Venmo username."
+    },
+    {
+      "lang": "tl",
+      "source": "Where should we send the money? You can give us a PayPal email or a Venmo username.",
+      "translation": "Saan namin ipapadala ang pera? Puwede mong ibigay ang email mo sa PayPal o ang username mo sa Venmo.",
+      "backTranslation": "Where will we send the money? You can give your PayPal email or your Venmo username."
+    },
+    {
+      "lang": "ko",
+      "source": "How many people live in your home, including you?",
+      "translation": "본인을 포함해서 집에 몇 분이 사시나요?",
+      "backTranslation": "Including yourself, how many people live in your home?"
+    },
+    {
+      "lang": "ru",
+      "source": "How many people live in your home, including you?",
+      "translation": "Сколько человек живёт у вас дома, включая вас?",
+      "backTranslation": "How many people live in your home, including you?"
+    },
+    {
+      "lang": "fr",
+      "source": "How many people live in your home, including you?",
+      "translation": "Combien de personnes vivent chez vous, vous compris ?",
+      "backTranslation": "How many people live in your home, including you?"
+    },
+    {
+      "lang": "tl",
+      "source": "How many people live in your home, including you?",
+      "translation": "Ilang tao ang nakatira sa bahay ninyo, kasama ka?",
+      "backTranslation": "How many people live in your house, including you?"
+    },
+    {
+      "lang": "ko",
+      "source": "Could you tell me a little more about what you need help with?",
+      "translation": "어떤 도움이 필요하신지 조금 더 말씀해 주시겠어요?",
+      "backTranslation": "Could you tell me a little more about what help you need?"
+    },
+    {
+      "lang": "ru",
+      "source": "Could you tell me a little more about what you need help with?",
+      "translation": "Расскажите, пожалуйста, чуть подробнее, с чем вам нужна помощь?",
+      "backTranslation": "Please tell us in a bit more detail what you need help with?"
+    },
+    {
+      "lang": "fr",
+      "source": "Could you tell me a little more about what you need help with?",
+      "translation": "Pouvez-vous m'en dire un peu plus sur ce dont vous avez besoin ?",
+      "backTranslation": "Can you tell me a little more about what you need?"
+    },
+    {
+      "lang": "tl",
+      "source": "Could you tell me a little more about what you need help with?",
+      "translation": "Puwede mo bang sabihin nang kaunti pa kung anong tulong ang kailangan mo?",
+      "backTranslation": "Can you say a little more about what help you need?"
+    },
+    {
+      "lang": "ko",
+      "source": "Sorry, I want to be sure I understood. Could you tell me again what you need?",
+      "translation": "죄송합니다. 제대로 이해했는지 확인하고 싶어요. 무엇이 필요하신지 다시 말씀해 주시겠어요?",
+      "backTranslation": "Sorry. I want to check that I understood correctly. Could you tell me again what you need?"
+    },
+    {
+      "lang": "ru",
+      "source": "Sorry, I want to be sure I understood. Could you tell me again what you need?",
+      "translation": "Извините, хотим убедиться, что всё поняли правильно. Повторите, пожалуйста, что вам нужно?",
+      "backTranslation": "Sorry, we want to make sure we understood everything correctly. Please repeat what you need?"
+    },
+    {
+      "lang": "fr",
+      "source": "Sorry, I want to be sure I understood. Could you tell me again what you need?",
+      "translation": "Pardon, je veux être sûr d'avoir bien compris. Pouvez-vous me redire ce dont vous avez besoin ?",
+      "backTranslation": "Sorry, I want to be sure I understood. Can you tell me again what you need?"
+    },
+    {
+      "lang": "tl",
+      "source": "Sorry, I want to be sure I understood. Could you tell me again what you need?",
+      "translation": "Pasensya na, gusto kong makasigurong naintindihan ko. Puwede mo bang sabihin ulit kung ano ang kailangan mo?",
+      "backTranslation": "Sorry, I want to be sure I understood. Can you say again what you need?"
+    },
+    {
+      "lang": "ko",
+      "source": "What neighborhood or street do you live on?",
+      "translation": "어느 동네나 거리에 사시나요?",
+      "backTranslation": "What neighborhood or street do you live on?"
+    },
+    {
+      "lang": "ru",
+      "source": "What neighborhood or street do you live on?",
+      "translation": "В каком районе или на какой улице вы живёте?",
+      "backTranslation": "In what neighborhood or on what street do you live?"
+    },
+    {
+      "lang": "fr",
+      "source": "What neighborhood or street do you live on?",
+      "translation": "Dans quel quartier ou quelle rue habitez-vous ?",
+      "backTranslation": "In what neighborhood or what street do you live?"
+    },
+    {
+      "lang": "tl",
+      "source": "What neighborhood or street do you live on?",
+      "translation": "Saang lugar o kalye ka nakatira?",
+      "backTranslation": "What area or street do you live on?"
     }
   ]
 }

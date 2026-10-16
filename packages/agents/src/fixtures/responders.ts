@@ -36,16 +36,47 @@ const policy: Responder = (ctx) => {
   return parsePolicyOffline(unescape(readDataBlock(ctx.firstUser, 'policy_text') ?? ''), known);
 };
 
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Match `text` against a fixture that may hold slots ("… your {wallet}: {receiver}."), returning the
+ * slot values, or null. Exact entries match only themselves.
+ */
+function slotMatch(template: string, text: string): Record<string, string> | null {
+  if (!template.includes('{')) return template === text ? {} : null;
+  const names: string[] = [];
+  const source = template
+    .split(/(\{\w+\})/)
+    .map((part) => {
+      const slot = /^\{(\w+)\}$/.exec(part);
+      if (!slot) return escapeRe(part);
+      names.push(slot[1] as string);
+      return '(.+?)';
+    })
+    .join('');
+  const m = new RegExp(`^${source}$`, 'su').exec(text);
+  return m ? Object.fromEntries(names.map((n, i) => [n, m[i + 1] as string])) : null;
+}
+const fill = (template: string, vars: Record<string, string>): string => template.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? `{${k}}`);
+
 const translation: Responder = (ctx) => {
   const source = unescape(readDataBlock(ctx.firstUser, 'source_text') ?? '');
   const lang = /Language: ([a-z-]+)/i.exec(ctx.firstUser)?.[1] ?? '';
-  const hit = TRANSLATIONS.find((t) => t.lang === lang && t.source === source);
-  return { translation: hit?.translation ?? source };
+  for (const t of TRANSLATIONS) {
+    if (t.lang !== lang) continue;
+    const vars = slotMatch(t.source, source);
+    if (vars) return { translation: fill(t.translation, vars) };
+  }
+  return { translation: source };
 };
 
 const backTranslation: Responder = (ctx) => {
   const text = unescape(readDataBlock(ctx.firstUser, 'text') ?? '');
-  return { english: TRANSLATIONS.find((t) => t.translation === text)?.backTranslation ?? text };
+  for (const t of TRANSLATIONS) {
+    const vars = slotMatch(t.translation, text);
+    if (vars) return { english: fill(t.backTranslation, vars) };
+  }
+  return { english: text };
 };
 
 const narrative: Responder = (ctx) => {
