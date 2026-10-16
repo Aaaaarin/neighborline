@@ -138,6 +138,7 @@ const SIGNAL_LABEL: Record<InjectionSignal['id'], string> = {
   encoded_blob: 'contains an encoded blob',
   hidden_characters: 'contains hidden control characters',
   large_amount_directive: 'demands an amount far above any cap',
+  addressed_to_ai: 'is written to the AI rather than to the organizers',
 };
 
 export function checkInjection(text: string | readonly string[] | undefined, policy: Policy): RailFlag[] {
