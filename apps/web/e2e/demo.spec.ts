@@ -138,6 +138,24 @@ test('state-changing routes refuse cross-site and non-JSON requests', async ({ r
   expect(h['permissions-policy']).toContain('microphone=(self)');
 });
 
+test('pages run under the nonce CSP: no violations, and /donate still offers a PayPal button path', async ({ page }) => {
+  const violations: string[] = [];
+  page.on('console', (m) => {
+    if (/Content Security Policy|Refused to (load|execute|apply|connect|frame)/i.test(m.text())) violations.push(m.text());
+  });
+  await page.goto('/donate');
+  // fake mode, no client id: the labelled simulated button walks the same server path (Orders v2 create + capture)
+  await expect(page.getByText('Sandbox not configured — simulated')).toBeVisible();
+  await page.getByRole('button', { name: /^Give .*\(simulated\)$/ }).click();
+  await expect(page.getByText(/thank/i).first()).toBeVisible();
+  await page.goto('/demo?scenario=lan&speed=6');
+  await expect(page.getByRole('button', { name: 'Play scenario' })).toBeEnabled();
+  await page.goto('/organizer');
+  await page.goto('/trust');
+  await expect(page.getByText('This is everything the demo relaxes')).toBeVisible();
+  expect(violations).toEqual([]);
+});
+
 test('an approval without a signature is refused', async ({ request }) => {
   const res = await request.post('/api/approvals', { data: { requestIds: ['req_seed_q_ana'], organizerId: 'org_dana', deviceLabel: 'no signature' } });
   expect(res.status()).toBe(400);
