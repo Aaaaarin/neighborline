@@ -148,3 +148,13 @@ describe('payouts', () => {
     }
   });
 });
+
+describe('configured unclaimed receivers', () => {
+  it('treats receivers listed in unclaimedReceivers as having no PayPal account yet', async () => {
+    const { decideOutcome } = await import('./outcomes.js');
+    expect(decideOutcome('Rosa.M.Delgado@example.com', ['rosa.m.delgado@example.com'])).toBe('UNCLAIMED');
+    expect(decideOutcome('rosa.m.delgado@example.com')).toBe('SUCCESS');
+    const res = await fetch(`${fake.url}/__fake/config`, { method: 'POST', body: JSON.stringify({ unclaimedReceivers: ['late@example.com'] }) });
+    expect((await res.json()).unclaimedReceivers).toEqual(['late@example.com']);
+  });
+});

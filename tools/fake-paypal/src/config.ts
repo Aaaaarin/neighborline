@@ -15,6 +15,11 @@ export interface FakeConfig {
   reportingLagMs: number;
   /** Real sandbox rejects recipient_type PHONE for payouts. Off by default so demo data keeps working. */
   rejectPhoneRecipients: boolean;
+  /**
+   * Receivers that behave like an email/handle with no PayPal account yet (item → UNCLAIMED), in addition to the
+   * substring rules in outcomes.ts. Demo world: Rosa has not opened a PayPal account with her email yet.
+   */
+  unclaimedReceivers: string[];
   /** When both set, /v1/oauth2/token only accepts these credentials. */
   clientId?: string;
   clientSecret?: string;
@@ -32,6 +37,7 @@ export const DEFAULT_CONFIG: FakeConfig = {
   tokenTtlSec: 32_400,
   reportingLagMs: 0,
   rejectPhoneRecipients: false,
+  unclaimedReceivers: ['rosa.m.delgado@example.com'],
   signingSecret: 'fake-paypal-local-signing-key',
   webhookMaxAttempts: 3,
   log: false,
@@ -52,6 +58,9 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Partial<Fak
   if (lag !== undefined) out.reportingLagMs = lag;
   const phone = bool(env.FAKE_PAYPAL_REJECT_PHONE);
   if (phone !== undefined) out.rejectPhoneRecipients = phone;
+  if (env.FAKE_PAYPAL_UNCLAIMED_RECEIVERS !== undefined) {
+    out.unclaimedReceivers = env.FAKE_PAYPAL_UNCLAIMED_RECEIVERS.split(',').map((r) => r.trim()).filter(Boolean);
+  }
   const auto = bool(env.FAKE_PAYPAL_AUTO_PROCESS);
   if (auto !== undefined) out.autoProcess = auto;
   if (env.FAKE_PAYPAL_CLIENT_ID && env.FAKE_PAYPAL_CLIENT_SECRET) {

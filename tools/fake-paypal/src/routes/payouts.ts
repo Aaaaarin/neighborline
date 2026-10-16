@@ -150,7 +150,7 @@ export function finalizeBatch(ctx: FakeContext, batchId: string): void {
   for (const id of b.itemIds) {
     const item = ctx.state.items.get(id)!;
     if (item.transaction_status !== 'PENDING') continue;
-    setItemStatus(ctx, item, decideOutcome(item.payout_item.receiver));
+    setItemStatus(ctx, item, decideOutcome(item.payout_item.receiver, ctx.config.unclaimedReceivers));
   }
   b.batch_status = 'SUCCESS';
   b.time_completed = ctx.iso();

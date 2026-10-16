@@ -6,13 +6,15 @@
  *   contains "@onhold"              → ONHOLD
  *   contains "@blocked"             → BLOCKED
  *   contains "@failed"              → FAILED
+ *   listed in config.unclaimedReceivers → UNCLAIMED (exact match, case-insensitive)
  *   anything else                   → SUCCESS
  */
 import type { PayoutItemRec, TransactionStatus } from './state.js';
 
-export function decideOutcome(receiver: string): TransactionStatus {
+export function decideOutcome(receiver: string, unclaimedReceivers: readonly string[] = []): TransactionStatus {
   const r = receiver.trim().toLowerCase();
   if (r.includes('unclaimed')) return 'UNCLAIMED';
+  if (unclaimedReceivers.some((u) => u.trim().toLowerCase() === r)) return 'UNCLAIMED';
   if (r.startsWith('@new-to-venmo') || r.startsWith('new-to-venmo')) return 'UNCLAIMED';
   if (r.includes('@onhold')) return 'ONHOLD';
   if (r.includes('@blocked')) return 'BLOCKED';
