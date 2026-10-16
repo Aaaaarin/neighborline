@@ -131,8 +131,34 @@ export interface RequestView {
   amountBreakdown: AmountBreakdown | null;
   payout: { batch: PayoutBatch; item: PayoutItem } | null;
   decline?: { organizerId: string; reasonCode: DeclineReasonCode; note?: string; at: string };
+  /**
+   * The neighbor replied to a decline and asked for another look: the request is back in the queue
+   * (awaiting_approval) with the first decision attached. The organizer who declined can't decline it again.
+   */
+  appeal?: AppealView;
   /** One-line summary of the schema pipeline behind the AI extraction (agents' trace.summary). */
   aiTrace?: { status: 'valid' | 'locally_fixed' | 'repaired' | 'invalid' | 'error'; summary: string };
+}
+
+export interface AppealView {
+  at: string;
+  /** What the neighbor wrote back, in their language (+ English when we have it). */
+  text: string;
+  textEn?: string;
+  firstDecline: { organizerId: string; name: string; reasonCode: DeclineReasonCode; reasonLabel: string; note?: string; at: string };
+  /** Set once a different organizer declined the appeal too; the decision is final. */
+  closed?: boolean;
+}
+
+/** The one thing the line is waiting to hear from the neighbor. */
+export interface ThreadQuestion {
+  key: 'ask_payout' | 'ask_household' | 'ask_category' | 'ask_location' | 'ask_again' | 'appeal';
+  /** In the neighbor's language. */
+  text: string;
+  /** True when the request can be filed without an answer (household size). */
+  optional: boolean;
+  /** Tappable answers; `send` is what goes into the thread, in the neighbor's language. */
+  answers: Array<{ label: string; send: string }>;
 }
 
 export type ThreadMessageKind =
@@ -145,7 +171,8 @@ export type ThreadMessageKind =
   | 'paid'
   | 'claim_help'
   | 'declined'
-  | 'blocked';
+  | 'blocked'
+  | 'question';
 
 export interface ThreadMessage {
   id: string;
@@ -172,6 +199,8 @@ export interface ThreadView {
   status: RequestStatus;
   itemStatus: PayoutItemStatus | null;
   awaitingConfirmation: boolean;
+  /** Set when the neighbor can (or must) answer: a clarifying question, or an appeal after a decline. */
+  question?: ThreadQuestion | null;
   messages: ThreadMessage[];
   approvalsCount: number;
   approvalsRequired: number;

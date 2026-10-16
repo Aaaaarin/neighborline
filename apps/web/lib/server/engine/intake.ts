@@ -18,7 +18,7 @@ import {
   type Policy,
   type RailFlag,
 } from '@neighborline/core';
-import { composeReadBack, fixtureAudioBytes, getScenario, questionText, type IntakeResult as AgentIntake } from '@neighborline/agents';
+import { composeReadBack, fixtureAudioBytes, getScenario, questionText, translateWithCheck, type IntakeResult as AgentIntake } from '@neighborline/agents';
 import {
   appendAudit,
   createRequest,
@@ -38,6 +38,7 @@ import * as tpl from '../fixtures/templates';
 import { activePolicy, asLang, categoriesFor, fixtureForLang, isDemoId, FIXTURE_FOR, type BaseCtx as Ctx } from './context';
 import { nowIso } from './events';
 import { demoSpentTodayCents } from './queries';
+import { appealAck, categoryLabelIn, householdAnswer, questionFor } from './conversation';
 import { getThread } from './views';
 
 export async function startIntake(
@@ -56,16 +57,24 @@ export async function startIntake(
 async function loadReq(ctx: Ctx, id: string, opts: { open?: boolean } = {}): Promise<HelpRequest> {
   const r = await getRequest(ctx.db, id);
   if (!r || r.groupId !== ctx.gen.group.id) throw new HttpError(404, `No request ${id}`);
-  if (opts.open && r.status !== 'intake' && r.status !== 'needs_clarification') {
-    throw new HttpError(409, 'This request was already sent to the organizers.');
-  }
+  if (opts.open) assertOpen(r);
   return r;
+}
+
+function assertOpen(r: HelpRequest): void {
+  if (r.status !== 'intake' && r.status !== 'needs_clarification') {
+    throw new HttpError(409, r.status === 'declined' ? 'This request was already looked at again; that decision is final.' : 'This request was already sent to the organizers.');
+  }
 }
 
 const live = (ctx: Ctx) => ctx.agents.providers.mode === 'live';
 
 export async function submitAudio(ctx: Ctx, requestId: string, input: AudioInput, opts: { voiceMessageId?: string } = {}): Promise<IntakeResult> {
-  const req = await loadReq(ctx, requestId, { open: true });
+  const prior = await loadReq(ctx, requestId);
+  // A voice reply to a question (or to a decline): transcribe it, then treat it like typed text.
+  if (prior.originalText.trim() || prior.status === 'declined') return voiceReply(ctx, prior, input);
+  assertOpen(prior);
+  const req = prior;
   const policy = await activePolicy(ctx);
   const categories = categoriesFor(policy);
   let result: AgentIntake;
@@ -120,8 +129,15 @@ export async function submitAudio(ctx: Ctx, requestId: string, input: AudioInput
   return applyIntake(ctx, req, policy, result, simulated);
 }
 
-export async function submitText(ctx: Ctx, requestId: string, input: { text: string; lang?: Lang }): Promise<IntakeResult> {
-  const req = await loadReq(ctx, requestId, { open: true });
+export async function submitText(
+  ctx: Ctx,
+  requestId: string,
+  input: { text: string; lang?: Lang },
+  opts: { recorded?: boolean; simulated?: boolean } = {},
+): Promise<IntakeResult> {
+  const req = await loadReq(ctx, requestId);
+  if (req.status === 'declined') return appeal(ctx, req, input.text.trim(), opts);
+  assertOpen(req);
   const policy = await activePolicy(ctx);
   // The agent is stateless: a clarification answer is re-run together with what was said before.
   const prior = req.originalText.trim();
@@ -129,8 +145,101 @@ export async function submitText(ctx: Ctx, requestId: string, input: { text: str
   const langHint = input.lang ?? (prior ? req.lang : undefined);
   const result = await ctx.agents.intake.fromText({ text, categories: categoriesFor(policy), ...(langHint ? { langHint } : {}), speakReadBack: true });
   const lang = asLang(result.lang, input.lang ?? req.lang);
-  ctx.meta.message(requestId, { from: 'neighbor', kind: 'text', lang, text: input.text.trim(), meta: { channel: req.channel } });
-  return applyIntake(ctx, req, policy, result, !live(ctx));
+  if (!opts.recorded) ctx.meta.message(requestId, { from: 'neighbor', kind: 'text', lang, text: input.text.trim(), meta: { channel: req.channel } });
+  return applyIntake(ctx, req, policy, result, opts.simulated ?? false);
+}
+
+/**
+ * Live: speech-to-text on the reply. Offline (AI_MODE=fixture) there is no speech-to-text, so a vetted
+ * sample answer to the pending question stands in for the recording — and the thread says so.
+ */
+async function voiceReply(ctx: Ctx, req: HelpRequest, input: AudioInput): Promise<IntakeResult> {
+  const lang = req.lang;
+  let text: string;
+  let simulated = false;
+  let seconds: number | undefined;
+  if (live(ctx) && input.audio) {
+    const audio = new Uint8Array(await input.audio.arrayBuffer());
+    const mimeType = input.audio.type || 'audio/webm';
+    try {
+      const t = await ctx.agents.providers.stt.transcribe({ audio, mimeType, langHint: lang });
+      text = t.text.trim();
+      seconds = t.durationSec ? Math.round(t.durationSec) : undefined;
+    } finally {
+      disposeAudio(ctx.cfg.audio, { requestId: req.id, audio, mimeType });
+    }
+  } else {
+    const policy = await activePolicy(ctx);
+    text = sampleAnswer(req, policy);
+    simulated = true;
+  }
+  if (!text) throw new HttpError(400, 'We couldn’t hear anything in that recording.');
+  ctx.meta.message(req.id, { from: 'neighbor', kind: 'voice', lang, text, meta: { audioSeconds: seconds ?? Math.max(2, Math.round(text.length / 12)) } });
+  return submitText(ctx, req.id, { text, lang }, { recorded: true, simulated });
+}
+
+function sampleAnswer(req: HelpRequest, policy: Policy): string {
+  const q = questionFor(req, policy, undefined, { blocked: hasBlockingFlag(req.railFlags) });
+  const lang = req.lang;
+  switch (q?.key) {
+    case 'ask_payout':
+      // Unique per request, so rehearsals never trip the per-destination velocity cap.
+      return `Venmo @neighbor-${req.id.replace(/[^a-z0-9]/gi, '').slice(-6).toLowerCase()}`;
+    case 'ask_category':
+      return categoryLabelIn(policy, 'groceries', lang);
+    case 'ask_household':
+      return householdAnswer(3, lang);
+    case 'appeal':
+      return q.answers[0]?.send ?? 'REVIEW';
+    default:
+      return getScenario(fixtureForLang(lang)).transcript;
+  }
+}
+
+/**
+ * The neighbor answered a decline ("REVIEW", or anything they want to add): the request goes back to the
+ * queue with the first decision attached, for a different organizer. One appeal per request.
+ */
+async function appeal(ctx: Ctx, req: HelpRequest, text: string, opts: { recorded?: boolean; simulated?: boolean }): Promise<IntakeResult> {
+  const meta = ctx.meta.ensure(req.id);
+  if (meta.appeal) throw new HttpError(409, 'This request was already looked at again; that decision is final.');
+  if (!req.payoutDestination || !req.extracted) throw new HttpError(409, 'This request can’t be reopened.');
+  const lang = req.lang;
+  if (!opts.recorded) ctx.meta.message(req.id, { from: 'neighbor', kind: 'text', lang, text, meta: { channel: req.channel } });
+  let textEn: string | undefined;
+  if (lang !== 'en' && live(ctx)) {
+    const t = await translateWithCheck(ctx.agents.providers.llm, { text, targetLang: 'en', facts: [] }).catch(() => null);
+    if (t?.translated) textEn = t.text;
+  }
+  const policy = await activePolicy(ctx);
+  const rail = await railFor(ctx, req, policy, req.payoutDestination);
+  const updated = await updateRequest(
+    ctx.db,
+    req.id,
+    { status: 'awaiting_approval', computed: rail.computed, railFlags: rail.flags, policyVersionId: policy.id },
+    { actor: 'requester' },
+  );
+  const firstDecline = meta.decline ?? { organizerId: 'unknown', reasonCode: 'other' as const, at: nowIso() };
+  meta.appeal = { at: nowIso(), text, ...(textEn ? { textEn } : {}), firstDecline };
+  meta.breakdown = rail.breakdown;
+  delete meta.decline;
+  await appendAudit(ctx.db, { actor: 'requester', action: 'request.appealed', entityType: 'request', entityId: req.id, data: { firstDeclineBy: firstDecline.organizerId, reasonCode: firstDecline.reasonCode } });
+  const ack = appealAck(lang);
+  ctx.meta.message(req.id, { from: 'line', kind: 'ack', lang, text: ack.text, textEn: ack.textEn });
+  const channel = req.channel === 'sms' ? 'sms' : 'whatsapp';
+  await recordNotification(ctx.db, { requestId: req.id, channel, lang, messageKey: 'confirmed_waiting', text: ack.text, status: 'sent' });
+  ctx.bus.emit({ type: 'request.confirmed', at: nowIso(), requestId: req.id }, [req.id]);
+  ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: req.id, lang, text: ack.text, channel }, [req.id]);
+  if (rail.flags.length) ctx.bus.emit({ type: 'request.flagged', at: nowIso(), requestId: req.id, flags: rail.flags }, [req.id]);
+  return {
+    requestId: req.id,
+    status: updated.status,
+    transcript: { text, lang, textEn: textEn ?? text },
+    readBack: { text: ack.text, lang, textEn: ack.textEn },
+    extraction: req.extracted,
+    missing: req.extracted.missing,
+    simulatedTranscript: opts.simulated ?? false,
+  };
 }
 
 function destinationFrom(x: IntakeExtraction | null, nameOnFile: string | undefined): PayoutDestination | null {
@@ -166,9 +275,13 @@ async function applyIntake(ctx: Ctx, req: HelpRequest, policy: Policy, result: A
 
   const readBackEn = englishReadBack(x, result.readBack.text);
   ctx.meta.message(req.id, { from: 'line', kind: 'readback', lang, text: result.readBack.text, textEn: readBackEn });
-  if (result.clarifyingQuestion && result.clarifyingQuestion.key !== 'ask_again') {
-    ctx.meta.message(req.id, { from: 'line', kind: 'status', lang, text: result.clarifyingQuestion.text, textEn: questionText(result.clarifyingQuestion.key, 'en') });
-  }
+  const q = result.clarifyingQuestion;
+  // When the extraction failed outright, the read-back already IS "tell me again": don't say it twice.
+  if (q && q.text !== result.readBack.text) {
+    meta.question = { key: q.key, text: q.text, lang };
+    ctx.meta.message(req.id, { from: 'line', kind: 'question', lang, text: q.text, textEn: questionText(q.key, 'en') });
+  } else if (q) meta.question = { key: q.key, text: q.text, lang };
+  else delete meta.question;
   ctx.bus.emit({ type: 'request.readback', at: nowIso(), requestId: req.id, text: result.readBack.text, lang }, [req.id]);
   const audio = result.readBack.audio;
   return {
@@ -270,7 +383,8 @@ export async function confirmIntake(
   ctx.meta.message(requestId, { from: 'neighbor', kind: 'text', lang, text: tpl.quickReplies(lang).yes, textEn: 'Yes, that’s right' });
   if (!req.payoutDestination || !req.extracted) {
     await updateRequest(ctx.db, requestId, { status: 'needs_clarification', confirmedByRequester: true }, { actor: 'requester' });
-    ctx.meta.message(requestId, { from: 'line', kind: 'status', lang, text: render('ask_payout', lang), textEn: render('ask_payout', 'en') });
+    const ask = ctx.meta.ensure(requestId).question?.key === 'ask_payout' ? ctx.meta.ensure(requestId).question!.text : render('ask_payout', lang);
+    ctx.meta.message(requestId, { from: 'line', kind: 'question', lang, text: ask, textEn: render('ask_payout', 'en') });
     ctx.bus.emit({ type: 'request.confirmed', at: nowIso(), requestId }, [requestId]);
     return done();
   }

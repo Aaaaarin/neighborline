@@ -295,16 +295,30 @@ export class Engine implements Services {
     const r = await this.loadReq(ctx, input.requestId);
     const org = (await listOrganizers(ctx.db, ctx.gen.group.id)).find((o) => o.id === input.organizerId);
     if (!org) throw new HttpError(403, 'Unknown organizer');
+    const meta = ctx.meta.ensure(r.id);
+    // Idempotent: a second tap, or a second organizer, gets the decision that was already sent. No second message.
+    const already = () => {
+      const d = meta.decline ?? { reasonCode: input.reasonCode, note: input.note };
+      return { status: 'declined' as RequestStatus, message: { ...tpl.declined(r.lang, d.reasonCode, d.note, { final: !!meta.appeal }), lang: r.lang }, alreadyDeclined: true };
+    };
+    if (r.status === 'declined') return already();
     if ((await listItemsForRequest(ctx.db, r.id)).length) throw new HttpError(409, 'Already sent to PayPal; it can no longer be declined.');
+    const appeal = meta.appeal && !meta.appeal.closed ? meta.appeal : null;
+    if (appeal && appeal.firstDecline.organizerId === org.id) {
+      throw new HttpError(409, 'You declined this request the first time, and the neighbor asked for a different organizer to look again.');
+    }
     try {
       await updateRequest(ctx.db, r.id, { status: 'declined' }, { actor: org.id });
     } catch (err) {
-      if (err instanceof InvalidTransitionError) throw new HttpError(409, `This request is ${r.status.replace('_', ' ')} and can’t be declined.`);
+      if (err instanceof InvalidTransitionError) {
+        if ((await this.loadReq(ctx, r.id)).status === 'declined') return already();
+        throw new HttpError(409, `This request is ${r.status.replace('_', ' ')} and can’t be declined.`);
+      }
       throw err;
     }
-    const m = tpl.declined(r.lang, input.reasonCode, input.note);
-    const meta = ctx.meta.ensure(r.id);
+    const m = tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal });
     meta.decline = { organizerId: org.id, reasonCode: input.reasonCode, ...(input.note ? { note: input.note } : {}), at: nowIso() };
+    if (appeal) appeal.closed = true;
     ctx.meta.message(r.id, { from: 'line', kind: 'declined', lang: r.lang, text: m.text, textEn: m.textEn });
     const channel: Channel = r.channel === 'sms' ? 'sms' : 'whatsapp';
     await recordNotification(ctx.db, { requestId: r.id, channel, lang: r.lang, messageKey: 'declined_with_appeal', text: m.text, status: 'sent' });
@@ -313,8 +327,10 @@ export class Engine implements Services {
   }
 
   async previewDecline(input: { requestId: string; reasonCode: DeclineReasonCode; note?: string }) {
-    const r = await this.loadReq(await this.base(), input.requestId);
-    return { ...tpl.declined(r.lang, input.reasonCode, input.note), lang: r.lang };
+    const ctx = await this.base();
+    const r = await this.loadReq(ctx, input.requestId);
+    const appeal = ctx.meta.get(r.id)?.appeal;
+    return { ...tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal && !appeal.closed }), lang: r.lang };
   }
 
   async cancelPayoutItem(input: { batchId: string; itemId: string }) {

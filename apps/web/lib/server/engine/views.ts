@@ -15,6 +15,7 @@ import { QUEUE_PEOPLE } from './demo-extras';
 import { categoryLabelFor, type BaseCtx as Ctx } from './context';
 import { PAYOUT_PURPOSE } from './constants';
 import { listAlerts } from './queries';
+import { DECLINE_REASON_EN, questionFor } from './conversation';
 
 export function organizerView(o: DomainOrganizer): Organizer {
   const handle = o.handles.find((h) => h.startsWith('@')) ?? o.handles[0] ?? '';
@@ -112,6 +113,21 @@ export async function requestView(ctx: Ctx, r: HelpRequest, cache: { policy?: Po
     amountBreakdown: meta?.breakdown ?? null,
     payout: item && batch ? { batch, item } : null,
     ...(meta?.decline ? { decline: meta.decline } : {}),
+    ...(meta?.appeal
+      ? {
+          appeal: {
+            at: meta.appeal.at,
+            text: meta.appeal.text,
+            ...(meta.appeal.textEn ? { textEn: meta.appeal.textEn } : {}),
+            ...(meta.appeal.closed ? { closed: true } : {}),
+            firstDecline: {
+              ...meta.appeal.firstDecline,
+              name: orgs.find((o) => o.id === meta.appeal!.firstDecline.organizerId)?.name ?? 'An organizer',
+              reasonLabel: DECLINE_REASON_EN[meta.appeal.firstDecline.reasonCode],
+            },
+          },
+        }
+      : {}),
     ...(meta?.aiTrace ? { aiTrace: meta.aiTrace } : r.extracted ? { aiTrace: { status: 'valid' as const, summary: 'IntakeExtraction valid · filed before this server started' } } : {}),
   };
 }
@@ -150,12 +166,15 @@ export async function getThread(ctx: Ctx, requestId: string): Promise<ThreadView
       messages.push({ id: n.id, at: n.createdAt, from: 'line', kind: KIND_FOR_KEY[n.messageKey] ?? 'status', lang: n.lang, text: n.text });
     }
   }
+  const blocked = hasBlockingFlag(r.railFlags);
+  const question = r.status === 'intake' || r.status === 'needs_clarification' || r.status === 'declined' ? questionFor(r, await getActivePolicy(ctx.db, r.groupId), ctx.meta.get(r.id), { blocked }) : null;
   return {
     requestId: r.id,
     lang: r.lang,
     status: r.status,
     itemStatus: items.at(-1)?.status ?? null,
-    awaitingConfirmation: r.status === 'intake' && !!r.extracted && !hasBlockingFlag(r.railFlags),
+    awaitingConfirmation: r.status === 'intake' && !!r.extracted && !blocked,
+    question,
     messages,
     approvalsCount: approvals?.approvers.length ?? 0,
     approvalsRequired: ctx.gen.group.requiredApprovals,

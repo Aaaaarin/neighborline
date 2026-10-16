@@ -132,15 +132,37 @@ export const DECLINE_REASON_LABELS: Record<DeclineReasonCode, string> = {
   other: 'Something else (write a note)',
 };
 
-export function declined(lang: Lang, code: DeclineReasonCode, note?: string) {
-  const r = REASONS[code];
-  const by: Record<L, string> = {
-    en: `We can’t send money this time: ${r.en}. If you think that’s wrong, reply REVIEW and a different organizer will look again within 24 hours.`,
-    es: `Esta vez no podemos enviar el dinero: ${r.es}. Si cree que es un error, responda REVISAR y otra persona del grupo lo revisará en 24 horas.`,
-    vi: `Lần này chúng tôi chưa thể gửi tiền: ${r.vi}. Nếu thấy chưa đúng, bạn nhắn XEM LẠI — một người khác trong nhóm sẽ xem lại trong 24 giờ.`,
-    ht: `Fwa sa a nou pa ka voye lajan an: ${r.ht}. Si ou panse se yon erè, reponn REVIZE epi yon lòt òganizatè ap gade l ankò nan 24 èdtan.`,
-    ar: `لا نستطيع إرسال المال هذه المرة: ${r.ar}. إن كنت ترى أن هذا خطأ، ردّ بكلمة مراجعة وسيراجع منظّم آخر طلبك خلال 24 ساعة.`,
-  };
+/** Reason "other" with no note: say plainly that it was a judgment call, never point at a note that isn't there. */
+const OTHER_NO_NOTE: Record<L, string> = {
+  en: 'the organizers couldn’t approve it this time',
+  es: 'el grupo no pudo aprobarla esta vez',
+  vi: 'nhóm chưa thể duyệt yêu cầu lần này',
+  ht: 'òganizatè yo pa t ka apwouve l fwa sa a',
+  ar: 'لم يتمكن المنظّمون من الموافقة عليه هذه المرة',
+};
+
+/**
+ * The decline the neighbor receives. The first one offers an appeal (reply REVIEW → a different organizer
+ * looks again). `final`: a second organizer already looked again, so no further appeal is promised.
+ */
+export function declined(lang: Lang, code: DeclineReasonCode, note?: string, opts: { final?: boolean } = {}) {
+  const reason = code === 'other' && !note ? OTHER_NO_NOTE : REASONS[code];
+  const r = (l: L) => reason[l];
+  const by: Record<L, string> = opts.final
+    ? {
+        en: `A second organizer looked at your request again. We still can’t send money this time: ${r('en')}. We’re sorry, and you’re welcome to ask again if things change.`,
+        es: `Otra persona del grupo revisó su solicitud de nuevo. Aun así no podemos enviar el dinero esta vez: ${r('es')}. Lo sentimos; puede escribirnos otra vez si su situación cambia.`,
+        vi: `Một người khác trong nhóm đã xem lại yêu cầu của bạn. Lần này chúng tôi vẫn chưa thể gửi tiền: ${r('vi')}. Rất tiếc; nếu hoàn cảnh thay đổi, bạn cứ nhắn lại nhé.`,
+        ht: `Yon lòt òganizatè gade demann ou an ankò. Fwa sa a nou toujou pa ka voye lajan an: ${r('ht')}. Nou regrèt; si sitiyasyon w chanje, ou ka ekri nou ankò.`,
+        ar: `راجع منظّم آخر طلبك مرة أخرى. ما زلنا لا نستطيع إرسال المال هذه المرة: ${r('ar')}. نأسف لذلك، ويمكنك أن تكتب لنا من جديد إذا تغيّر وضعك.`,
+      }
+    : {
+        en: `We can’t send money this time: ${r('en')}. If you think that’s wrong, reply REVIEW and a different organizer will look again within 24 hours.`,
+        es: `Esta vez no podemos enviar el dinero: ${r('es')}. Si cree que es un error, responda REVISAR y otra persona del grupo lo revisará en 24 horas.`,
+        vi: `Lần này chúng tôi chưa thể gửi tiền: ${r('vi')}. Nếu thấy chưa đúng, bạn nhắn XEM LẠI — một người khác trong nhóm sẽ xem lại trong 24 giờ.`,
+        ht: `Fwa sa a nou pa ka voye lajan an: ${r('ht')}. Si ou panse se yon erè, reponn REVIZE epi yon lòt òganizatè ap gade l ankò nan 24 èdtan.`,
+        ar: `لا نستطيع إرسال المال هذه المرة: ${r('ar')}. إن كنت ترى أن هذا خطأ، ردّ بكلمة مراجعة وسيراجع منظّم آخر طلبك خلال 24 ساعة.`,
+      };
   const suffix = note ? `\n\n“${note}”` : '';
   return { text: by[pick(lang)] + suffix, textEn: by.en + suffix };
 }

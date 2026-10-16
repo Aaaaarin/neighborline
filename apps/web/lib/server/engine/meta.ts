@@ -5,6 +5,7 @@
  * is rebuilt from the stored request text + recorded notifications).
  */
 import { randomBytes } from 'node:crypto';
+import type { Lang } from '@neighborline/core';
 import type { ScenarioId, RequestView, ThreadMessage } from '../../types';
 import { nowIso } from './events';
 
@@ -15,6 +16,10 @@ export interface RequestMeta {
   aiTrace?: NonNullable<RequestView['aiTrace']>;
   breakdown?: RequestView['amountBreakdown'];
   decline?: RequestView['decline'];
+  /** The neighbor asked for another look after a decline (one appeal per request). */
+  appeal?: { at: string; text: string; textEn?: string; firstDecline: NonNullable<RequestView['decline']>; closed?: boolean };
+  /** The clarifying question last asked, in the neighbor's language (the agent may have translated it). */
+  question?: { key: string; text: string; lang: Lang };
   /** Set for /demo runs and sample voice notes. */
   scenario?: ScenarioId;
   speed: number;

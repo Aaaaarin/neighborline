@@ -126,7 +126,7 @@ export interface Services {
     organizerId: string;
     reasonCode: DeclineReasonCode;
     note?: string;
-  }): Promise<{ status: RequestStatus; message: { text: string; textEn: string; lang: Lang } }>;
+  }): Promise<{ status: RequestStatus; message: { text: string; textEn: string; lang: Lang }; alreadyDeclined?: boolean }>;
   previewDecline(input: { requestId: string; reasonCode: DeclineReasonCode; note?: string }): Promise<{
     text: string;
     textEn: string;
