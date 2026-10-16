@@ -203,6 +203,24 @@ NEIGHBORLINE_APPROVAL_SECRET=<at least 32 chars> pnpm --filter @neighborline/pay
 
 Our own agents use the Agent Toolkit for what it covers (`list_transactions`) and this server for what it doesn't.
 
+### Use the Payouts guard in your own agent
+
+`@neighborline/paypal` is built to be published on its own (MIT; the npm release is pending the scope, see
+[docs/RELEASING.md](docs/RELEASING.md)). Point any MCP client at the bin, give the server and your approval service
+the same secret, and your agent can pay people only with a token two humans' approval produced:
+
+```json
+{ "mcpServers": { "neighborline-payouts": {
+    "command": "npx", "args": ["-y", "--package=@neighborline/paypal", "neighborline-payouts-mcp"],
+    "env": { "PAYPAL_MODE": "sandbox", "PAYPAL_CLIENT_ID": "…", "PAYPAL_CLIENT_SECRET": "…", "NEIGHBORLINE_APPROVAL_SECRET": "…" } } } }
+```
+
+[`examples/mcp-agent-demo`](examples/mcp-agent-demo) runs the whole story with the official MCP client in about
+3 seconds and no keys (`pnpm --filter @neighborline/example-mcp-agent-demo demo`): refused without a token, two
+organizers sign, paid, `SUCCESS`, reconciled. Claude Desktop setup, the tool reference and a security checklist are
+in **[docs/MCP.md](docs/MCP.md)**; every export is documented in
+[packages/paypal/API.md](packages/paypal/API.md).
+
 ## AI tools used
 
 The hackathon asks every entry to list the AI it uses.
@@ -394,6 +412,8 @@ Good first issues are listed in [docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSU
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Package boundaries, data model, state machines, idempotency |
 | [docs/PAYPAL.md](docs/PAYPAL.md) | PayPal deep dive, with sources |
+| [docs/MCP.md](docs/MCP.md) | The Payouts guard MCP server: tools, Claude Desktop config, using it in your own agent |
+| [docs/RELEASING.md](docs/RELEASING.md) | Publishing `@neighborline/paypal` to npm (scope, token, provenance workflow) |
 | [docs/AI.md](docs/AI.md) | The structured-output pipeline, grounding, prompt injection |
 | [docs/DEMO.md](docs/DEMO.md) | Running each scenario, recording parameters |
 | [docs/PHONE.md](docs/PHONE.md) | The phone line (Twilio Voice): setup, privacy, limits, costs |

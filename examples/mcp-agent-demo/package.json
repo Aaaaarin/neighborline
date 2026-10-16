@@ -1,0 +1,29 @@
+{
+  "name": "@neighborline/example-mcp-agent-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An AI agent paying a neighbor through neighborline-payouts-mcp: refused without an approval token, paid after two organizers sign. Scripted (no keys) or with a real LLM.",
+  "license": "MIT",
+  "scripts": {
+    "demo": "tsx src/main.ts --scripted",
+    "demo:llm": "tsx src/main.ts --llm",
+    "record": "node scripts/record-video.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "sign": "tsx src/sign.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@neighborline/fake-paypal": "workspace:*",
+    "@neighborline/paypal": "workspace:*",
+    "openai": "^7.34.0",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.12"
+  }
+}
