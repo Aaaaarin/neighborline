@@ -1,0 +1,292 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+   Neighborline tokens — see apps/web/DESIGN.md
+   Light = "ice-storm morning"; dark = "blackout night".
+   ------------------------------------------------------------------ */
+:root {
+  color-scheme: light;
+  --paper: #eff1ee;
+  --paper-raised: #f9faf8;
+  --sunk: #e3e7e5;
+  --rule: #cdd3d1;
+  --rule-strong: #aab2b2;
+  --ink: #18202e;
+  --ink-2: #444d5c;
+  --ink-3: #5f6877;
+  --frost: #d6e2ea;
+  --frost-ink: #27445e;
+  --lamp: #f4b33d;
+  --lamp-ink: #7a4700;
+  --lamp-wash: #fbebc4;
+  --lamp-display: #b06a00;
+  --pine: #2d6a4f;
+  --pine-wash: #d9ebe0;
+  --signal: #b3261e;
+  --signal-wash: #f6dde0;
+  --device: #1b2230;
+  --device-edge: #2c3546;
+  --screen: #f4f6f4;
+  --chart-1: #2f6ea8;
+  --shadow-device: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 40px 80px -30px rgb(24 40 70 / 0.35), 0 18px 30px -18px rgb(24 40 70 / 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+    --paper: #141a24;
+    --paper-raised: #1c2330;
+    --sunk: #0f141c;
+    --rule: #2e3746;
+    --rule-strong: #46516a;
+    --ink: #eceee8;
+    --ink-2: #b9c0ca;
+    --ink-3: #8d96a3;
+    --frost: #22344a;
+    --frost-ink: #b7cde0;
+    --lamp: #f6bc4f;
+    --lamp-ink: #f8c76a;
+    --lamp-wash: #3a2c12;
+    --lamp-display: #f6bc4f;
+    --pine: #7cc3a0;
+    --pine-wash: #17322a;
+    --signal: #ff8a7e;
+    --signal-wash: #3d1c1a;
+    --device: #0b0f16;
+    --device-edge: #2a3343;
+    --screen: #161c27;
+    --chart-1: #4a8bcb;
+    --shadow-device: 0 0 0 1px rgb(255 255 255 / 0.06), 0 40px 80px -30px rgb(0 0 0 / 0.7);
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #141a24;
+  --paper-raised: #1c2330;
+  --sunk: #0f141c;
+  --rule: #2e3746;
+  --rule-strong: #46516a;
+  --ink: #eceee8;
+  --ink-2: #b9c0ca;
+  --ink-3: #8d96a3;
+  --frost: #22344a;
+  --frost-ink: #b7cde0;
+  --lamp: #f6bc4f;
+  --lamp-ink: #f8c76a;
+  --lamp-wash: #3a2c12;
+  --lamp-display: #f6bc4f;
+  --pine: #7cc3a0;
+  --pine-wash: #17322a;
+  --signal: #ff8a7e;
+  --signal-wash: #3d1c1a;
+  --device: #0b0f16;
+  --device-edge: #2a3343;
+  --screen: #161c27;
+  --chart-1: #4a8bcb;
+  --shadow-device: 0 0 0 1px rgb(255 255 255 / 0.06), 0 40px 80px -30px rgb(0 0 0 / 0.7);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-raised: var(--paper-raised);
+  --color-sunk: var(--sunk);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-frost: var(--frost);
+  --color-frost-ink: var(--frost-ink);
+  --color-lamp: var(--lamp);
+  --color-lamp-ink: var(--lamp-ink);
+  --color-lamp-wash: var(--lamp-wash);
+  --color-lamp-display: var(--lamp-display);
+  --color-pine: var(--pine);
+  --color-pine-wash: var(--pine-wash);
+  --color-signal: var(--signal);
+  --color-signal-wash: var(--signal-wash);
+  --color-device: var(--device);
+  --color-screen: var(--screen);
+  --color-chart-1: var(--chart-1);
+
+  --font-display: 'Literata Variable', 'Literata', Georgia, serif;
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
+
+  /* major third from 17px */
+  --text-label: 0.85rem;
+  --text-label--line-height: 1.35;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.6;
+  --text-lead: 1.3125rem;
+  --text-lead--line-height: 1.5;
+  --text-h4: 1.65rem;
+  --text-h4--line-height: 1.25;
+  --text-h3: 2.0625rem;
+  --text-h3--line-height: 1.15;
+  --text-h2: 2.6rem;
+  --text-h2--line-height: 1.1;
+  --text-h1: 3.25rem;
+  --text-h1--line-height: 1.05;
+  --text-display: 4.0625rem;
+  --text-display--line-height: 1.02;
+
+  --breakpoint-stage: 105rem; /* 1680px */
+
+  --ease-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --shadow-device: var(--shadow-device);
+}
+
+/* ------------------------------------------------------------------ base */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'kern';
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 560;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+    font-optical-sizing: auto;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--frost);
+    color: var(--ink);
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------ utilities */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+@utility measure {
+  max-width: 68ch;
+}
+@utility serif-copy {
+  font-family: var(--font-display);
+  font-size: 1.1875rem;
+  line-height: 1.7;
+  font-weight: 400;
+}
+@utility id-text {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  letter-spacing: 0;
+}
+
+/* ------------------------------------------------------------------ motion */
+@keyframes nl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes nl-buzz {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px) rotate(-0.4deg);
+  }
+  40% {
+    transform: translateX(3px) rotate(0.4deg);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+@keyframes nl-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes nl-glow {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--lamp) 60%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 14px color-mix(in oklab, var(--lamp) 0%, transparent);
+  }
+}
+@keyframes nl-wave {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.animate-rise {
+  animation: nl-rise 0.32s var(--ease-soft) both;
+}
+.animate-buzz {
+  animation: nl-buzz 0.3s linear 2;
+}
+.animate-breathe {
+  animation: nl-breathe 1.6s ease-in-out infinite;
+}
+.animate-glow {
+  animation: nl-glow 1.2s var(--ease-soft) 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes nl-outline {
+  0%,
+  100% {
+    outline-color: color-mix(in oklab, var(--frost-ink) 25%, transparent);
+  }
+  50% {
+    outline-color: var(--frost-ink);
+  }
+}
+.animate-breathe-outline {
+  outline-style: solid;
+  animation: nl-outline 1.6s ease-in-out infinite;
+}

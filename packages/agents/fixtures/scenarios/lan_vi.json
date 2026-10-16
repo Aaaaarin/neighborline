@@ -1,0 +1,31 @@
+{
+  "id": "lan_vi",
+  "title": "Mrs. Lan — Eastside, the morning after the ice storm (Vietnamese, Venmo)",
+  "lang": "vi",
+  "channel": "web_voice",
+  "voice": { "openaiVoice": "sage", "instructions": "An elderly Vietnamese woman from the south speaking Vietnamese slowly and politely, a little tired and cold, but calm." },
+  "transcript": "Xin chào, tôi là bà Lan, ở khu Eastside. Sau trận bão băng, nhà tôi bị mất điện hai ngày nay rồi. Trời lạnh lắm, tôi cần mua một cái máy sưởi và một ít đồ ăn. Nhà có hai người, tôi với ông nhà tôi. Venmo của tôi là a còng lan gạch ngang nguyen 54. Cảm ơn các cháu nhiều lắm.",
+  "englishText": "Hello, I'm Mrs. Lan, from the Eastside. After the ice storm, my house has been without power for two days now. It's very cold; I need to buy a space heater and some food. There are two of us at home, my husband and me. My Venmo is at lan dash nguyen 54. Thank you so much, dears.",
+  "extraction": {
+    "lang": "vi",
+    "summaryEn": "Elder on the Eastside, power out 2 days after the ice storm; needs a space heater and groceries. Household of 2.",
+    "summaryNative": "Nhà bạn ở khu Eastside bị mất điện hai ngày nay sau trận bão băng. Bạn cần một cái máy sưởi và ít đồ ăn cho hai người.",
+    "category": "utility_outage",
+    "householdSize": 2,
+    "urgency": "today",
+    "requestedItems": ["space heater", "groceries"],
+    "payout": { "wallet": "VENMO", "type": "USER_HANDLE", "value": "@lan-nguyen54" },
+    "missing": [],
+    "confidence": 0.93
+  },
+  "expected": {
+    "status": "awaiting_confirmation",
+    "readBack": "Đây là những gì chúng tôi hiểu. Xin bạn kiểm tra xem có đúng không: Nhà bạn ở khu Eastside bị mất điện hai ngày nay sau trận bão băng. Bạn cần một cái máy sưởi và ít đồ ăn cho hai người. Nếu được duyệt, tiền sẽ được gửi vào Venmo của bạn: @lan-nguyen54.",
+    "clarifyingQuestion": null
+  },
+  "notifications": [
+    { "key": "confirmed_waiting", "vars": {}, "text": "Cảm ơn bạn. Hai tình nguyện viên đang xem yêu cầu của bạn. Chúng tôi sẽ nhắn cho bạn ngay khi có quyết định." },
+    { "key": "paid", "vars": { "amount": "$150", "wallet": "Venmo" }, "text": "Đã gửi $150 vào Venmo của bạn. Mong số tiền này giúp được bạn. Bạn giữ gìn sức khỏe nhé." }
+  ],
+  "demo": { "amountCents": 15000, "payoutOutcome": "SUCCESS" }
+}

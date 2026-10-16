@@ -1,0 +1,29 @@
+{
+  "id": "missing_payout_es",
+  "title": "Carmen — food spoiled in the outage, no payout given (Spanish) → clarifying question",
+  "lang": "es",
+  "channel": "web_voice",
+  "voice": { "openaiVoice": "shimmer", "instructions": "A Puerto Rican woman in her forties speaking Spanish, warm and a little hurried." },
+  "transcript": "Hola, soy Carmen. Vivo en el Eastside con mi esposo y mi hija. Con la tormenta se nos fue la luz y se nos echó a perder toda la comida del refrigerador. Necesitamos ayuda para volver a comprar comida. Gracias.",
+  "englishText": "Hi, I'm Carmen. I live on the Eastside with my husband and my daughter. The storm knocked out our power and all the food in the fridge spoiled. We need help buying food again. Thank you.",
+  "extraction": {
+    "lang": "es",
+    "summaryEn": "Power went out in the storm and all the food in the fridge spoiled; needs help replacing groceries. Household of 3.",
+    "summaryNative": "Con la tormenta se les fue la luz y se les echó a perder la comida del refrigerador. Necesitan ayuda para volver a comprar comida para tres personas.",
+    "category": "groceries",
+    "householdSize": 3,
+    "urgency": "this_week",
+    "requestedItems": ["groceries"],
+    "missing": ["payout"],
+    "confidence": 0.88
+  },
+  "expected": {
+    "status": "needs_clarification",
+    "readBack": "Esto es lo que entendí. Por favor, dígame si está bien: Con la tormenta se les fue la luz y se les echó a perder la comida del refrigerador. Necesitan ayuda para volver a comprar comida para tres personas.",
+    "clarifyingQuestion": "¿A dónde le enviamos el dinero? Puede darnos un correo de PayPal o un usuario de Venmo."
+  },
+  "notifications": [
+    { "key": "needs_info", "vars": { "name": "Carmen" }, "text": "Hola, Carmen. Un voluntario tiene una pregunta rápida sobre su solicitud. Por favor, responda aquí cuando pueda." }
+  ],
+  "demo": { "amountCents": 0, "payoutOutcome": "NONE" }
+}

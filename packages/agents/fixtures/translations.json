@@ -1,0 +1,23 @@
+{
+  "note": "Offline translations used by FixtureLLM for languages outside the vetted catalog (NotifyAgent). Each has a back-translation so the fact check runs exactly as in live mode.",
+  "entries": [
+    {
+      "lang": "fr",
+      "source": "$150 has been sent to your Venmo. We hope it helps. Take care.",
+      "translation": "$150 ont été envoyés sur votre Venmo. Nous espérons que cela vous aidera. Prenez soin de vous.",
+      "backTranslation": "$150 was sent to your Venmo. We hope this will help you. Take care of yourself."
+    },
+    {
+      "lang": "fr",
+      "source": "We sent $100 to PayPal, but it has not been claimed yet. To get it, open PayPal or sign up with the same email or phone number you gave us. Reply here if you need help.",
+      "translation": "Nous avons envoyé $100 via PayPal, mais l'argent n'a pas encore été réclamé. Pour le recevoir, ouvrez PayPal ou inscrivez-vous avec la même adresse e-mail ou le même numéro de téléphone que vous nous avez donnés. Répondez ici si vous avez besoin d'aide.",
+      "backTranslation": "We sent $100 via PayPal, but the money has not been claimed yet. To receive it, open PayPal or sign up with the same email address or phone number you gave us. Reply here if you need help."
+    },
+    {
+      "lang": "fr",
+      "source": "Here is what I understood. Please tell me if it is right:",
+      "translation": "Voici ce que j'ai compris. Dites-moi si c'est juste :",
+      "backTranslation": "Here is what I understood. Tell me if it is right:"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "note": "Shape of PayPal Transaction Search (GET /v1/reporting/transactions) as returned by the PayPal Agent Toolkit list_transactions tool. Sandbox-style ids; amounts are strings at the PayPal boundary.",
+  "transaction_details": [
+    { "transaction_info": { "transaction_id": "8MC585209K746392H", "transaction_event_code": "T0006", "transaction_initiation_date": "2026-10-14T16:02:11+0000", "transaction_amount": { "currency_code": "USD", "value": "50.00" }, "transaction_status": "S" } },
+    { "transaction_info": { "transaction_id": "3VK64587PL101702X", "transaction_event_code": "T0006", "transaction_initiation_date": "2026-10-14T18:40:52+0000", "transaction_amount": { "currency_code": "USD", "value": "250.00" }, "transaction_status": "S" } },
+    { "transaction_info": { "transaction_id": "1TA25366MG459034K", "transaction_event_code": "T0002", "transaction_initiation_date": "2026-10-15T09:00:03+0000", "transaction_amount": { "currency_code": "USD", "value": "25.00" }, "transaction_status": "S" } },
+    { "transaction_info": { "transaction_id": "6RW12091BB0482533", "transaction_event_code": "T0006", "transaction_initiation_date": "2026-10-15T12:31:40+0000", "transaction_amount": { "currency_code": "USD", "value": "100.00" }, "transaction_status": "S" } },
+    { "transaction_info": { "transaction_id": "9XY32816DE5567201", "transaction_event_code": "T0006", "transaction_initiation_date": "2026-10-15T20:15:09+0000", "transaction_amount": { "currency_code": "USD", "value": "75.50" }, "transaction_status": "S" } },
+    { "transaction_info": { "transaction_id": "5PB71730AA2318110", "transaction_event_code": "T0000", "transaction_initiation_date": "2026-10-16T08:05:44+0000", "transaction_amount": { "currency_code": "USD", "value": "-150.00" }, "transaction_status": "S" } },
+    { "transaction_info": { "transaction_id": "2DD90455HK1209933", "transaction_event_code": "T0006", "transaction_initiation_date": "2026-10-16T09:12:20+0000", "transaction_amount": { "currency_code": "USD", "value": "40.00" }, "transaction_status": "P" } }
+  ],
+  "total_items": 7
+}

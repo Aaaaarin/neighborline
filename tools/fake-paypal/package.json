@@ -1,0 +1,24 @@
+{
+  "name": "@neighborline/fake-paypal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local fake of the PayPal sandbox subset Neighborline uses (OAuth, Payouts, Orders, Billing, Transaction Search, Webhooks) with deterministic outcomes and signed webhook delivery.",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

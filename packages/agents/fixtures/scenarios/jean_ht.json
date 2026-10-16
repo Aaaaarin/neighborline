@@ -1,0 +1,32 @@
+{
+  "id": "jean_ht",
+  "title": "Jean — insulin co-pay (Haitian Creole, Venmo)",
+  "lang": "ht",
+  "channel": "web_voice",
+  "voice": { "openaiVoice": "ash", "instructions": "A Haitian man in his fifties speaking Haitian Creole, steady and polite, moderate pace." },
+  "transcript": "Bonjou. Mwen rele Jean. Mwen gen dyabèt, epi mwen bezwen peye kopeman pou ensilin mwen nan famasi a jodi a. Yo mande m 60 dola, e mwen pa genyen l. Se mwen ak madanm mwen ki rete lakay la. Venmo mwen se arobaz jean tire baptiste tire h. Mèsi anpil.",
+  "englishText": "Hello. My name is Jean. I have diabetes, and I need to pay the co-pay for my insulin at the pharmacy today. They're asking me for 60 dollars, and I don't have it. It's my wife and me living at home. My Venmo is at jean dash baptiste dash h. Thank you very much.",
+  "extraction": {
+    "lang": "ht",
+    "summaryEn": "Has diabetes; needs help with a $60 insulin co-pay at the pharmacy today. Household of 2.",
+    "summaryNative": "Ou bezwen èd pou peye kopeman ensilin ou nan famasi a jodi a: 60 dola. Se de moun lakay ou.",
+    "category": "medicine_copay",
+    "householdSize": 2,
+    "urgency": "today",
+    "requestedItems": ["insulin co-pay"],
+    "requestedAmountCents": 6000,
+    "payout": { "wallet": "VENMO", "type": "USER_HANDLE", "value": "@jean-baptiste-h" },
+    "missing": [],
+    "confidence": 0.9
+  },
+  "expected": {
+    "status": "awaiting_confirmation",
+    "readBack": "Men sa nou konprann. Tanpri di nou si se sa: Ou bezwen èd pou peye kopeman ensilin ou nan famasi a jodi a: 60 dola. Se de moun lakay ou. Si yo apwouve l, lajan an ap ale sou Venmo ou: @jean-baptiste-h.",
+    "clarifyingQuestion": null
+  },
+  "notifications": [
+    { "key": "approved_sending", "vars": { "amount": "$60", "wallet": "Venmo" }, "text": "Bon nouvèl: yo apwouve demann ou an. N ap voye $60 sou Venmo ou kounye a." },
+    { "key": "paid", "vars": { "amount": "$60", "wallet": "Venmo" }, "text": "Nou voye $60 sou Venmo ou. Nou espere sa ap ede w. Pran swen tèt ou." }
+  ],
+  "demo": { "amountCents": 6000, "payoutOutcome": "SUCCESS" }
+}

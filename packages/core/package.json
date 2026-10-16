@@ -7,9 +7,13 @@
   "license": "MIT",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "2.1.9"
   }
 }

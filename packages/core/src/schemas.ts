@@ -102,8 +102,27 @@ export const ComputedAmount = z.object({
   ruleKey: z.string(),
   ruleCitation: z.string(), // human-readable, e.g. "Policy v3 · Utility outage · max $150 per request"
   policyVersion: z.number().int(),
+  /** Which limit produced the final amount (additive, optional). */
+  limitedBy: z
+    .enum(['requested', 'category_max', 'household_cap', 'category_household_cap', 'daily_budget'])
+    .optional(),
 });
 export type ComputedAmount = z.infer<typeof ComputedAmount>;
+
+/**
+ * A prior request as seen by the amount + rail checks (additive). `amountCents` is what was
+ * committed/paid; `status` decides whether it still counts against caps.
+ */
+export const HistoryEntry = z.object({
+  requestId: z.string(),
+  createdAt: z.string(),
+  ruleKey: z.string(),
+  amountCents: z.number().int().nonnegative(),
+  status: RequestStatus,
+  destination: PayoutDestination,
+  phone: z.string().optional(),
+});
+export type HistoryEntry = z.infer<typeof HistoryEntry>;
 
 export const HelpRequest = z.object({
   id: z.string(),
@@ -199,3 +218,61 @@ export const StageEvent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('donation.captured'), at: z.string(), amountCents: z.number(), source: z.enum(['PAYPAL', 'VENMO', 'PAYLATER', 'CARD', 'SUBSCRIPTION']) }),
 ]);
 export type StageEvent = z.infer<typeof StageEvent>;
+
+// ---------- Persistence-facing entities (additive; owned by core+db lane) ----------
+
+/** An official identity of the group on a payment rail (used by rail protection). */
+export const OfficialHandle = z.object({ wallet: Wallet, type: RecipientType, value: z.string().min(1) });
+export type OfficialHandle = z.infer<typeof OfficialHandle>;
+
+export const FiscalSponsor = z.object({
+  name: z.string(),
+  paypalBusinessVerified: z.boolean(),
+  payoutsEnabled: z.boolean(),
+  charityConfirmed: z.boolean(),
+});
+export type FiscalSponsor = z.infer<typeof FiscalSponsor>;
+
+export const Group = z.object({
+  id: z.string(),
+  slug: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/),
+  name: z.string().min(1),
+  officialHandles: z.array(OfficialHandle),
+  fiscalSponsor: FiscalSponsor,
+  activePolicyId: z.string().nullable(),
+  /** IANA zone used for the daily budget boundary. */
+  timezone: z.string(),
+  /** Distinct organizers required per payout; never below 2. */
+  requiredApprovals: z.number().int().min(2),
+  createdAt: z.string(),
+});
+export type Group = z.infer<typeof Group>;
+
+export const Organizer = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  name: z.string().min(1),
+  /** The organizer's own emails / Venmo handles / phones — used to block self-payment and lookalikes. */
+  handles: z.array(z.string()),
+  lang: Lang,
+  createdAt: z.string(),
+});
+export type Organizer = z.infer<typeof Organizer>;
+
+export const DonationSource = z.enum(['PAYPAL', 'VENMO', 'PAYLATER', 'CARD', 'SUBSCRIPTION']);
+export type DonationSource = z.infer<typeof DonationSource>;
+
+export const Donation = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  amountCents: z.number().int().positive(),
+  source: DonationSource,
+  /** Opaque, non-PII donor key (e.g. hash of payer id) for distinct-donor counts. */
+  donorKey: z.string().nullable(),
+  paypalOrderId: z.string().nullable(),
+  paypalSubscriptionId: z.string().nullable(),
+  transactionId: z.string().nullable(),
+  status: z.enum(['CREATED', 'COMPLETED', 'REFUNDED']),
+  createdAt: z.string(),
+});
+export type Donation = z.infer<typeof Donation>;

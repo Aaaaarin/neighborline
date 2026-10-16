@@ -1,0 +1,30 @@
+{
+  "id": "walter_en",
+  "title": "Walter — on home oxygen, needs a ride to charge his concentrator (English, PayPal)",
+  "lang": "en",
+  "channel": "phone",
+  "voice": { "openaiVoice": "onyx", "instructions": "An older American man, slightly short of breath, calm and matter-of-fact, speaking slowly." },
+  "transcript": "Hi, this is Walter. I'm on oxygen at home, and my power has been out since the storm. My concentrator's backup battery only has a few hours left. I need a ride to the warming center at the library so I can plug it in, or gas money so my neighbor can drive me. I live alone on Maple Street. You can send it to my PayPal, walter dot reyes 1947 at example dot com. Thank you.",
+  "englishText": "Hi, this is Walter. I'm on oxygen at home, and my power has been out since the storm. My concentrator's backup battery only has a few hours left. I need a ride to the warming center at the library so I can plug it in, or gas money so my neighbor can drive me. I live alone on Maple Street. You can send it to my PayPal, walter dot reyes 1947 at example dot com. Thank you.",
+  "extraction": {
+    "lang": "en",
+    "summaryEn": "Oxygen-dependent elder, power out since the storm and backup battery running low; needs a ride or gas money to reach the library warming center to charge his concentrator. Lives alone.",
+    "summaryNative": "You're on oxygen at home and your power has been out since the storm. You need a ride to the library warming center to charge your oxygen machine, or gas money so a neighbor can drive you.",
+    "category": "transport",
+    "householdSize": 1,
+    "urgency": "today",
+    "requestedItems": ["ride to warming center", "gas money"],
+    "payout": { "wallet": "PAYPAL", "type": "EMAIL", "value": "walter.reyes1947@example.com" },
+    "missing": [],
+    "confidence": 0.9
+  },
+  "expected": {
+    "status": "awaiting_confirmation",
+    "readBack": "Here is what I understood. Please tell me if it is right: You're on oxygen at home and your power has been out since the storm. You need a ride to the library warming center to charge your oxygen machine, or gas money so a neighbor can drive you. If approved, the money goes to your PayPal: walter.reyes1947@example.com.",
+    "clarifyingQuestion": null
+  },
+  "notifications": [
+    { "key": "paid", "vars": { "amount": "$60", "wallet": "PayPal", "name": "Walter" }, "text": "Hi Walter. $60 has been sent to your PayPal. We hope it helps. Take care." }
+  ],
+  "demo": { "amountCents": 6000, "payoutOutcome": "SUCCESS" }
+}

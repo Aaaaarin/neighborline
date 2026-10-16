@@ -1,0 +1,46 @@
+{
+  "name": "@neighborline/paypal",
+  "version": "0.1.0",
+  "description": "Typed PayPal REST client for payouts-heavy apps (Payouts incl. Venmo, Orders, Subscriptions, Webhooks, Transaction Search) plus an MCP server that adds approval-gated Payouts tools to AI agents.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": ["paypal", "venmo", "payouts", "mcp", "webhooks", "mutual-aid", "agents"],
+  "repository": { "type": "git", "url": "https://github.com/neighborline/neighborline", "directory": "packages/paypal" },
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mcp": "./src/mcp/server.ts"
+  },
+  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+      "./mcp": { "types": "./dist/mcp/server.d.ts", "import": "./dist/mcp/server.js" }
+    },
+    "bin": { "neighborline-payouts-mcp": "./dist/mcp/bin.js" }
+  },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "mcp": "tsx src/mcp/bin.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@neighborline/core": "workspace:*",
+    "@neighborline/fake-paypal": "workspace:*",
+    "@types/node": "^22.9.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

@@ -1,0 +1,239 @@
+'use client';
+
+import { Ban, Check, ChevronDown, LoaderCircle, Mic, MessageCircle } from 'lucide-react';
+import type { Organizer, RequestView } from '@/lib/types';
+import { LANGUAGE_NAMES, clockTime, cx, money, shortId, walletLabel } from '@/lib/format';
+import { RailChips } from './RailChips';
+
+const LIMIT_TEXT = {
+  requested: 'what they asked for',
+  category: 'the category limit',
+  household: 'what’s left of the household’s monthly limit',
+  daily: 'what’s left of today’s budget',
+} as const;
+
+export function ApproveCard({
+  view,
+  me,
+  onApprove,
+  onDecline,
+  busy = false,
+  error,
+  dense = false,
+  highlight = false,
+}: {
+  view: RequestView;
+  me: Organizer;
+  onApprove?: () => void;
+  onDecline?: () => void;
+  busy?: boolean;
+  error?: string | null;
+  /** inside a 360px phone on the stage */
+  dense?: boolean;
+  /** the visitor is meant to press this one */
+  highlight?: boolean;
+}) {
+  const r = view.request;
+  const amount = r.computed?.amountCents ?? 0;
+  const lang = LANGUAGE_NAMES[r.lang];
+  const block = r.railFlags.find((f) => f.severity === 'block');
+  const mine = view.approvals.some((a) => a.organizerId === me.id);
+  const count = view.approvals.length;
+  const item = view.payout?.item;
+  const dest = r.payoutDestination;
+  const isVoice = r.channel === 'web_voice' || r.channel === 'phone';
+  const titleId = `req-${r.id}-title`;
+
+  return (
+    <article aria-labelledby={titleId} className={cx('rounded-2xl border border-rule bg-raised', dense ? 'p-4' : 'p-5 sm:p-6')}>
+      <header className="flex items-start justify-between gap-3">
+        <h3 id={titleId} className="font-sans text-[0.95rem] font-semibold tracking-normal text-ink">
+          {view.requester.displayName}
+          {view.requester.area && view.requester.area !== 'unknown' && <span className="font-normal text-ink-3"> · {view.requester.area}</span>}
+        </h3>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-2 py-0.5 text-[0.78rem] text-ink-2" lang={r.lang}>
+          {isVoice ? <Mic size={13} aria-hidden /> : <MessageCircle size={13} aria-hidden />}
+          {lang.native}
+          {view.audioSeconds ? <span className="tabular text-ink-3"> · 0:{String(view.audioSeconds).padStart(2, '0')}</span> : null}
+        </span>
+      </header>
+
+      <p className={cx('mt-2 font-display text-ink', dense ? 'text-[1.06rem] leading-[1.45]' : 'text-[1.2rem] leading-[1.5]')}>
+        {r.extracted?.summaryEn ?? r.englishText}
+      </p>
+
+      {view.aiTrace && !dense && (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[0.78rem] text-ink-3" title="The AI output was validated against a schema before anyone saw it">
+          <Check size={13} strokeWidth={2.6} className={view.aiTrace.status === 'invalid' || view.aiTrace.status === 'error' ? 'text-signal' : 'text-pine'} aria-hidden />
+          {view.aiTrace.summary}
+        </p>
+      )}
+      {r.lang !== 'en' && r.originalText && (
+        <details className="group mt-2">
+          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-[0.85rem] text-ink-2 [&::-webkit-details-marker]:hidden">
+            <ChevronDown size={15} className="transition-transform group-open:rotate-180" aria-hidden />
+            Original in {lang.en}
+          </summary>
+          <p lang={r.lang} className="mt-1 rounded-xl bg-sunk p-3 text-[0.9rem] leading-relaxed text-ink-2">
+            {r.originalText}
+          </p>
+        </details>
+      )}
+
+      <div className={cx('mt-3 border-t border-rule pt-3', dense ? 'space-y-2' : 'space-y-3')}>
+        <div>
+          <p className={cx('font-semibold leading-none tracking-[-0.02em] text-ink', block ? 'text-ink-3 line-through decoration-2' : '', dense ? 'text-[2.1rem]' : 'text-[2.5rem]')}>
+            {block ? money(r.extracted?.requestedAmountCents ?? 0) : money(amount)}
+          </p>
+          <p className="mt-1.5 text-[0.82rem] leading-snug text-ink-2">{r.computed?.ruleCitation ?? 'No policy category matches this request'}</p>
+          {dest && (
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-[0.82rem] leading-snug text-ink-2">
+              To {walletLabel(dest.wallet)}
+              <span className={cx('id-text text-[0.9rem]', block ? 'font-bold text-signal' : 'text-ink')}>{dest.value}</span>
+            </p>
+          )}
+        </div>
+        {view.amountBreakdown && !block && (
+          <details className="group">
+            <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-[0.85rem] text-ink-2 [&::-webkit-details-marker]:hidden">
+              <ChevronDown size={15} className="transition-transform group-open:rotate-180" aria-hidden />
+              Why this amount?
+            </summary>
+            <AmountWhy view={view} />
+          </details>
+        )}
+        <RailChips flags={r.railFlags} compact={dense} />
+        {!dense &&
+          r.railFlags
+            .filter((f) => f.severity === 'review')
+            .map((f) => (
+              <p key={f.code} className="rounded-xl border border-rule-strong bg-sunk px-3 py-2 text-[0.85rem] leading-snug text-ink-2">
+                <strong className="font-semibold text-ink">Worth a look:</strong> {f.detail}
+              </p>
+            ))}
+        {block && (
+          <p role="alert" className="rounded-xl bg-signal-wash p-3 text-[0.85rem] leading-snug text-signal">
+            <strong className="font-semibold">Can’t approve.</strong> {block.detail}
+          </p>
+        )}
+      </div>
+
+      <footer className="mt-4">
+        <ApprovalProgress view={view} me={me} />
+        <div className="mt-3">
+          {item?.status === 'SUCCESS' ? (
+            <p className="flex items-center gap-2 rounded-xl bg-lamp-wash px-3 py-3 text-[0.9rem] text-ink">
+              <span className="grid size-6 place-items-center rounded-full bg-lamp text-ink" aria-hidden>
+                <Check size={15} strokeWidth={2.6} />
+              </span>
+              <span>
+                <strong className="font-semibold">{money(item.amountCents)} landed</strong> in {view.requester.displayName}’s {walletLabel(item.wallet)}
+                <span className="block id-text text-ink-2">tx {shortId(item.transactionId, 6, 4)}</span>
+              </span>
+            </p>
+          ) : item?.status === 'UNCLAIMED' ? (
+            <p className="rounded-xl border border-rule-strong bg-sunk px-3 py-3 text-[0.88rem] leading-snug text-ink">
+              <strong className="font-semibold">Not claimed yet.</strong> {view.requester.displayName} got claim help in {lang.en}. The money waits 30 days.
+            </p>
+          ) : item ? (
+            <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-3 text-[0.9rem] text-ink">
+              <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden />
+              Sending {money(item.amountCents)} through PayPal…
+            </p>
+          ) : r.status === 'declined' ? (
+            <p className="rounded-xl bg-sunk px-3 py-3 text-[0.9rem] text-ink-2">Declined. {view.requester.displayName} was told why, in {lang.en}, with a way to appeal.</p>
+          ) : block ? (
+            <button type="button" disabled className="flex h-14 w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-rule bg-sunk text-[1rem] font-semibold text-ink-3">
+              <Ban size={18} aria-hidden /> Approve disabled
+            </button>
+          ) : mine ? (
+            <p className="flex h-14 items-center gap-2 rounded-2xl border border-rule px-4 text-[0.92rem] text-ink-2">
+              <Check size={18} className="text-pine" aria-hidden /> You approved. Waiting for {count < view.approvalsRequired ? 'one more organizer' : 'PayPal'}.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={onApprove}
+              disabled={busy || !onApprove}
+              className={cx(
+                'relative flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-[1.06rem] font-semibold text-raised transition-transform active:scale-[0.98] disabled:opacity-70',
+                highlight && 'outline-3 outline-offset-3 outline-frost-ink/70 animate-breathe-outline',
+              )}
+            >
+              {busy ? <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden /> : null}
+              Approve {money(amount)}
+            </button>
+          )}
+          {error && (
+            <p role="alert" className="mt-2 text-[0.85rem] text-signal">
+              {error}
+            </p>
+          )}
+          {onDecline && !item && r.status === 'awaiting_approval' && !block && (
+            <button type="button" onClick={onDecline} className="mt-1 flex min-h-11 w-full items-center justify-center text-[0.9rem] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
+              Decline with a reason
+            </button>
+          )}
+        </div>
+      </footer>
+    </article>
+  );
+}
+
+function ApprovalProgress({ view, me }: { view: RequestView; me: Organizer }) {
+  const slots = Array.from({ length: view.approvalsRequired }, (_, i) => view.approvals[i] ?? null);
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <ol className="flex items-center gap-1.5" aria-label="Approvals">
+        {slots.map((a, i) => (
+          <li
+            key={i}
+            className={cx(
+              'inline-flex h-8 items-center gap-1.5 rounded-full pl-1 pr-2.5 text-[0.8rem]',
+              a ? 'bg-pine-wash text-pine' : 'border border-dashed border-rule-strong text-ink-3',
+            )}
+          >
+            <span className={cx('grid size-6 place-items-center rounded-full text-[0.72rem] font-semibold', a ? 'bg-pine text-raised' : 'bg-sunk')} aria-hidden>
+              {a ? <Check size={13} strokeWidth={3} /> : i + 1}
+            </span>
+            {a ? (a.organizerId === me.id ? 'You' : a.name) : 'Waiting'}
+            {a && <span className="sr-only"> approved at {clockTime(a.at)}</span>}
+          </li>
+        ))}
+      </ol>
+      <p className="text-[0.8rem] tabular text-ink-2" aria-live="polite">
+        {Math.min(view.approvals.length, view.approvalsRequired)} of {view.approvalsRequired} approvals
+      </p>
+    </div>
+  );
+}
+
+function AmountWhy({ view }: { view: RequestView }) {
+  const b = view.amountBreakdown!;
+  const rows: Array<[string, string, boolean]> = [
+    ['Asked for', b.requestedCents == null ? 'Not stated' : money(b.requestedCents), b.limitedBy === 'requested'],
+    [`${view.categoryLabel} limit`, money(b.categoryMaxCents), b.limitedBy === 'category'],
+    ['Household, left this month', money(b.householdRemainingCents), b.limitedBy === 'household'],
+    ['Group budget, left today', money(b.dailyRemainingCents), b.limitedBy === 'daily'],
+  ];
+  return (
+    <div className="mt-1 rounded-xl bg-sunk p-3 text-[0.84rem]">
+      <table className="w-full">
+        <caption className="sr-only">How the amount was computed</caption>
+        <tbody>
+          {rows.map(([k, v, on]) => (
+            <tr key={k} className={on ? 'font-semibold text-ink' : 'text-ink-2'}>
+              <th scope="row" className="py-0.5 text-left font-[inherit]">
+                {k}
+              </th>
+              <td className="py-0.5 text-right tabular">{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 border-t border-rule pt-2 leading-snug text-ink-2">
+        The smallest of these wins: {money(b.resultCents)}, set by {LIMIT_TEXT[b.limitedBy]}. Computed by code from Policy v{view.request.computed?.policyVersion ?? 1}, not by AI.
+      </p>
+    </div>
+  );
+}

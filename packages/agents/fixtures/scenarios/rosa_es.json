@@ -1,0 +1,31 @@
+{
+  "id": "rosa_es",
+  "title": "Rosa — mother of three, hours cut (Spanish, new PayPal user → UNCLAIMED)",
+  "lang": "es",
+  "channel": "web_voice",
+  "voice": { "openaiVoice": "coral", "instructions": "A Mexican-American mother in her thirties speaking Spanish, a bit worried but composed, natural pace." },
+  "transcript": "Hola, buenas tardes. Me llamo Rosa. Soy mamá de tres niños y este mes me recortaron las horas en el trabajo, así que no me alcanza para la comida. Necesito ayuda para comprar comida para mis hijos. En la casa somos cuatro: mis tres hijos y yo. Mi correo de PayPal es rosa punto m punto delgado arroba example punto com. Muchas gracias.",
+  "englishText": "Hello, good afternoon. My name is Rosa. I'm a mother of three, and this month my hours at work were cut, so I don't have enough for food. I need help buying food for my children. There are four of us at home: my three children and me. My PayPal email is rosa dot m dot delgado at example dot com. Thank you very much.",
+  "extraction": {
+    "lang": "es",
+    "summaryEn": "Mother of three whose work hours were cut this month; needs help buying groceries. Household of 4.",
+    "summaryNative": "Usted es mamá de tres niños y este mes le recortaron las horas de trabajo. Necesita ayuda para comprar comida para su familia de cuatro.",
+    "category": "groceries",
+    "householdSize": 4,
+    "urgency": "this_week",
+    "requestedItems": ["groceries"],
+    "payout": { "wallet": "PAYPAL", "type": "EMAIL", "value": "rosa.m.delgado@example.com" },
+    "missing": [],
+    "confidence": 0.93
+  },
+  "expected": {
+    "status": "awaiting_confirmation",
+    "readBack": "Esto es lo que entendí. Por favor, dígame si está bien: Usted es mamá de tres niños y este mes le recortaron las horas de trabajo. Necesita ayuda para comprar comida para su familia de cuatro. Si se aprueba, el dinero irá a su PayPal: rosa.m.delgado@example.com.",
+    "clarifyingQuestion": null
+  },
+  "notifications": [
+    { "key": "unclaimed_help", "vars": { "amount": "$100", "wallet": "PayPal" }, "text": "Le enviamos $100 por PayPal, pero todavía no lo ha cobrado. Para recibirlo, abra PayPal o regístrese con el mismo correo o número de teléfono que nos dio. Si necesita ayuda, responda a este mensaje." },
+    { "key": "paid", "vars": { "amount": "$100", "wallet": "PayPal", "name": "Rosa" }, "text": "Hola, Rosa. Ya le enviamos $100 a su PayPal. Esperamos que le ayude. Cuídese mucho." }
+  ],
+  "demo": { "amountCents": 10000, "payoutOutcome": "UNCLAIMED_THEN_SUCCESS" }
+}
