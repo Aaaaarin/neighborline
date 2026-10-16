@@ -40,6 +40,30 @@ export function checkFacts(facts: readonly string[], translation: string, backTr
   return { facts: [...facts], missingInTranslation, missingInBackTranslation, ok: missingInTranslation.length === 0 && missingInBackTranslation.length === 0 };
 }
 
+/**
+ * The facts in a free-text note (an organizer's decline note) that a translation must keep verbatim:
+ * money amounts, emails, @handles, URLs, phone numbers and other numbers (dates, counts, hours).
+ * Emails are taken first so their parts are not counted twice as a handle or a number.
+ */
+export function noteFacts(text: string): string[] {
+  const facts: string[] = [];
+  let rest = text;
+  const take = (re: RegExp) => {
+    rest = rest.replace(re, (m) => {
+      const f = m.replace(/[.,;:!?)]+$/, '');
+      if (f && !facts.includes(f)) facts.push(f);
+      return ' ';
+    });
+  };
+  take(/https?:\/\/[^\s"“”]+/giu);
+  take(/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/giu);
+  take(/(?<![\p{L}\p{N}])@[A-Za-z0-9][\w.-]*/gu);
+  take(/\$\s?\d[\d,]*(?:\.\d+)?/gu);
+  take(/\+?\d[\d ().-]{6,}\d/gu);
+  take(/(?<![\p{L}\p{N}])\d+(?:[.,:]\d+)*(?![\p{L}\p{N}])/gu);
+  return facts;
+}
+
 export async function translateWithCheck(
   llm: LLM,
   args: { text: string; targetLang: string; facts: readonly string[]; tone?: string },

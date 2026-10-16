@@ -54,7 +54,7 @@ export { PolicyCompiler, REQUIRED_APPROVALS, type CompilePolicyInput, type Compi
 export { diffPolicies, type PolicyChange } from './policy/diff.js';
 export type { PolicyDraft } from './policy/schema.js';
 export { NotifyAgent, notifyKeyFor, NOTIFY_KEYS, type NotifyKey, type NotifyInput, type NotifyResult } from './notify/notify-agent.js';
-export { translateWithCheck, checkFacts, type TranslationResult, type FactCheck } from './translate.js';
+export { translateWithCheck, checkFacts, noteFacts, type TranslationResult, type FactCheck } from './translate.js';
 export { ReportWriter, ReportNarrative, MIN_WORDS, MAX_WORDS, type WriteReportInput, type WriteReportResult } from './report/report-writer.js';
 export { buildFacts, allowedNumbers, type Fact } from './report/facts.js';
 export {
