@@ -16,8 +16,10 @@ import {
 } from '@neighborline/db';
 import { challengeForApprovalHash, createSoftwareAuthenticator } from '@neighborline/passkeys';
 import { APPROVER_ROUTES, signApproverRequest } from './protocol.js';
-import { PayPalApiError, PayPalTimeoutError, type PayoutsApi } from '@neighborline/paypal';
+import { PayPalApiError, PayPalClient, PayPalTimeoutError, PayoutsApi, WebhooksApi } from '@neighborline/paypal';
 import { getBatch, payoutBatches } from '@neighborline/db';
+import { silentLogger } from './log.js';
+import { startApproverServer } from './server.js';
 import { SECRET, approve, call, execute, executeBody, fileRequest, signAs, startFixture, type Fixture } from './test-helpers.js';
 
 let f: Fixture;
@@ -260,10 +262,58 @@ describe('approver poll, cancel-unclaimed, health', () => {
 
     const stranger = await call(f.approver.url, APPROVER_ROUTES.cancelUnclaimed(local!.id), { organizerId: 'org_mallory' });
     expect(stranger.status).toBe(403);
+    // Nobody named, or a demo visitor on a real (non-demo) payout: refused by the approver itself.
+    expect((await call(f.approver.url, APPROVER_ROUTES.cancelUnclaimed(local!.id), { batchId })).status).toBe(403);
+    expect((await call(f.approver.url, APPROVER_ROUTES.cancelUnclaimed(local!.id), { demoVisitorTag: 'abcdefabcdef', batchId })).status).toBe(403);
     const ok = await call(f.approver.url, APPROVER_ROUTES.cancelUnclaimed(local!.id), { organizerId: 'org_dana', batchId });
     expect(ok.status).toBe(200);
     expect(ok.json).toMatchObject({ itemId: local!.id, status: 'CANCELED', paypalItemId: item.payoutItemId });
     await h.close();
+  });
+
+  it('a demo visitor may cancel only the UNCLAIMED payout of their own demo run, and only in DEMO_MODE', async () => {
+    const unclaimedFor = async (h: Fixture, id: string, email: string) => {
+      await fileRequest(h.db, h.groupId, { id, dest: { wallet: 'PAYPAL', type: 'EMAIL', value: email }, requestedCents: 4_500 });
+      const res = await execute(h, await executeBody(h.db, await approve(h.db, [id], ['org_dana', 'org_marcus'])));
+      expect(res.status).toBe(200);
+      const batchId = String(res.json.batchId);
+      for (let i = 0; i < 40; i++) {
+        const items = (await call(h.approver.url, APPROVER_ROUTES.poll(batchId), {})).json.items as Array<{ payoutItemId: string; status: string; senderItemId: string }>;
+        if (items[0]?.status === 'UNCLAIMED') {
+          await upsertItemFromEvent(h.db, { senderItemId: items[0].senderItemId, paypalItemId: items[0].payoutItemId, status: 'UNCLAIMED', actor: 'test' });
+          return { batchId, itemId: (await listItemsForRequest(h.db, id))[0]!.id };
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      throw new Error('never UNCLAIMED');
+    };
+    const on = await startFixture({ demoMode: true, unclaimed: ['demo-own@example.com', 'demo-own2@example.com'] });
+    try {
+      const { batchId, itemId } = await unclaimedFor(on, 'req_demo_abcdefabcdef_0a1', 'demo-own@example.com');
+      expect((await call(on.approver.url, APPROVER_ROUTES.cancelUnclaimed(itemId), { demoVisitorTag: 'ffffffffffff', batchId })).status).toBe(403);
+      const ok = await call(on.approver.url, APPROVER_ROUTES.cancelUnclaimed(itemId), { demoVisitorTag: 'abcdefabcdef', batchId });
+      expect(ok.status).toBe(200);
+      expect(ok.json).toMatchObject({ itemId, status: 'CANCELED' });
+      // The same item, asked of an approver running with DEMO_MODE off: refused even with the right tag.
+      const strict = await startApproverServer({
+        db: () => on.db,
+        payouts: new PayoutsApi(new PayPalClient({ clientId: 'fake-client-id', clientSecret: 'fake-client-secret', baseUrl: on.fake.url })),
+        webhooks: new WebhooksApi(new PayPalClient({ clientId: 'fake-client-id', clientSecret: 'fake-client-secret', baseUrl: on.fake.url })),
+        config: { requirePasskeys: true, demoMode: false, webhookId: on.fake.config.webhookId },
+        env: { DEMO_MODE: 'false' },
+        log: silentLogger,
+        secret: SECRET,
+        health: { paypalMode: 'fake', credentials: 'fake', requirePasskeys: true, demoMode: false },
+      });
+      try {
+        const second = await unclaimedFor(on, 'req_demo_abcdefabcdef_0b2', 'demo-own2@example.com');
+        expect((await call(strict.url, APPROVER_ROUTES.cancelUnclaimed(second.itemId), { demoVisitorTag: 'abcdefabcdef', batchId: second.batchId })).status).toBe(403);
+      } finally {
+        await strict.close();
+      }
+    } finally {
+      await on.close();
+    }
   });
 
   it('serves an unauthenticated health check without secrets', async () => {

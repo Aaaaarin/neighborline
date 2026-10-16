@@ -330,7 +330,15 @@ export class Approver {
     const item = (await getBatch(db, row.batchId))?.items.find((i) => i.id === itemId) as PayoutItem;
     const request = await getRequest(db, item.requestId);
     const organizers = request ? await listOrganizers(db, request.groupId) : [];
-    if (req.organizerId && !organizers.some((o) => o.id === req.organizerId)) throw new ApproverFailure(403, 'unauthorized', 'Only an organizer of this group can cancel a payout');
+    // Re-checked here, not trusted from the web app: an organizer of this group, or in DEMO_MODE the visitor whose own demo run this pays.
+    if (req.organizerId) {
+      if (!organizers.some((o) => o.id === req.organizerId)) throw new ApproverFailure(403, 'unauthorized', 'Only an organizer of this group can cancel a payout');
+    } else if (req.demoVisitorTag) {
+      const tag = /^req_demo_([0-9a-f]{12})_[0-9a-f]+$/.exec(item.requestId)?.[1];
+      if (!this.deps.config.demoMode || tag !== req.demoVisitorTag) throw new ApproverFailure(403, 'unauthorized', 'A demo visitor can cancel only the payout of their own demo run, and only in DEMO_MODE');
+    } else {
+      throw new ApproverFailure(403, 'unauthorized', 'Say which organizer cancels this payout');
+    }
     if (item.status !== 'UNCLAIMED') throw new ApproverFailure(409, 'not_cancellable', 'Only unclaimed items can be cancelled');
     if (!item.paypalItemId) throw new ApproverFailure(409, 'not_cancellable', 'PayPal has not assigned this item an id yet');
     try {
@@ -338,7 +346,7 @@ export class Approver {
     } catch (err) {
       throw new ApproverFailure(502, 'paypal_error', `PayPal refused the cancel: ${err instanceof Error ? err.message : err}`);
     }
-    await appendAudit(db, { actor: req.organizerId ?? 'web (no organizer id)', action: 'approver.cancel_unclaimed', entityType: 'payout_item', entityId: item.id, data: { paypalItemId: item.paypalItemId, amountCents: item.amountCents } });
+    await appendAudit(db, { actor: req.organizerId ?? `demo visitor ${req.demoVisitorTag}`, action: 'approver.cancel_unclaimed', entityType: 'payout_item', entityId: item.id, data: { paypalItemId: item.paypalItemId, amountCents: item.amountCents, ...(req.demoVisitorTag ? { demoVisitorTag: req.demoVisitorTag } : {}) } });
     this.deps.log('info', 'cancel.sent', { itemId: item.id, paypalItemId: item.paypalItemId });
     return { itemId: item.id, senderItemId: item.senderItemId, paypalItemId: item.paypalItemId, status: 'CANCELED' };
   }

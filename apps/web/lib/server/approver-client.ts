@@ -87,7 +87,7 @@ export class ApproverClient {
     return this.post(APPROVER_ROUTES.poll(batchId), {});
   }
 
-  cancelUnclaimed(itemId: string, body: { organizerId?: string; batchId?: string }): Promise<CancelUnclaimedResponse> {
+  cancelUnclaimed(itemId: string, body: { organizerId?: string; demoVisitorTag?: string; batchId?: string }): Promise<CancelUnclaimedResponse> {
     return this.post(APPROVER_ROUTES.cancelUnclaimed(itemId), body);
   }
 

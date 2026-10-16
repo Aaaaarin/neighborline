@@ -390,7 +390,7 @@ export class Engine implements Services {
         throw new HttpError(403, 'You can cancel only the payout of your own demo run.');
       }
     };
-    const item = await ctx.approvals.cancelUnclaimed({ db: ctx.db, group: ctx.gen.group, bus: ctx.bus }, { batchId: input.batchId, itemId: input.itemId, authorize, ...(organizerId ? { organizerId } : {}) });
+    const item = await ctx.approvals.cancelUnclaimed({ db: ctx.db, group: ctx.gen.group, bus: ctx.bus }, { batchId: input.batchId, itemId: input.itemId, authorize, ...(organizerId ? { organizerId } : 'visitorTag' in actor ? { demoVisitorTag: actor.visitorTag } : {}) });
     const { approvals: _a, ...base } = ctx;
     await applyItemStatus(base, { senderItemId: item.senderItemId, status: 'CANCELED', actor: 'organizer' });
     return { status: 'CANCELED' };

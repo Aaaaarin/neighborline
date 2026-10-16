@@ -199,7 +199,14 @@ export interface ExecuteResponse {
 }
 
 /** `organizerId` is checked against the group when present (the web app passes the session's organizer). */
-export const CancelUnclaimedRequest = z.object({ organizerId: z.string().min(1).optional(), batchId: z.string().min(1).optional() }).strict();
+/**
+ * Who asks: an organizer of the group, or (DEMO_MODE only) the /demo visitor whose own run the item pays
+ * (`demoVisitorTag`, the 12-hex tag in `req_demo_<tag>_…`). The approver re-checks either; a request with
+ * neither is refused.
+ */
+export const CancelUnclaimedRequest = z
+  .object({ organizerId: z.string().min(1).optional(), demoVisitorTag: z.string().regex(/^[0-9a-f]{12}$/).optional(), batchId: z.string().min(1).optional() })
+  .strict();
 export type CancelUnclaimedRequest = z.infer<typeof CancelUnclaimedRequest>;
 export interface CancelUnclaimedResponse {
   itemId: string;
