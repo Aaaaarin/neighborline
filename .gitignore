@@ -1,0 +1,12 @@
+node_modules
+dist
+.next
+.env
+.env.*
+!.env.example
+coverage
+*.log
+.pglite
+playwright-report
+test-results
+.turbo
