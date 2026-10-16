@@ -118,6 +118,24 @@ database, never from the payload. `passkey` assertions require UV; `demo_key` on
   (`nl_organizer`, 12 h). The cookie only says who is looking at the queue; **it never authorizes a payout** —
   every tap is signed separately.
 
+## Revocation
+
+`POST /api/organizer/passkeys/revoke {credentialId}` (needs a live session; `db.revokeOrganizerCredential` sets
+`revoked_at` and writes `organizer.passkey_revoked` naming who revoked it). Any signed-in organizer of the group may
+revoke any organizer's passkey (lost phone); demo keys cannot be revoked from the UI. After that,
+`getOrganizerCredential` returns null, so: sign-in and Approve taps with it fail (401), a session cookie minted by it
+no longer counts (`liveSession`), the approval service refuses approvals it signed that are not paid yet
+("unknown or revoked credential"), and its signatures on an open policy draft stop counting.
+
+## Policy drafts (rules editor)
+
+The same WebAuthn ceremony signs policy drafts: the challenge is the 32 bytes of core `policyDraftHash` (SHA-256 over
+`{domain: 'neighborline/policy-draft/v1', groupId, basePolicyId, version, body}`), via
+`POST /api/policy/challenge` → `POST /api/policy/sign`. Assertions are stored as audit rows
+(`policy.signed_with_passkey` / `policy.signed_with_demo_key`, entity = draft hash), not in `approval_assertions`,
+and are re-verified from the stored public keys each time they are counted. Two distinct organizers with valid
+signatures activate the draft (`db.activatePolicy`); see `apps/web/lib/server/engine/policy-editor.ts`.
+
 ## Known limits
 
 - One human can enroll two organizers' passkeys if they hold both invite codes (or in DEMO_MODE). Invite codes

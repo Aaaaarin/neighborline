@@ -28,8 +28,8 @@ Ordered by impact on judging. ✅ done · 🔄 in progress · ⏳ blocked on hum
 - ☐ Optional phone/WhatsApp channel via Twilio
 
 ## Wave 4b — product depth (unblocked)
-- 🔄 Rules editor: plain-English policy → AI-compiled draft + diff → two passkey approvals to activate
-- 🔄 Alerts UI (organizer/ledger), Arabic decline template, passkey revocation
+- ✅ Rules editor: plain-English policy → AI-compiled draft (quote per cap) + code diff + queue preview → two passkey signatures over the draft hash activate; waiting requests re-priced
+- ✅ Alerts UI (organizer/ledger), Arabic message templates (decline and all others), passkey revocation, seedDemoQueue in one transaction
 - 🔄 Red-team QA pass on local build
 - 🔄 Draft video via automated pipeline (fixture mode, captions, no voiceover yet)
 

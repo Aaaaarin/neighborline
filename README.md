@@ -3,7 +3,7 @@
 [![CI](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml/badge.svg)](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6)
-![Unit tests](https://img.shields.io/badge/unit%20tests-595-2d6a4f)
+![Unit tests](https://img.shields.io/badge/unit%20tests-612-2d6a4f)
 
 **A hotline, not a dashboard.** A neighbor leaves a voice note in their own language. Two volunteer organizers
 approve it on their phones. PayPal or Venmo cash lands. Then the neighbor gets a message back in their language.
@@ -47,6 +47,7 @@ time. Then try:
 | [`/demo?scenario=blocked`](http://localhost:3000/demo?scenario=blocked) | Injected instructions plus a lookalike of the group's Venmo handle. Blocked before any money moves |
 | [`/demo?scenario=lan&mode=manual`](http://localhost:3000/demo?scenario=lan&mode=manual) | You are the second organizer. Nothing is paid until you tap **Approve $150** |
 | [`/call`](http://localhost:3000/call) | The neighbor's phone. Record, type, or use a sample voice note |
+| [`/organizer/rules`](http://localhost:3000/organizer/rules) | The group's rules in plain English. Add a line, press **Draft policy**: the AI drafts it as code with the sentence behind every cap, code shows the diff and what changes for requests already waiting, and two organizers sign to make it Policy v2 |
 | [`/trust`](http://localhost:3000/trust) | Fiscal-sponsor checklist, what each agent may do, and what is simulated |
 
 `pnpm dev` runs with `PAYPAL_MODE=fake` and `AI_MODE=fixture`. No PayPal or model keys are needed. All recording
@@ -120,9 +121,23 @@ The [architecture doc](docs/ARCHITECTURE.md) has the state machines and the idem
 | Translate it and extract fields into a zod-validated `IntakeExtraction` | Decide eligibility, score need, or score "fraud risk" of a person |
 | Read the request back to the neighbor in their language | Hold PayPal credentials or call Payouts. The intake agent has no tools at all |
 | Ask **one** clarifying question when something is missing or unclear | Guess. A payout handle or amount that the neighbor did not say is dropped, and the neighbor is asked again |
-| Draft a policy from organizers' plain-English rules | Activate a policy. That needs two organizer approvals ([`packages/db/src/repo/groups.ts`](packages/db/src/repo/groups.ts)) |
+| Draft a policy from organizers' plain-English rules, quoting the sentence behind every cap | Activate a policy. Two different organizers sign the draft's hash; code computes the diff and re-prices waiting requests ([`policy-editor.ts`](apps/web/lib/server/engine/policy-editor.ts)) |
 | Translate status messages into languages outside the vetted catalog, with a back-translation fact check | Write money text freely. Messages come from a vetted catalog and code fills `{amount}` and `{wallet}` |
 | Write a donor report narrative from aggregate facts | Use a number that is not in the facts. Ungrounded numbers trigger a repair, then a deterministic template |
+
+### AI drafts the rules, humans decide
+
+![The rules editor at 1920px: the organizers' rules as a numbered sheet on the left; on the right the compiled draft for Policy v2, each category with its caps and the quoted line it came from, the code-computed diff, and what changes for the requests waiting now.](apps/web/screenshots/rules-1920-draft.png)
+
+On [`/organizer/rules`](http://localhost:3000/organizer/rules) organizers edit the group's rules as plain English.
+**Draft policy** runs the PolicyCompiler: a schema-validated draft in which every cap must be a number from the text and
+every category must quote its sentence, with one repair pass if a check fails. The page then shows, all computed by
+code: each cap with the line it came from, the diff against the active version (added, changed, removed, old → new),
+the model's ambiguities, the validate → repair trace, and what each request waiting for approval would get under the
+draft. Nothing changes until two different organizers sign the draft's hash (core `policyDraftHash`) with a passkey, or
+in the demo with a labelled demo key. The second valid signature creates the new immutable version through
+`db.activatePolicy`, re-prices the waiting requests under it and voids approvals given for the old amounts. A
+signature from a revoked device stops counting. Drafts, signatures and activation are rows in the hash-chained audit log.
 
 Every model output goes through **validate → repair once → re-ask the human**, and leaves a trace the UI can show
 (`IntakeExtraction valid on first try · 812 ms`, `Schema repaired 1 field (payout.value)`). See [docs/AI.md](docs/AI.md).
@@ -245,15 +260,15 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Package | Unit tests | What they cover |
 |---|---|---|
-| `packages/core` | 267 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics (including polite pleas that must not flag), approval hashing (NIST SHA-256 vectors), state machines, i18n, k-anonymous report, PII redaction |
-| `packages/db` | 60 | Two distinct signers, voiding on content change, idempotent batch creation, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), passkey credentials and assertions, migration drift |
-| `packages/agents` | 93 | Validate → repair → re-ask, grounding (an injected "$5000 to @x" is dropped), data-tag escape, back-translation fact check, report number grounding |
+| `packages/core` | 270 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics (including polite pleas that must not flag), approval hashing (NIST SHA-256 vectors), state machines, i18n, k-anonymous report, PII redaction |
+| `packages/db` | 62 | Two distinct signers, voiding on content change, idempotent batch creation, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), passkey credentials, assertions and revocation, migration drift |
+| `packages/agents` | 96 | Validate → repair → re-ask, grounding (an injected "$5000 to @x" is dropped), data-tag escape, back-translation fact check, report number grounding, policy drafts with a quote per cap (offline parser: changed caps, a new `baby_supplies` rule, plain prose) |
 | `packages/passkeys` | 11 | Approval-hash challenge, WebAuthn verification, labelled demo authenticator |
 | `packages/paypal` | 79 | Payouts idempotency and duplicate resolution, Venmo rules, raw-body webhook verification, retries, Transaction Search chunking, reconcile, MCP approval tokens |
 | `apps/approver` | 22 | Pays a complete two-person record once; re-execute returns the same batch; replayed, unsigned and stale requests refused; tampered amount (with and without a recomputed hash), single approver forced to "complete", an inflated amount written into the database, a swapped-in lookalike destination and today's budget all refused before PayPal; passkey signatures re-verified; poll and cancel-unclaimed |
-| `apps/web` (vitest) | 43 | The real engine through the approver process (Lan, Rosa, lookalike, double taps, cancel, reset), signed `/api/internal/*` jobs and `/api/health`, audio deletion and log redaction, and the least-privilege check that fails the build if web code can reach Payouts |
+| `apps/web` (vitest) | 52 | The real engine through the approver process (Lan, Rosa, lookalike, double taps, cancel, reset), the rules editor (draft → one signature is not enough → a signature over a tampered draft is refused → second signature activates v2 and re-prices the queue; a revoked device's signature stops counting), Arabic message templates, signed `/api/internal/*` jobs and `/api/health`, audio deletion and log redaction, and the least-privilege check that fails the build if web code can reach Payouts |
 | `tools/fake-paypal`, `tools/dev-db` | 15 + 5 | The fake's own contract; the shared dev database under concurrent pooled connections and reset |
-| `apps/web` (Playwright) | 17 | Same process layout as production (dev-db, fake PayPal, approver, web): Lan → `SUCCESS` with the clock frozen, a visitor approving as the second organizer with a passkey or demo key, lookalike blocked, approval idempotency over HTTP, mobile `/call`, and axe WCAG 2.1 AA checks |
+| `apps/web` (Playwright) | 19 | Same process layout as production (dev-db, fake PayPal, approver, web): Lan → `SUCCESS` with the clock frozen, a visitor approving as the second organizer with a passkey or demo key, lookalike blocked, approval idempotency over HTTP, mobile `/call`, the rules editor (Dana signs with a passkey, Marcus with a demo key, Policy v2 goes live), and axe WCAG 2.1 AA checks |
 
 ```bash
 pnpm test                                    # all unit tests (vitest), offline
@@ -307,7 +322,7 @@ The `/trust` page shows the fiscal-sponsor checklist on screen.
   so screen readers hear status changes, including the moment money arrives.
 - Hold-to-record also works as press-to-toggle with Space or Enter.
 - Each message carries its language (`lang="vi"`, `lang="es"`, `lang="ht"`) so screen readers switch voices.
-  (Core exposes `textDirection('ar') === 'rtl'`, but the web UI does not apply right-to-left layout yet.)
+  Arabic is laid out right to left (`dir="rtl"`) in the neighbor's views, with handles and ids isolated left to right.
 - Status is never shown by color alone. `prefers-reduced-motion` removes motion but keeps state changes.
 
 ## Roadmap
@@ -315,13 +330,12 @@ The `/trust` page shows the fiscal-sponsor checklist on screen.
 Not built yet, in rough priority order:
 
 1. Run the real PayPal sandbox spike (Payouts app + main app, webhooks on both).
-2. Organizer authentication (passkeys) and device binding for approvals.
-3. Give the approver its own container (Render private service, block ready in render.yaml) and its own Postgres role.
-4. Deploy the Render Workflows jobs (reconcile against Transaction Search, unclaimed follow-ups and report refresh, scheduled on Render): the tasks and the signed `/api/internal/*` endpoints exist; they run once the Blueprint is applied.
-5. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
-6. Rate limiting and bot protection on intake.
-7. Vetted catalog text for French, Tagalog, Korean and Russian (today they get a checked LLM translation or English).
-8. Hosting on Render.
+2. Give the approver its own container (Render private service, block ready in render.yaml) and its own Postgres role.
+3. Deploy the Render Workflows jobs (reconcile against Transaction Search, unclaimed follow-ups and report refresh, scheduled on Render): the tasks and the signed `/api/internal/*` endpoints exist; they run once the Blueprint is applied.
+4. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
+5. Rate limiting and bot protection on intake.
+6. Vetted catalog text for French, Tagalog, Korean and Russian (today they get a checked LLM translation or English).
+7. Hosting on Render.
 
 Good first issues are listed in [docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md).
 

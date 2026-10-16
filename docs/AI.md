@@ -9,7 +9,7 @@ amount, checks every destination, and two humans approve every payout. The code 
 | Agent | Input → output | Has tools? | File |
 |---|---|---|---|
 | **IntakeAgent** | Audio or text in any language → transcript → `IntakeExtraction` + English translation → read-back in the neighbor's language (+ one clarifying question) | No | [`intake/intake-agent.ts`](../packages/agents/src/intake/intake-agent.ts) |
-| **PolicyCompiler** | Organizers' plain-English rules → `PolicyDraft` + diff against the previous version | No. Draft only; activation needs two organizers | [`policy/compiler.ts`](../packages/agents/src/policy/compiler.ts) |
+| **PolicyCompiler** | Organizers' plain-English rules → `PolicyDraft` + the source quote of every cap + diff against the previous version | No. Draft only; activation needs two organizers' signatures | [`policy/compiler.ts`](../packages/agents/src/policy/compiler.ts) |
 | **NotifyAgent** | Status change → message from the vetted catalog in the neighbor's language (+ optional TTS) | No | [`notify/notify-agent.ts`](../packages/agents/src/notify/notify-agent.ts) |
 | **ReportWriter** | Aggregate facts (+ donation inflows via PayPal Agent Toolkit `list_transactions`) → 120–200 word donor narrative | No model-driven tools. The toolkit call has fixed arguments | [`report/report-writer.ts`](../packages/agents/src/report/report-writer.ts) |
 
@@ -68,6 +68,36 @@ again deterministically afterwards ([`intake/grounding.ts`](../packages/agents/s
 | Policy caps | Every dollar amount and count in a `PolicyDraft` must appear in the organizers' text; every category quotes its source rule verbatim | Repair; then the draft fails |
 | Report numbers | Every number in the narrative must be one of the computed facts | One repair; then a deterministic template |
 | Translations | Amount and wallet must appear verbatim in the translation and in a back-translation | The vetted English text is sent instead |
+
+## The policy compiler: AI drafts, humans decide
+
+Organizers edit the group's rules as plain English on `/organizer/rules`
+([`RulesEditor`](../apps/web/components/rules/RulesEditor.tsx)). What happens to that text:
+
+1. **Draft.** `agents.policy.compile({ sourceText, previous })` asks the model for a `PolicyDraft` (zod, strict tool
+   call): one category per rule, caps in integer cents, labels per language, and a `sourceQuote` per category. The
+   text is passed as data (`<policy_text>`), never as instructions.
+2. **Check, repair once.** Semantic checks: every dollar amount and count must appear in the organizers' text, every
+   `sourceQuote` must be copied from it, and core's `validatePolicy` invariants must hold (a per-request max can't
+   exceed its household cap, the household cap can't exceed 30 days of budget, …). Failures go back to the model once
+   with the exact field paths; if the draft still fails, nothing is stored and the page lists the problems.
+3. **Code does the rest.** The diff (added / changed / removed, old → new) is computed by
+   [`diffPolicies`](../packages/agents/src/policy/diff.ts). The line each group-wide limit comes from is found by string
+   matching (`limitQuotes`), not by the model. Translations of unchanged rules are carried over from the previous
+   version. What each request now waiting for approval would get under the draft is computed by `computeAmount` and
+   `checkRail`, the same code intake uses ([`policy-drafts.ts`](../apps/web/lib/server/engine/policy-drafts.ts)).
+4. **Two humans sign.** The draft is stored in the hash-chained audit log under
+   `policyDraftHash` (core: SHA-256 over the canonical draft, the version it becomes and the version it replaces,
+   domain-separated from payout approval hashes). Each organizer signs that hash with a WebAuthn passkey (in the demo:
+   a labelled demo key). Signatures are re-verified from the stored public keys every time they are counted, so a
+   revoked device stops counting. A signature over any other content is refused.
+5. **Activate.** On the second distinct valid signature, `db.activatePolicy` creates the new immutable version and
+   retires the old one; requests waiting for approval are re-priced under it and approvals given for the old amounts
+   are voided (the approval service refuses anything approved under a policy that is no longer active).
+
+In fixture mode an offline parser stands in for the model. It handles the house style ("Groceries: up to $100 per
+request, $200 per household in 30 days."), plain sentences ("we cover up to $150 for power outages"), and carries
+canned translations for a few common new categories such as `baby_supplies`.
 
 ## Prompt-injection posture
 

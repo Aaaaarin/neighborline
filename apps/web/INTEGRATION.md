@@ -20,6 +20,7 @@ call one `services()` method → JSON), and server components (`/demo`, `/organi
 | `webhooks.ts` | verify signature → dedupe (recordWebhookEvent) → settle |
 | `ledger.ts`, `report.ts`, `donations.ts` | /ledger + reconcile, /report + /trust, Orders v2 + Subscriptions |
 | `scenario-runner.ts` | `/demo` Play: drives the public methods with fixture samples; only human beats are scripted |
+| `policy-editor.ts`, `policy-drafts.ts` | `/organizer/rules`: `agents.policy.compile` → draft stored in the audit log under core `policyDraftHash` → queue preview (`railFor` under the draft) → two organizers' signatures over the draft hash → `db.activatePolicy` + re-price waiting requests (pending approvals voided) |
 | `internal.ts` | background jobs behind `/api/internal/*` (reconcile window, unclaimed sweep/renotify, organizer alerts, report versions); state in the audit log |
 | `../approval-service.ts` | collects organizer signatures (`createOrGetApproval` → `addApproverTx`) and, when complete, asks the **approver process** to execute via `../approver-client.ts` (HMAC-signed HTTP). **The web app has no Payouts client, creates no payout batches and never sees `PAYPAL_PAYOUTS_*`** (enforced by `lib/server/least-privilege.test.ts`) |
 | `../audio-retention.ts`, `../log.ts` | `AUDIO_RETENTION=none|24h` for raw recordings; JSON logger that redacts emails, phones and handles |
@@ -49,6 +50,12 @@ export interface Services {
   approve(input: ApproveInput): Promise<ApprovalResult>;                      // passkey/demo-key signature over the approval hash;
                                                                                // emit approval.added; on 2nd distinct approver the
                                                                                // approver process pays → payout.batch_created + item PENDING
+  liveSession(session): Promise<OrganizerSession | null>;                     // null once that passkey is revoked
+  revokePasskey({ credentialId, session }): Promise<{ organizerId, deviceLabel, signedOut }>;
+  policyEditor(): Promise<PolicyEditorView>;                                   // active rules, open draft, versions
+  compilePolicy({ sourceText, session }): Promise<CompilePolicyOutcome>;       // draft only; DEMO_MODE or a live session
+  policyChallenge({ draftHash, origin, organizerId? }): Promise<ApprovalChallenge>;  // challenge = draft hash
+  signPolicy(PolicySignInput & { origin? }): Promise<PolicySignResult>;        // 2nd distinct valid signature activates
   decline({ requestId, organizerId, reasonCode, note? }): Promise<{ status, message }>;   // emit notify.sent
   previewDecline({ requestId, reasonCode, note? }): Promise<{ text, textEn, lang }>;
   cancelPayoutItem({ batchId, itemId }): Promise<{ status }>;                  // only UNCLAIMED; executed by the approver
@@ -176,7 +183,8 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 `GET /api/health`, `POST /api/internal/{reconcile,unclaimed-sweep,unclaimed/renotify,organizer-alert,report-refresh}` (HMAC-signed, Render Workflows),
 `GET /api/intake/:id/thread`, `GET /api/intake/samples`, `GET /api/requests/:id`,
 `POST /api/requests/:id/decline` (+ `/preview`), `POST /api/donate/subscription/activated`,
-`GET /api/ledger`, `GET /api/group`, `POST /api/demo/play`. `GET /api/stream` accepts `?requestId=`.
+`GET /api/ledger`, `GET /api/group`, `POST /api/demo/play`, `GET /api/policy`, `POST /api/policy/{draft,challenge,sign}`,
+`POST /api/organizer/passkeys/revoke`. `GET /api/stream` accepts `?requestId=`.
 
 ## Tests
 

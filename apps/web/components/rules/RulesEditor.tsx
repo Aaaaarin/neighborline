@@ -91,8 +91,8 @@ export function RulesEditor({ initial, session, organizers }: { initial: PolicyE
         <p className="mt-3 text-[1.02rem] text-ink-2">
           Write the rules the way you’d explain them to a new volunteer. The AI drafts them as code and shows where every number came from. Nothing changes until two of you sign the draft.
         </p>
-        <p className="mt-3 inline-flex flex-wrap items-center gap-x-2 rounded-full bg-pine-wash px-3.5 py-1.5 text-[0.88rem] text-pine">
-          <Check size={15} strokeWidth={2.6} aria-hidden />
+        <p className="mt-3 inline-flex items-start gap-2 rounded-2xl bg-pine-wash px-3.5 py-1.5 text-[0.88rem] text-pine">
+          <Check size={15} strokeWidth={2.6} className="mt-[3px] shrink-0" aria-hidden />
           <span>
             <strong className="font-semibold">Policy v{active.version}</strong> is active
             {active.approvedBy.length ? `, approved by ${active.approvedBy.join(' and ')}` : ''}
@@ -109,7 +109,7 @@ export function RulesEditor({ initial, session, organizers }: { initial: PolicyE
               .map((s) => s.name)
               .join(' and ')}{' '}
             signed it. New requests are priced under v{activated.version}.{' '}
-            {activated.repriced > 0 ? `${activated.repriced === 1 ? 'The 1 request' : `All ${activated.repriced} requests`} waiting for approval were re-priced by code, and need approving again.` : ''}
+            {activated.repriced === 1 ? 'The request waiting for approval was re-priced by code and needs approving again.' : activated.repriced === 2 ? 'Both requests waiting for approval were re-priced by code and need approving again.' : activated.repriced > 2 ? `All ${activated.repriced} requests waiting for approval were re-priced by code and need approving again.` : ''}
           </p>
           <Link href="/organizer" className="mt-3 inline-flex h-11 items-center rounded-full bg-ink px-5 font-semibold text-raised">
             Open the approval queue
