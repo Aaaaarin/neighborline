@@ -59,6 +59,11 @@ jobs:
       - name: Build @neighborline/paypal (tsup → dist)
         run: pnpm --filter @neighborline/paypal build
 
+      # Packs the package exactly as it would be published and fails on stray files, broken export/bin targets,
+      # workspace: ranges or credential-looking strings (packages/paypal/scripts/pack-check.mjs).
+      - name: Pack check @neighborline/paypal (publish readiness)
+        run: pnpm --filter @neighborline/paypal pack:check --no-build
+
       - name: Build web app
         run: pnpm --filter @neighborline/web build
 

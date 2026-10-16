@@ -1,6 +1,44 @@
 # Changelog
 
+All notable changes to `@neighborline/paypal`. Versions follow [semver](https://semver.org); while the version is
+0.x, a minor bump may change behaviour, and every such change is listed here.
+
 ## Unreleased
+
+Nothing yet.
+
+## 0.2.0 — 2026-10-16 (first npm release candidate, not yet published)
+
+0.1.0 was only ever used inside the monorepo; 0.2.0 is the first version built to be published.
+
+### Packaging
+- Publish-ready: ESM-only `exports` map with `types` first for every entry, `sideEffects: false`, `engines.node >= 20`,
+  `publishConfig` with `access: public` and `provenance: true`, keywords, and a `files` allowlist (`dist`, README,
+  API.md, CHANGELOG, PAYPAL_NOTES, LICENSE). The tarball is 32 files, about 87 kB.
+- New subpath entry points: `@neighborline/paypal/approval` (approval tokens only; loads nothing but `node:crypto`)
+  and `@neighborline/paypal/webhooks` (verification, typed events, the payout status machine), next to `./mcp`.
+- `scripts/pack-check.mjs` (`pack:check`) packs with pnpm and fails on stray files, missing export or bin targets,
+  `workspace:` ranges or credential-looking strings; `scripts/pack-smoke.mjs` (`pack:smoke`) installs the tarball in a
+  clean project and exercises every subpath, `tsc` with `nodenext`, and the MCP bin against fake PayPal.
+- `prepublishOnly` refuses `npm publish` from the package folder (npm ignores the `publishConfig` export overrides);
+  releases publish the checked tarball from `.github/workflows/release-paypal.yml` with npm provenance.
+- `API.md`: a reference for every export, kept complete by a test. README rewritten: quick start, the approval-token
+  design with a diagram, security notes.
+- The workspace `package.json` no longer has a `main` field (`exports` already covers every consumer), so
+  `npm pack --dry-run` no longer lists `src/index.ts`.
+
+### MCP server
+- `create_payout_batch` without an `approval_token` (or with an empty one) is now refused by the tool itself, with
+  the reason `no approval_token; an agent cannot authorize a payout on its own`, and the refusal is audited.
+  Previously it failed schema validation, which was neither audited nor phrased for the agent. The field is
+  therefore optional in the input schema; its description and the tool description still say it is required.
+- `refusalHint` option (default `DEFAULT_REFUSAL_HINT`) replaces the Neighborline-specific sentence appended to every
+  refusal.
+- The server reports the package `VERSION` (new export) instead of a hard-coded `0.1.0`.
+
+### Approval tokens
+- `readApprovalToken(token)`: decode a token's payload without verifying it, for display and logs.
+- Dedicated unit tests for `batchDigest`, signing, verification and every refusal reason.
 
 ### Reconcile
 - `reconcile()` adds three buckets: `currencyMismatch`, `statusDrift` (PayPal's `transaction_status` S/P/D/V checked

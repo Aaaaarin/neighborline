@@ -8,12 +8,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { batchDigest, denyAllApprovals, type ApprovalVerifier } from '../approval.js';
+import { batchDigest, denyAllApprovals, type ApprovalDecision, type ApprovalVerifier } from '../approval.js';
 import { PayPalApiError, PayPalError } from '../errors.js';
 import { createPayPal, type PayPal } from '../paypal.js';
 import type { PayPalClient, PayPalClientOptions } from '../client.js';
 import { PAYOUT_PURPOSES, type CreateBatchInput, type NormalizedPayoutItem } from '../payouts.js';
 import { reconcile } from '../reconcile.js';
+import { VERSION } from '../version.js';
 
 export interface AuditEntry {
   tool: string;
@@ -32,7 +33,14 @@ export interface PayoutsMcpOptions {
   onAudit?: (entry: AuditEntry) => void;
   name?: string;
   version?: string;
+  /**
+   * Appended to every refusal of `create_payout_batch`, telling the agent (and its user) where approvals happen.
+   * Default: "Payouts need two human approvals in the Neighborline organizer app."
+   */
+  refusalHint?: string;
 }
+
+export const DEFAULT_REFUSAL_HINT = 'Payouts need two human approvals in the Neighborline organizer app.';
 
 const PayoutItemStatusEnum = z.enum(['PENDING', 'SUCCESS', 'UNCLAIMED', 'RETURNED', 'ONHOLD', 'BLOCKED', 'FAILED', 'REFUNDED', 'REVERSED', 'CANCELED']);
 const isoDate = z.string().refine((s) => !Number.isNaN(Date.parse(s)), 'must be an ISO-8601 date/time');
@@ -54,8 +62,9 @@ const itemView = ({ raw: _raw, ...rest }: NormalizedPayoutItem) => rest;
 export function createPayoutsMcpServer(options: PayoutsMcpOptions): McpServer {
   const paypal: PayPal = 'payouts' in options.paypal ? (options.paypal as PayPal) : createPayPal(options.paypal as PayPalClient | PayPalClientOptions);
   const verify = options.approvalVerifier ?? denyAllApprovals;
+  const refusalHint = options.refusalHint ?? DEFAULT_REFUSAL_HINT;
   const audit = (e: Omit<AuditEntry, 'at'>) => options.onAudit?.({ ...e, at: new Date().toISOString() });
-  const server = new McpServer({ name: options.name ?? 'neighborline-payouts', version: options.version ?? '0.1.0' });
+  const server = new McpServer({ name: options.name ?? 'neighborline-payouts', version: options.version ?? VERSION });
 
   const guarded = async (tool: string, fn: () => Promise<CallToolResult>, extra: Partial<AuditEntry> = {}): Promise<CallToolResult> => {
     try {
@@ -188,9 +197,11 @@ export function createPayoutsMcpServer(options: PayoutsMcpOptions): McpServer {
     {
       title: 'Create payout batch (requires human approval token)',
       description:
-        'Send money via PayPal Payouts to PayPal or Venmo recipients. REQUIRES approval_token: a short-lived token issued by the human approval service after two different organizers approved this exact batch (same sender_batch_id, receivers, amounts). You cannot create or modify a token; if the batch differs in any way from what humans approved, the call is refused. Never retry with a different sender_batch_id — a repeated sender_batch_id is safe and returns the original batch.',
+        'Send money via PayPal Payouts to PayPal or Venmo recipients. REQUIRES approval_token (calls without one are refused): a short-lived token issued by the human approval service after two different organizers approved this exact batch (same sender_batch_id, receivers, amounts). You cannot create or modify a token; if the batch differs in any way from what humans approved, the call is refused. Never retry with a different sender_batch_id — a repeated sender_batch_id is safe and returns the original batch.',
       inputSchema: {
-        approval_token: z.string().min(10).max(4096).describe('Token from the approval service. Do not fabricate.'),
+        // Optional in the schema on purpose: a call without a token reaches the handler, is refused with a reason the
+        // agent can relay to its user, and is audited. A schema validation error would be neither.
+        approval_token: z.string().max(4096).optional().describe('REQUIRED to move money. Token from the human approval service. Do not fabricate.'),
         sender_batch_id: z.string().min(1).max(256),
         email_subject: z.string().max(255).optional(),
         email_message: z.string().max(1000).optional(),
@@ -228,15 +239,20 @@ export function createPayoutsMcpServer(options: PayoutsMcpOptions): McpServer {
           ...(i.purpose ? { purpose: i.purpose } : {}),
         })),
       };
-      let decision;
-      try {
-        decision = await verify({ approvalToken: args.approval_token, batch, digest: batchDigest(batch) });
-      } catch (err) {
-        decision = { ok: false as const, reason: `approval verifier error: ${(err as Error).message}` };
+      let decision: ApprovalDecision;
+      const token = args.approval_token?.trim() ?? '';
+      if (!token) {
+        decision = { ok: false, reason: 'no approval_token; an agent cannot authorize a payout on its own' };
+      } else {
+        try {
+          decision = await verify({ approvalToken: token, batch, digest: batchDigest(batch) });
+        } catch (err) {
+          decision = { ok: false, reason: `approval verifier error: ${(err as Error).message}` };
+        }
       }
       if (!decision.ok) {
         audit({ tool: 'create_payout_batch', outcome: 'refused', detail: decision.reason, senderBatchId: batch.senderBatchId });
-        return fail(`Refused: ${decision.reason}. Payouts need two human approvals in the Neighborline organizer app.`);
+        return fail(`Refused: ${decision.reason}. ${refusalHint}`);
       }
       return guarded(
         'create_payout_batch',

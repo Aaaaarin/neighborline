@@ -1,11 +1,19 @@
 import { defineConfig } from 'tsup';
 
+// One entry per public subpath (see package.json "publishConfig.exports"), plus the MCP bin.
+const entries = {
+  index: 'src/index.ts',
+  approval: 'src/approval.ts',
+  webhooks: 'src/entries/webhooks.ts',
+  'mcp/server': 'src/mcp/server.ts',
+};
+
 export default defineConfig({
-  entry: { index: 'src/index.ts', 'mcp/server': 'src/mcp/server.ts', 'mcp/bin': 'src/mcp/bin.ts' },
+  entry: { ...entries, 'mcp/bin': 'src/mcp/bin.ts' },
   format: ['esm'],
   target: 'node20',
   platform: 'node',
-  dts: { entry: { index: 'src/index.ts', 'mcp/server': 'src/mcp/server.ts' } },
+  dts: { entry: entries },
   sourcemap: true,
   clean: true,
   splitting: true,

@@ -1,36 +1,97 @@
 {
   "name": "@neighborline/paypal",
-  "version": "0.1.0",
-  "description": "Typed PayPal REST client for payouts-heavy apps (Payouts incl. Venmo, Orders, Subscriptions, Webhooks, Transaction Search) plus an MCP server that adds approval-gated Payouts tools to AI agents.",
+  "version": "0.2.0",
+  "description": "Typed PayPal REST client for apps that send money (Payouts to PayPal and Venmo, verified webhooks, Transaction Search reconciliation, Orders, Subscriptions) plus an MCP server that lets AI agents pay people only with two humans' signed approval.",
   "type": "module",
   "license": "MIT",
-  "keywords": ["paypal", "venmo", "payouts", "mcp", "webhooks", "mutual-aid", "agents"],
-  "repository": { "type": "git", "url": "git+https://github.com/Aaaaarin/neighborline.git", "directory": "packages/paypal" },
+  "author": "Neighborline contributors",
+  "keywords": [
+    "paypal",
+    "venmo",
+    "payouts",
+    "paypal-payouts",
+    "mass-payments",
+    "webhooks",
+    "webhook-verification",
+    "reconciliation",
+    "transaction-search",
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "ai-agents",
+    "agentic-payments",
+    "human-in-the-loop",
+    "approval",
+    "idempotency",
+    "typescript",
+    "mutual-aid"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aaaaarin/neighborline.git",
+    "directory": "packages/paypal"
+  },
   "homepage": "https://github.com/Aaaaarin/neighborline/tree/main/packages/paypal#readme",
-  "bugs": { "url": "https://github.com/Aaaaarin/neighborline/issues" },
-  "main": "src/index.ts",
+  "bugs": {
+    "url": "https://github.com/Aaaaarin/neighborline/issues"
+  },
+  "sideEffects": false,
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./mcp": "./src/mcp/server.ts"
+    "./approval": "./src/approval.ts",
+    "./webhooks": "./src/entries/webhooks.ts",
+    "./mcp": "./src/mcp/server.ts",
+    "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "API.md",
+    "CHANGELOG.md",
+    "PAYPAL_NOTES.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
-      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-      "./mcp": { "types": "./dist/mcp/server.d.ts", "import": "./dist/mcp/server.js" }
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./approval": {
+        "types": "./dist/approval.d.ts",
+        "default": "./dist/approval.js"
+      },
+      "./webhooks": {
+        "types": "./dist/webhooks.d.ts",
+        "default": "./dist/webhooks.js"
+      },
+      "./mcp": {
+        "types": "./dist/mcp/server.d.ts",
+        "default": "./dist/mcp/server.js"
+      },
+      "./package.json": "./package.json"
     },
-    "bin": { "neighborline-payouts-mcp": "./dist/mcp/bin.js" }
+    "bin": {
+      "neighborline-payouts-mcp": "./dist/mcp/bin.js"
+    }
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "mcp": "tsx src/mcp/bin.ts"
+    "mcp": "tsx src/mcp/bin.ts",
+    "pack:check": "node scripts/pack-check.mjs",
+    "pack:smoke": "node scripts/pack-smoke.mjs",
+    "prepublishOnly": "node scripts/prepublish-guard.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

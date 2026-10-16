@@ -46,7 +46,9 @@ describe('neighborline-payouts MCP server', () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(['cancel_unclaimed_payout_item', 'create_payout_batch', 'get_payout_batch', 'get_payout_item', 'reconcile_payouts', 'search_transactions']);
     const create = tools.find((t) => t.name === 'create_payout_batch')!;
-    expect(create.inputSchema.required).toContain('approval_token');
+    // Optional in the schema so a missing token is refused (and audited) by the handler, not by schema validation.
+    expect((create.inputSchema.properties as Record<string, { description?: string }>).approval_token?.description).toMatch(/^REQUIRED to move money/);
+    expect(create.description).toMatch(/REQUIRES approval_token/);
     expect(create.annotations?.destructiveHint).toBe(true);
   });
 
@@ -57,6 +59,28 @@ describe('neighborline-payouts MCP server', () => {
     expect(r.text).toMatch(/Refused/);
     expect(h.fake.state.batches.size).toBe(0);
     expect(audit.at(-1)).toMatchObject({ tool: 'create_payout_batch', outcome: 'refused' });
+  });
+
+  it('refuses a call without an approval token with a reason the agent can relay, and audits it', async () => {
+    const { call, audit } = await connect(createHmacApprovalVerifier(SECRET));
+    for (const approval_token of [undefined, '', '   ']) {
+      const r = await call('create_payout_batch', { ...batchArgs, ...(approval_token === undefined ? {} : { approval_token }) });
+      expect(r.isError).toBe(true);
+      expect(r.text).toBe('Refused: no approval_token; an agent cannot authorize a payout on its own. Payouts need two human approvals in the Neighborline organizer app.');
+    }
+    expect(h.fake.state.batches.size).toBe(0);
+    expect(audit).toHaveLength(3);
+    expect(audit.every((e) => e.tool === 'create_payout_batch' && e.outcome === 'refused' && e.senderBatchId === 'nl_mcp_1')).toBe(true);
+  });
+
+  it('uses a custom refusal hint', async () => {
+    const server = createPayoutsMcpServer({ paypal: h.paypal, refusalHint: 'Ask two treasurers in #payouts.' });
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverT);
+    const client = new Client({ name: 'test', version: '0.0.0' });
+    await client.connect(clientT);
+    const r = (await client.callTool({ name: 'create_payout_batch', arguments: { ...batchArgs, approval_token: token() } })) as { content: Array<{ text: string }> };
+    expect(r.content[0]!.text).toMatch(/^Refused: No approval verifier configured.*Ask two treasurers in #payouts\.$/);
   });
 
   it('executes exactly the batch two humans approved', async () => {

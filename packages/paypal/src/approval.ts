@@ -66,6 +66,22 @@ export function signApprovalToken(
   return `${PREFIX}.${p}.${mac(secret, p)}`;
 }
 
+/**
+ * Decode a token's payload **without verifying it** (for display and logs: who approved, which batch, when it
+ * expires). Returns null if the token is not shaped like an `nlap1` token. Never authorize anything with this;
+ * use `createHmacApprovalVerifier`.
+ */
+export function readApprovalToken(token: string): ApprovalPayload | null {
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== PREFIX) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8')) as ApprovalPayload;
+    return payload && typeof payload === 'object' && payload.v === 1 ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
 /** HMAC verifier: valid signature, unexpired, bound to this exact batch, ≥ minApprovers distinct humans. */
 export function createHmacApprovalVerifier(secret: string, opts: { minApprovers?: number; now?: () => number } = {}): ApprovalVerifier {
   assertSecret(secret);
