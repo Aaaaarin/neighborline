@@ -105,3 +105,11 @@ test('dueJobs: reconcile only in the configured UTC hour; keys are per hour/day'
   assert.deepEqual(at11.map((j) => j.task), ['unclaimedSweep', 'refreshReport']);
   assert.deepEqual(at11[1]!.input, [{ minNewPayouts: 5, force: false, reason: 'schedule' }]);
 });
+
+test('dueJobs: the hosted demo resets once a day only when an hour is configured', () => {
+  const none = dueJobs(new Date('2026-11-20T11:05:00Z'), { reconcileHourUtc: 10, reportEveryNPayouts: 5 });
+  assert.equal(none.some((j) => j.task === 'nightlyDemoReset'), false);
+  const at11 = dueJobs(new Date('2026-11-20T11:05:00Z'), { reconcileHourUtc: 10, reportEveryNPayouts: 5, demoResetHourUtc: 11 });
+  const reset = at11.find((j) => j.task === 'nightlyDemoReset')!;
+  assert.equal(reset.idempotencyKey, 'demo-reset:2026-11-20');
+});

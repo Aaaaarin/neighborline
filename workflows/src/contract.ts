@@ -140,4 +140,6 @@ export const ENDPOINTS = {
   renotify: '/api/internal/unclaimed/renotify',
   organizerAlert: '/api/internal/organizer-alert',
   reportRefresh: '/api/internal/report-refresh',
+  /** DEMO_MODE only: reseed the shared demo database (HMAC like the internal routes; not public). */
+  demoReset: '/api/demo/reset',
 } as const;

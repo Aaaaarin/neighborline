@@ -14,6 +14,7 @@
  *   WORKFLOW_SLUG            render.yaml wires it from the workflow service; default neighborline-workflows
  *   RECONCILE_HOUR_UTC       default 10 (03:00 PDT / 02:00 PST)
  *   REPORT_REFRESH_EVERY_N_PAYOUTS  default 5
+ *   DEMO_RESET_HOUR_UTC      optional, hosted demo only: reseed the demo database once a day at this hour
  *   KEEP_WARM_URL            optional, e.g. https://neighborline.onrender.com/api/health (free web plan only)
  *   DISPATCH_MODE=inline     fallback without Workflows: run the task code in this process
  *                            (then also needs NEIGHBORLINE_INTERNAL_SECRET + NEIGHBORLINE_BASE_URL)
@@ -23,7 +24,7 @@
 import { Render } from '@renderinc/sdk';
 import { dueJobs, type DueJob, type TaskName } from './policy.js';
 
-const TASKS: readonly TaskName[] = ['nightlyReconcile', 'unclaimedSweep', 'refreshReport'];
+const TASKS: readonly TaskName[] = ['nightlyReconcile', 'unclaimedSweep', 'refreshReport', 'nightlyDemoReset'];
 
 function intEnv(key: string, fallback: number, min: number, max: number): number {
   const raw = process.env[key];
@@ -45,11 +46,12 @@ async function keepWarm(url: string): Promise<void> {
 }
 
 async function runJobsInline(jobs: DueJob[]): Promise<number> {
-  const [{ runInline }, { nightlyReconcile }, { unclaimedSweep }, { refreshReport }] = await Promise.all([
+  const [{ runInline }, { nightlyReconcile }, { unclaimedSweep }, { refreshReport }, { nightlyDemoReset }] = await Promise.all([
     import('./inline.js'),
     import('./tasks/reconcile.js'),
     import('./tasks/unclaimed.js'),
     import('./tasks/report.js'),
+    import('./tasks/demo.js'),
   ]);
   let failed = 0;
   for (const job of jobs) {
@@ -59,7 +61,9 @@ async function runJobsInline(jobs: DueJob[]): Promise<number> {
           ? await runInline(nightlyReconcile)
           : job.task === 'unclaimedSweep'
             ? await runInline(unclaimedSweep)
-            : await runInline(refreshReport, (job.input[0] ?? {}) as Parameters<typeof refreshReport.func>[1]);
+            : job.task === 'nightlyDemoReset'
+              ? await runInline(nightlyDemoReset)
+              : await runInline(refreshReport, (job.input[0] ?? {}) as Parameters<typeof refreshReport.func>[1]);
       console.log(JSON.stringify({ event: 'inline_done', task: job.task, result }));
     } catch (err) {
       failed++;
@@ -86,6 +90,7 @@ async function main(): Promise<void> {
     : dueJobs(new Date(), {
         reconcileHourUtc: intEnv('RECONCILE_HOUR_UTC', 10, 0, 23),
         reportEveryNPayouts: intEnv('REPORT_REFRESH_EVERY_N_PAYOUTS', 5, 1, 10_000),
+        demoResetHourUtc: process.env.DEMO_RESET_HOUR_UTC ? intEnv('DEMO_RESET_HOUR_UTC', 11, 0, 23) : null,
       });
 
   const keepWarmUrl = process.env.KEEP_WARM_URL?.trim();

@@ -108,7 +108,7 @@ export function decideUnclaimed(item: UnclaimedItem, now: Date): UnclaimedAction
 
 // ---------- scheduler ----------
 
-export type TaskName = 'nightlyReconcile' | 'unclaimedSweep' | 'refreshReport';
+export type TaskName = 'nightlyReconcile' | 'unclaimedSweep' | 'refreshReport' | 'nightlyDemoReset';
 export interface DueJob {
   task: TaskName;
   input: unknown[];
@@ -120,7 +120,7 @@ export interface DueJob {
  * Jobs due at `now`. The cron ticks every 10–15 min; hourly/daily jobs are keyed by hour/day, so
  * only the first tick in each period starts a run and a late or missed tick is self-healing.
  */
-export function dueJobs(now: Date, opts: { reconcileHourUtc: number; reportEveryNPayouts: number }): DueJob[] {
+export function dueJobs(now: Date, opts: { reconcileHourUtc: number; reportEveryNPayouts: number; demoResetHourUtc?: number | null }): DueJob[] {
   const iso = now.toISOString();
   const day = iso.slice(0, 10); // YYYY-MM-DD
   const hour = iso.slice(0, 13); // YYYY-MM-DDTHH
@@ -134,6 +134,10 @@ export function dueJobs(now: Date, opts: { reconcileHourUtc: number; reportEvery
   ];
   if (now.getUTCHours() === opts.reconcileHourUtc) {
     jobs.unshift({ task: 'nightlyReconcile', input: [], idempotencyKey: `reconcile:${day}` });
+  }
+  // The hosted demo (DEMO_MODE) starts each day from a clean seed; only when DEMO_RESET_HOUR_UTC is set.
+  if (opts.demoResetHourUtc != null && now.getUTCHours() === opts.demoResetHourUtc) {
+    jobs.push({ task: 'nightlyDemoReset', input: [], idempotencyKey: `demo-reset:${day}` });
   }
   return jobs;
 }
