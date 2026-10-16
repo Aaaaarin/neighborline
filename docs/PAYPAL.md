@@ -27,11 +27,11 @@ What we send, per item:
 
 | Field | Our value | Why |
 |---|---|---|
-| `sender_batch_header.sender_batch_id` | `nl_` + first 24 hex chars of the approval hash | Deterministic, so a retry can never create a second batch ([ARCHITECTURE.md](ARCHITECTURE.md#idempotency-design)) |
+| `sender_batch_header.sender_batch_id` | `nl_` + 24 hex of SHA-256(`neighborline/paypal/sender_batch_id/v2` ‖ approval id ‖ approval hash) | Deterministic per approval record, so a double tap, retry or timeout can never create a second batch; a *later* approval of identical content (a re-payment) gets its own id instead of colliding with the old batch for 30 days ([ARCHITECTURE.md](ARCHITECTURE.md#idempotency-design)) |
 | `recipient_type` | `EMAIL`, `PHONE` or `USER_HANDLE` | `USER_HANDLE` is a Venmo username. The client rejects `USER_HANDLE` with `recipient_wallet: PAYPAL` |
 | `recipient_wallet` | `PAYPAL` or `VENMO` | One batch can mix both |
 | `amount` | `{ value: "150.00", currency: "USD" }` from integer cents | Floats are rejected, never rounded ([`money.ts`](../packages/paypal/src/money.ts)) |
-| `sender_item_id` | `nli_` + 24 hex chars | ≤ 63 chars; echoed in webhooks and reports |
+| `sender_item_id` | `nli_` + 24 hex of SHA-256(domain ‖ approval id ‖ hash ‖ request id) | ≤ 63 chars; echoed in webhooks and reports |
 | `note` | Required for Venmo | PayPal: "A message must be included for each recipient" on Venmo. ≤ 4000 ASCII or ≤ 1000 non-ASCII characters, checked locally |
 | `application_context.social_feed_privacy` | Always `PRIVATE` for Venmo | Aid never appears in a public Venmo feed. Sent explicitly even though it is the default |
 | `purpose` | Set explicitly, validated against `AWARDS, PRIZES, DONATIONS, GOODS, SERVICES, REBATES, CASHBACK, DISCOUNTS, NON_GOODS_OR_SERVICES` | PayPal's default in the Payouts Web UI is `GOODS`; mutual aid is not a sale. The payments lane suggests `NON_GOODS_OR_SERVICES`, the stage shows `DONATIONS`: see [open questions](#open-questions) |
@@ -55,6 +55,17 @@ Other documented limits: 400 POSTs per minute (`429 RATE_LIMIT_REACHED`), and **
    - `createBatch` GETs that batch and returns it with `duplicate: true`.
    - With no link it throws `DuplicateBatchError`, and the caller uses its stored `paypal_batch_id`. PayPal has no
      search-by-`sender_batch_id` endpoint, so we persist the mapping.
+
+### When the create call fails: definite vs ambiguous
+
+The approver ([`approver.ts`](../apps/approver/src/approver.ts)) never records a failure it cannot be sure of
+(`isAmbiguousPayPalError` in [`errors.ts`](../packages/paypal/src/errors.ts)):
+
+| Outcome of `POST /v1/payments/payouts` | Batch status | What happens next |
+|---|---|---|
+| 2xx, or the duplicate-id error with a link | `PENDING`/`PROCESSING`/… | Store `payout_batch_id`, fetch item ids |
+| 4xx (validation, insufficient funds, auth) | `FAILED` | Organizer sees PayPal's message; nothing was sent |
+| Timeout, network error, 5xx, 429, `DuplicateBatchError` | `UNKNOWN` | The request may have landed. Answer `paypal_unknown`; the web app asks again after 5 s, 30 s, 2 min and 10 min (and any tap re-executes). Each attempt **re-runs the policy check** (amounts, caps, rail) and re-sends the **same** `sender_batch_id` + `PayPal-Request-Id`, which PayPal answers with the original batch if the first call landed |
 
 Sources: [customize](https://developer.paypal.com/api/payouts/customize.md),
 [payouts-post](https://developer.paypal.com/api/payments.payouts-batch/v1/payouts-post).
@@ -104,8 +115,12 @@ Client: [`packages/paypal/src/webhooks.ts`](../packages/paypal/src/webhooks.ts) 
   the **raw body spliced in as `webhook_event`** byte-for-byte (`buildVerifyRequestBody`). A missing header or a
   body that is not a JSON object fails without a network call.
 - **Read the body first.** Route handlers must call `await req.text()` before parsing anything.
-- **Dedupe and order.** PayPal retries up to 25 times over 3 days and does not guarantee order. We dedupe on
-  `event.id` and apply statuses through the monotonic state machine.
+- **At least once, never at most once.** PayPal retries up to 25 times over 3 days and does not guarantee order.
+  `db.beginWebhookEvent` records `event.id` and answers `new | retry | done`; the event is marked processed
+  (`processed_at`) only **after** its effects are applied. If the apply throws we return 500, PayPal retries,
+  and the retry applies it again. Only `done` is acknowledged without work. Applying twice is safe: statuses
+  go through the monotonic item state machine (a status applied twice is a no-op; terminal states never
+  regress) and donations dedupe on order and transaction id.
 - **Batch events carry no item data.** On `PAYMENT.PAYOUTSBATCH.*`, call `listAllItems` if you need the items.
 - **Item events:** `PAYMENT.PAYOUTS-ITEM.SUCCEEDED|UNCLAIMED|RETURNED|BLOCKED|CANCELED|DENIED|FAILED|HELD|REFUNDED`.
   `REVERSED` is not in either official list; we map it defensively.
@@ -152,13 +167,31 @@ Sources: [create order](https://docs.paypal.ai/reference/api/rest/orders/create-
 - Event codes: payouts `T0001` (reversal `T1114`, refund `T1115`), checkout `T0006`, donations `T0013`,
   subscriptions `T0002`.
 - The REST app needs the Transaction Search permission.
-- Output buckets: `matched`, `amountMismatch`, `missingAtPayPal`, `missingLocally`, `pendingLag`, `noTransactionId`.
+- Output buckets: `matched`, `amountMismatch`, `currencyMismatch`, `statusDrift`, `missingAtPayPal`, `missingLocally`,
+  `pendingLag`, `noTransactionId`, `stuckPending`.
+- **Status drift.** Transaction Search's `transaction_status` (`S` success, `P` pending, `D` denied, `V`
+  reversed/refunded) is compared with our item status (`CONSISTENT_LOCAL_STATUSES`): we say `SUCCESS` but PayPal
+  says `V` is drift, and so is `RETURNED` locally with `S` at PayPal. Items still `PENDING`/`ONHOLD` with no
+  transaction id after 24 h are `stuckPending` (a lost webhook: poll the batch).
 
 Sources: [list transactions](https://docs.paypal.ai/reference/api/rest/transactions/list-transactions.md),
 [T-codes](https://developer.paypal.com/reports/reference/t-codes).
 
-A scheduled nightly reconcile is on the roadmap. `POST /api/reconcile` is the on-demand entry point (it is served
-by the in-memory engine until the web wiring lands).
+Every run (nightly via Render Workflows → `/api/internal/reconcile`, or **Reconcile now** → `POST /api/reconcile`)
+is persisted in `reconcile_runs` with a per-item outcome and an audit row, so `/ledger` shows the last result
+and the reason for each mismatch (`reconcileDetail`) even after a restart. Against a real PayPal environment
+`POST /api/reconcile` needs a signed-in organizer; against the local fake anyone may press it (rate-limited).
+
+## Hardening decisions (QA-REPORT-1)
+
+| Decision | Why | Code |
+|---|---|---|
+| `sender_batch_id` binds the approval **id** as well as the content hash | Double taps dedupe; a legitimate re-payment of identical content is not swallowed by PayPal's 30-day duplicate window | `core/approvals.ts` `senderBatchIdFor` |
+| Ambiguous create → `UNKNOWN`, resolved by re-sending the same id after a fresh policy check | A timeout after PayPal accepted the batch must not read as "failed" | `apps/approver/src/approver.ts`, `web/lib/server/approval-service.ts` |
+| Webhooks applied at least once | Recording the id before applying lost the event for good if the apply crashed | `db/repo/misc.ts` `beginWebhookEvent`, `web/lib/server/engine/webhooks.ts` |
+| WebAuthn challenge = SHA-256(domain ‖ approval hash ‖ single-use server nonce), nonce stored with the assertion | A captured assertion can't be replayed for a later identical approval; the approver still re-verifies offline | `packages/passkeys/src/encoding.ts` `challengeFor`, `approver/src/assertions.ts` |
+| Reconcile compares status and currency, persists every run | Amount-only matching missed reversals; results were lost on restart | `paypal/src/reconcile.ts`, `web/lib/server/engine/ledger.ts` |
+| Concurrent approval taps return 200 | A tap that lost a race reported failure for a payment that went through | `web/lib/server/approval-service.ts` |
 
 ## 5. The client itself
 

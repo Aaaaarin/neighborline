@@ -102,11 +102,11 @@ sequenceDiagram
     A->>S: Approve (signature 1)
     B->>S: Approve (signature 2, different organizer)
     S->>S: Re-derive from the DB: approval hash, 2 distinct organizers, signatures, amounts, rail checks
-    S->>P: POST /v1/payments/payouts · sender_batch_id = "nl_" + hash[0..24] · PayPal-Request-Id
+    S->>P: POST /v1/payments/payouts · sender_batch_id = "nl_" + H(approval id ‖ hash)[0..24] · PayPal-Request-Id
     P-->>S: 201 payout_batch_id, PENDING
     P->>W: PAYMENT.PAYOUTS-ITEM.SUCCEEDED (or UNCLAIMED)
     W->>P: POST /v1/notifications/verify-webhook-signature (raw body)
-    W->>W: Dedupe event id, apply monotonic item state machine
+    W->>W: Dedupe event id (applied at least once), monotonic item state machine
     W->>T: Item SUCCESS
     T-->>N: "Đã gửi $150 vào Venmo của bạn" (vetted template, amount filled by code)
 ```
@@ -280,6 +280,31 @@ pnpm --filter @neighborline/web test:e2e     # dev-db + fake PayPal + approver +
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs all of these, a dependency audit and a gitleaks
 secret scan on every push and pull request.
 
+## Security and privacy
+
+The full STRIDE model is in [THREAT_MODEL.md](THREAT_MODEL.md); these are the controls a judge can try.
+
+- **Two people, two signatures.** Each Approve tap is a WebAuthn signature over a challenge that binds the approval
+  hash (requests, amounts, destinations, policy version) to a single-use server nonce. The approval service, the only
+  process with Payouts credentials, re-verifies every signature with the stored public key and nonce, recomputes every
+  amount from the policy, and refuses an approver without a verified signature.
+- **Demo mode is explicit and narrow.** `DEMO_MODE` is on only when set (or with the local fake PayPal) and never with
+  live PayPal. In the demo, Dana's taps are scripted with a labelled server-held demo key, and you play Marcus with his
+  demo key or your own passkey, which this server ties to your browser: either signs only runs you started yourself.
+  Real organizer seats always need an invite code. `/trust` says exactly this, generated from the running config.
+- **Judges don't see or disturb each other.** Each browser's runs (`/demo` and `/call`) carry its signed visitor tag;
+  streams and reads are scoped to it, and the demo reset is not public.
+- **Neighbors' details stay private.** Anyone who is neither a signed-in organizer nor the sender gets a redacted view:
+  first name and neighborhood, masked destination, no transcript, phone number or address. Logs and AI traces are
+  redacted too; raw audio is deleted after transcription; the public report is k-anonymous (k = 5).
+- **Payouts are idempotent and honest about uncertainty.** One approval maps to one `sender_batch_id`; a timeout leaves
+  the batch `UNKNOWN` (never `FAILED`) and it is resolved by re-sending the same id after a fresh policy check.
+  Webhooks are verified and applied at least once. Reconcile compares amount, currency and status with Transaction
+  Search and keeps every run on `/ledger`.
+- **Browser hardening.** Same-origin and JSON-only state-changing API calls, body size caps (2-minute voice notes),
+  per-IP and per-visitor rate limits on intake and live AI, a nonce-based CSP (PayPal and Venmo SDK hosts allowed),
+  `frame-ancestors 'none'`, HSTS, and a `Permissions-Policy` that allows only the microphone and passkeys.
+
 ## Sandbox reality
 
 What is real and what is simulated today:
@@ -308,8 +333,9 @@ Running this with real money needs more than code:
 - **Transaction Search permission** must be enabled on the REST app.
 - **SMS** needs carrier registration (US toll-free verification or A2P 10DLC), which takes days. This is why callbacks
   are on the roadmap rather than in the demo.
-- **Organizer authentication.** The demo has none: organizer ids come from the request. See
-  [THREAT_MODEL.md](THREAT_MODEL.md).
+- **Organizer authentication.** Passkeys with invite codes; set `DEMO_MODE=false` (the default outside fake mode) so no
+  demo key can sign, and require an organizer session for `/organizer` and `/api/requests`. See
+  [THREAT_MODEL.md](THREAT_MODEL.md) (residual risks R1, R9, R12, R13).
 
 The `/trust` page shows the fiscal-sponsor checklist on screen.
 
@@ -333,7 +359,7 @@ Not built yet, in rough priority order:
 2. Give the approver its own container (Render private service, block ready in render.yaml) and its own Postgres role.
 3. Deploy the Render Workflows jobs (reconcile against Transaction Search, unclaimed follow-ups and report refresh, scheduled on Render): the tasks and the signed `/api/internal/*` endpoints exist; they run once the Blueprint is applied.
 4. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
-5. Rate limiting and bot protection on intake.
+5. A shared rate-limit store and bot protection on intake (today: in-memory token buckets per IP and per visitor).
 6. Vetted catalog text for French, Tagalog, Korean and Russian (today they get a checked LLM translation or English).
 7. Hosting on Render.
 

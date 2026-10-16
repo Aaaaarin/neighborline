@@ -26,10 +26,14 @@ envVarGroups:
       - key: PAYPAL_REPORTING_LAG_HOURS
         value: "3"
 
-  # Web app only. Signs two-person approval tokens for the Payouts MCP tool (packages/paypal).
+  # Web app only. NEIGHBORLINE_APPROVAL_SECRET signs two-person approval tokens for the Payouts MCP tool
+  # (packages/paypal). NEIGHBORLINE_SESSION_SECRET signs organizer session cookies, visitor cookies (each
+  # judge's demo runs are tied to theirs) and invite codes; without it they would change on every restart.
   - name: neighborline-secrets
     envVars:
       - key: NEIGHBORLINE_APPROVAL_SECRET
+        generateValue: true
+      - key: NEIGHBORLINE_SESSION_SECRET
         generateValue: true
 
 databases:
@@ -90,8 +94,19 @@ services:
         value: fixture
       - key: LLM_PROVIDER
         value: anthropic
+      # DEMO_MODE fails closed (unset = on only with PAYPAL_MODE=fake), so the hosted demo sets it explicitly.
+      # What it relaxes, exactly (shown on /trust, "In this demo"): Dana's /demo taps are signed with a
+      # labelled server-held demo key; a visitor plays Marcus (his demo key, or their own passkey bound to
+      # their browser) on runs they started themselves only; demo runs skip household caps. Invite codes,
+      # two distinct organizers and the approver's re-checks are unchanged. Never with PAYPAL_MODE=live.
       - key: DEMO_MODE
         value: "true"
+      # Abuse limits (apps/web/lib/server/security/rate-limit.ts): per IP, per visitor and a global live-AI
+      # bucket. Render's proxy appends the client address to X-Forwarded-For: trust exactly one hop.
+      - key: RATE_LIMITS
+        value: "on"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
       - key: NEIGHBORLINE_GROUP_SLUG
         value: eastside
       - key: PAYPAL_BASE_URL
@@ -174,6 +189,9 @@ services:
         value: "10"
       - key: REPORT_REFRESH_EVERY_N_PAYOUTS
         value: "5"
+      # DEMO_RESET_HOUR_UTC is deliberately NOT set: visitors' demo runs are already isolated from each other,
+      # and on Render Postgres a reset is refused (the audit log is append-only). It only applies to a demo
+      # running on the embedded database.
 
   # ── Optional: the approver as its own Render private service (stronger isolation, +$7/mo) ──────────────
   # Private services have no free instance type, so the default above runs the approver as a separate

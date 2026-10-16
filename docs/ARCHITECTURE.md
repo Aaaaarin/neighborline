@@ -41,17 +41,21 @@ flowchart LR
    on the stored approval record.
 2. The record is `complete` with ≥ max(2, `group.requiredApprovals`) **distinct current organizers**, and the approver
    list in the request matches the record.
-3. Each stored passkey (or, in `DEMO_MODE`, labelled demo-key) assertion verifies against that organizer's public key
-   and that hash ([`assertions.ts`](../apps/approver/src/assertions.ts)); with `NEIGHBORLINE_REQUIRE_PASSKEYS=true` every
-   approver must have one.
+3. **Every** counted approver has a stored assertion that verifies against that organizer's public key, that hash
+   and the server nonce stored with it ([`assertions.ts`](../apps/approver/src/assertions.ts)). There is no unsigned
+   mode. Demo keys count only in `DEMO_MODE` (never with live PayPal); a demo-visitor passkey (`bound_to
+   demo-visitor:<tag>`) counts only in `DEMO_MODE` and only when every request is that visitor's own demo run
+   (`req_demo_<tag>_…`).
 4. The content rebuilt from the request rows it reads itself hashes to the same value (amounts and destinations come
    from the database, never from the web request).
 5. `core.computeAmount` and `core.checkRail`, re-run on the policy, history, today's spend and official handles it
    reads itself ([`recheck.ts`](../apps/approver/src/recheck.ts)), still allow every approved amount and raise no
    block flag.
 6. `db.createBatch` re-checks `canExecute` under row locks and is idempotent per approval; `sender_batch_id` derives
-   from the hash. Refusals and executions are appended to the hash-chained audit log (`approver.execute_refused`,
-   `approver.executed`).
+   from the approval id and hash. Steps 1–5 run again before **every** send, including a re-send of a batch left
+   `UNKNOWN` by a timeout (see [PAYPAL.md](PAYPAL.md#when-the-create-call-fails-definite-vs-ambiguous)). Refusals,
+   ambiguous outcomes and executions are appended to the hash-chained audit log (`approver.execute_refused`,
+   `approver.paypal_unknown`, `approver.executed`).
 
 Requests are HMAC-signed with a per-deployment secret, timestamped (±120 s) and carry a nonce the approver accepts once
 ([`protocol.ts`](../apps/approver/src/protocol.ts)). In production the approver runs as a separate process in the web
@@ -107,7 +111,9 @@ flowchart LR
 | `PAYPAL_MODE` | `fake` (default), `sandbox`, `live` | `resolvePayPalEnv()` picks `FAKE_PAYPAL_URL`, the sandbox or the live base URL ([`paypal.ts`](../packages/paypal/src/paypal.ts)). Outside `fake`, the approver requires `PAYPAL_PAYOUTS_CLIENT_ID/SECRET` |
 | `AI_MODE` | `fixture` (default), `live` | `createProviders()` picks fixture or real providers ([`create.ts`](../packages/agents/src/providers/create.ts)) |
 | `DATABASE_URL` | empty or a Postgres URL | `pnpm dev` and e2e set it to `tools/dev-db`; production uses Render Postgres. Without it the web app alone uses an in-process PGlite (tests) |
-| `DEMO_MODE` | `true` / `false` | `false` disables `/api/demo/*`; in the approver it also stops accepting demo keys and stops excluding `req_demo_*` rehearsals from caps |
+| `DEMO_MODE` | empty, `true`, `false` | **Fails closed**: empty means on only with `PAYPAL_MODE=fake`; never on with `live` (the approver refuses to start). On: `/api/demo/play`, labelled demo keys (Dana scripted; a browser may sign only as Marcus and only on its own runs), demo-visitor passkeys, `req_demo_*` rehearsals excluded from caps. Off: none of that; every approval needs an organizer's passkey |
+| `NEIGHBORLINE_SESSION_SECRET` | ≥ 32 chars | Signs organizer session cookies, visitor cookies and invite codes. Unset: random per process |
+| `RATE_LIMITS`, `TRUST_PROXY_HOPS` | `on`/`off`, `1` | In-memory token buckets per IP, per visitor and global for live AI; which `X-Forwarded-For` entry is the client |
 | `AUDIO_RETENTION` | `none` (default), `24h` | What happens to raw voice recordings after transcription |
 
 ## Data model
@@ -228,15 +234,18 @@ sorted keys and `approvalHash` hashes with SHA-256 (a pure-JS implementation tes
 
 Change one cent, one receiver, the wallet, the policy version or the set of requests, and the hash changes.
 
-### 2. The ids PayPal sees derive from the hash
+### 2. The ids PayPal sees derive from the approval record
 
 ```ts
-senderBatchIdFor(approval) = 'nl_'  + approval.hash.slice(0, 24)                          // 27 chars
-senderItemIdFor(approval, requestId) = 'nli_' + sha256(`${approval.hash}:${requestId}`).slice(0, 24)  // 28 chars, ≤ 63
+senderBatchIdFor(approval) = 'nl_'  + sha256(`neighborline/paypal/sender_batch_id/v2\n${approval.id}\n${approval.hash}`).slice(0, 24)   // 27 chars
+senderItemIdFor(approval, r) = 'nli_' + sha256(`neighborline/paypal/sender_item_id/v2\n${approval.id}\n${approval.hash}\n${r}`).slice(0, 24)
 ```
 
 PayPal refuses a reused `sender_batch_id` for 30 days, so the same approval cannot be paid twice even if our own
-database lost track of it.
+database lost track of it. The approval **id** is in the preimage so a later, legitimate approval of identical
+content (a re-payment after `RETURNED` or a cancelled unclaimed item) gets a new id; only *open* approvals
+(pending/complete) are unique per hash (`approvals_open_hash_uq`), so double taps still land on one record. The
+domain tag keeps the id from ever equalling another hash of the same fields.
 
 ### 3. Each layer dedupes
 
@@ -249,7 +258,9 @@ database lost track of it.
 | Executing twice | `payout_batches.approval_id` is unique; `createBatch` returns the existing batch | `createBatch` in [`db/src/repo/payouts.ts`](../packages/db/src/repo/payouts.ts) |
 | HTTP retry to PayPal | `PayPal-Request-Id = sender_batch_id`; retries only on 429/5xx; network errors replayed only with that key | [`paypal/src/payouts.ts`](../packages/paypal/src/payouts.ts), [`paypal/src/retry.ts`](../packages/paypal/src/retry.ts) |
 | PayPal says "already used" | Find `/v1/payments/payouts/{id}` in any link of the error body, GET it, return `duplicate: true`; else `DuplicateBatchError` | `createBatch`, `findExistingBatchId` |
-| Duplicate webhook | `webhook_events` PK on the PayPal event id | `recordWebhookEvent` in [`db/src/repo/misc.ts`](../packages/db/src/repo/misc.ts) |
+| Concurrent taps that lose a race | Re-read and re-run against the fresh state (the request moved on to approved/paying): every tap returns 200 with the same batch | `ApprovalService.approve` in [`web/lib/server/approval-service.ts`](../apps/web/lib/server/approval-service.ts) |
+| Ambiguous create (timeout, 5xx) | Batch `UNKNOWN`, never `FAILED`; re-sent with the same `sender_batch_id` after a fresh policy re-check | [`approver/src/approver.ts`](../apps/approver/src/approver.ts) |
+| Duplicate webhook | `webhook_events` PK on the PayPal event id; `beginWebhookEvent` → `new`/`retry`/`done`, `processed_at` set only after the apply (at least once) | `beginWebhookEvent` in [`db/src/repo/misc.ts`](../packages/db/src/repo/misc.ts) |
 | Out-of-order webhook | Monotonic item state machine | `applyItemEvent` / `upsertItemFromEvent` |
 | Donation capture double tap | `PayPal-Request-Id: capture-{orderId}`; `ORDER_ALREADY_CAPTURED` returns the existing capture | [`paypal/src/orders.ts`](../packages/paypal/src/orders.ts) |
 
@@ -259,21 +270,43 @@ database lost track of it.
    recording is wiped right after transcription (`AUDIO_RETENTION=none`).
 2. **Confirm** (web). `getActivePolicy` → `getHistoryForDestination` → `getTodaySpentCents` → core `computeAmount` and
    `checkRail({ text: [originalText, englishText] })` → `updateRequest(status: 'awaiting_approval')`.
-3. **Approve** (web). Each organizer signs the approval hash (passkey, or a labelled demo key in `DEMO_MODE`) →
-   `recordApprovalAssertion` → `createOrGetApproval` (refuses block flags) → `addApproverTx`.
+3. **Approve** (web). `POST /api/approvals/challenge` issues `challengeFor(approvalHash, serverNonce)` (single use,
+   5 min). Each organizer signs it (passkey, or a labelled demo key in `DEMO_MODE`) → the nonce is consumed and
+   stored with the assertion (`recordApprovalAssertion`) → `createOrGetApproval` (refuses block flags) → `addApproverTx`.
 4. **Execute** (approver). When the record is complete, the web app sends `POST /v1/execute`. The approver runs the six
    checks above, then `createBatch` → `PayoutsApi.createBatch({ senderBatchId, items[] })` → `updateBatch`,
    `setPaypalItemId` → audit `approver.executed`.
 5. **Webhook** (web). `verifyWebhookSignature` (raw body; payout events for the Payouts app are verified by the
-   approver) → `recordWebhookEvent` (skip duplicates) → `itemStatusForWebhookEvent` → `upsertItemFromEvent` → if
-   changed, `notifyKeyFor` → `agents.notify.render` → `recordNotification`.
+   approver) → `beginWebhookEvent` (skip only events already processed) → `itemStatusForWebhookEvent` → `upsertItemFromEvent` → if
+   changed, `notifyKeyFor` → `agents.notify.render` → `recordNotification` → `markWebhookProcessed`.
 6. **Reconcile and follow-ups** (web, triggered by Render Workflows over signed `/api/internal/*`).
-   `paypal.reporting.searchTransactions` → `reconcile(localItems, txns)`; unclaimed sweeps and claim-help nudges;
-   organizer alerts; report versions.
+   `paypal.reporting.searchTransactions` → `reconcile(localItems, txns)` (amount, currency and status drift) →
+   `saveReconcileRun` (shown on `/ledger`); unclaimed sweeps and claim-help nudges; organizer alerts; report versions.
 
 ## Live events
 
 The `/demo` stage and organizer phones subscribe to `GET /api/stream` (Server-Sent Events). Messages are
 `StageEvent`s from core (`request.created`, `request.readback`, `approval.added`, `payout.batch_created`,
 `payout.item_updated`, `webhook.verified`, `notify.sent`, …). `?requestId=` replays that request's history first, so
-a late subscriber never misses `request.created`.
+a late subscriber never misses `request.created`. A `reset` message tells a stage the demo database was reset under
+its run.
+
+## Who sees what (web)
+
+Every browser gets an HMAC-signed `nl_visitor` cookie the first time it creates something; its 12-hex *tag* is
+built into what it creates (`req_demo_<tag>_…` for `/demo` runs, `req_v_<tag>_…` for `/call`), so ownership is
+stateless ([`security/visitor.ts`](../apps/web/lib/server/security/visitor.ts)).
+
+| Reader | `/api/requests`, `/api/requests/:id`, `/api/stream`, `/organizer` | Thread, text, audio, confirm |
+|---|---|---|
+| Signed-in organizer (live passkey session) | Everything | Everything |
+| The visitor who started it | Full | Allowed |
+| Anyone else | Redacted: first name + area, masked destination, category, amount and rule, approval progress; no transcript, phone, address, appeal text or message text ([`security/redact.ts`](../apps/web/lib/server/security/redact.ts)). In `DEMO_MODE`, another visitor's runs are not listed at all (404) | 404 |
+
+Every non-GET API call passes [`security/guard.ts`](../apps/web/lib/server/security/guard.ts): same-origin
+(`Sec-Fetch-Site`/`Origin`; PayPal webhooks and HMAC-signed internal jobs are exempt), `application/json` only for
+JSON routes (415), bodies capped at 64 KB (uploads: `Content-Length` required, 2 minutes / 4 MB of audio). Intake,
+live-AI calls, approvals, passkey ceremonies, demo runs and reconcile are rate-limited
+([`security/rate-limit.ts`](../apps/web/lib/server/security/rate-limit.ts)). `middleware.ts` sets a nonce-based
+CSP with `strict-dynamic` (PayPal and Venmo hosts allowed for the JS SDK), `frame-ancestors 'none'`, HSTS in
+production, `nosniff`, `Referrer-Policy` and a `Permissions-Policy` that allows only the microphone and passkeys.
