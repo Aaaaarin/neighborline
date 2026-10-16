@@ -96,6 +96,33 @@ export async function listOrganizerCredentials(ex: Executor, organizerId: string
   return rows.map(toCredential);
 }
 
+/**
+ * Revoke a credential (lost phone, organizer leaves). Sets revoked_at; from then on
+ * getOrganizerCredential returns null, so the web app refuses its taps and sign-ins and the approval
+ * service refuses any approval it signed that has not been paid yet. Idempotent.
+ */
+export async function revokeOrganizerCredential(
+  ex: Executor,
+  input: { id: string; actor: string; reason?: string; at?: Date },
+): Promise<{ credential: OrganizerCredential; revokedAt: string; changed: boolean }> {
+  return inTx(ex, async (tx) => {
+    const [row] = await tx.select().from(organizerCredentials).where(eq(organizerCredentials.id, input.id)).for('update');
+    if (!row) throw new RepoError('NOT_FOUND', 'unknown credential');
+    if (row.revokedAt) return { credential: toCredential(row), revokedAt: iso(row.revokedAt), changed: false };
+    const at = input.at ?? new Date();
+    await tx.update(organizerCredentials).set({ revokedAt: at }).where(eq(organizerCredentials.id, input.id));
+    await appendAudit(tx, {
+      actor: input.actor,
+      action: row.kind === 'demo_key' ? 'organizer.demo_key_revoked' : 'organizer.passkey_revoked',
+      entityType: 'organizer',
+      entityId: row.organizerId,
+      data: { credentialId: row.id, kind: row.kind, deviceLabel: row.deviceLabel, ...(input.reason ? { reason: input.reason } : {}) },
+      at,
+    });
+    return { credential: toCredential(row), revokedAt: iso(at), changed: true };
+  });
+}
+
 /** After a successful assertion: remember the authenticator's signature counter. */
 export async function touchOrganizerCredential(ex: Executor, id: string, counter: number, at = new Date()): Promise<void> {
   await ex.update(organizerCredentials).set({ counter, lastUsedAt: at }).where(eq(organizerCredentials.id, id));

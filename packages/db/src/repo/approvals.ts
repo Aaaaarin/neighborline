@@ -133,6 +133,29 @@ export async function createOrGetApproval(
   });
 }
 
+/**
+ * Void every pending (not yet complete) approval that covers any of these requests,
+ * e.g. after a new policy version re-prices them: their signatures covered the old amounts.
+ */
+export async function voidOpenApprovalsForRequests(ex: Executor, requestIds: readonly string[], opts: { reason: string; actor: string }): Promise<string[]> {
+  if (!requestIds.length) return [];
+  return inTx(ex, async (tx) => {
+    const voided: string[] = [];
+    for (const id of new Set(requestIds)) {
+      const rows = await tx
+        .select()
+        .from(approvals)
+        .where(and(sql`${approvals.requestIds} @> ${JSON.stringify([id])}::jsonb`, eq(approvals.status, 'pending')));
+      for (const r of rows) {
+        if (voided.includes(r.id)) continue;
+        await markVoid(tx, r.id, opts.reason, opts.actor);
+        voided.push(r.id);
+      }
+    }
+    return voided;
+  });
+}
+
 async function markVoid(tx: Tx, approvalId: string, reason: string, actor: string): Promise<void> {
   await tx.update(approvals).set({ status: 'void', updatedAt: new Date() }).where(eq(approvals.id, approvalId));
   await appendAudit(tx, { actor, action: 'approval.voided', entityType: 'approval', entityId: approvalId, data: { reason } });
