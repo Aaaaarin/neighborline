@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit -p .",
     "test:e2e": "playwright test",
     "screenshots": "node scripts/screenshots.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "organizer-invite": "node scripts/organizer-invite.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.0",
