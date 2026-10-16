@@ -16,7 +16,7 @@ const PRINCIPLES = [
   ['The intake agent cannot move money.', 'Only the approval service — a separate process — holds PayPal Payouts credentials, and it executes only a two-person approval record whose passkey signatures it checks itself. Least privilege, the same “authorize twice” idea PayPal uses for agent tools.'],
   ['Every AI output is checked against a schema.', 'Validate, repair once, and if it’s still unclear, ask the neighbor again in their language instead of guessing.'],
   ['Protect the rail, not suspect the person.', 'We block lookalike organizer handles, one payout destination used under different names, velocity and cap violations, and instructions hidden in a request.'],
-  ['Money is idempotent.', 'The batch id is a hash of the approval record, so retries and double taps return the original batch. Every webhook is signature-checked, and a nightly reconcile against PayPal Transaction Search is scheduled on Render.'],
+  ['Money is idempotent.', 'The batch id is derived from the approval record, so retries and double taps return the original batch. Every webhook is signature-checked and applied at least once. Reconcile against PayPal Transaction Search runs from the ledger on demand, and nightly once deployed on Render.'],
   ['Private by default.', 'Audio is deleted after transcription, personal details are redacted from logs, the public report is aggregate-only, and Venmo payouts are posted privately.'],
   ['Honest about the sandbox.', 'Anything we simulate is labelled where you see it, and listed below.'],
 ] as const;
@@ -97,7 +97,7 @@ export default async function TrustPage() {
                   <KeyRound size={18} aria-hidden /> Approval service — a separate process, the only one with PayPal Payouts credentials
                 </p>
                 <p className="mt-1.5 text-[0.95rem] text-raised/80">
-                  Re-reads the requests, recomputes the approval hash and the amounts, and re-verifies both organizers’ signatures before it pays. The batch id is a hash of the approval record, so a retry can never pay twice. A blocked destination never reaches PayPal.
+                  Re-reads the requests, recomputes the approval hash and the amounts, and re-verifies both organizers’ signatures before it pays. The batch id is derived from the approval record, so a retry or a double tap can never pay twice; if PayPal doesn’t answer in time, we ask again with the same id instead of guessing. A blocked destination never reaches PayPal.
                 </p>
               </li>
               <Arrow />
@@ -118,9 +118,9 @@ export default async function TrustPage() {
           </div>
           <dl className="divide-y divide-rule border-y border-rule">
             {[
-              ['What is signed', 'The approval hash: SHA-256 over the request ids, each amount, wallet and receiver, and the policy version. Change any of it and the signature no longer matches.'],
+              ['What is signed', 'The approval hash (SHA-256 over the request ids, each amount, wallet and receiver, and the policy version) together with a one-time number from our server, so a signature can never be reused for a later payout, even an identical one.'],
               ['Who signed', 'The owner of the key, read from our database, never from the request. A key can belong to one organizer only. The card shows it as “Signed with passkey · Dana’s iPhone”.'],
-              ['Joining as an organizer', 'A new organizer needs an invite code from an existing one to enroll their first passkey. Only the public half of the key is stored.'],
+              ['Joining as an organizer', 'A new organizer needs an invite code from an existing one to enroll their first passkey. Only the public half of the key is stored. In this demo you can also add a passkey for Marcus without a code, but it only ever signs your own demo runs.'],
               ['Lost a phone', 'Any signed-in organizer can revoke a passkey on the organizer page. From then on it can’t sign in, approve or sign rules, and the approval service refuses approvals it signed that aren’t paid yet. The audit log records who revoked it.'],
               ['Changing the rules', 'The AI drafts new rules from the organizers’ own words, quoting the sentence behind every cap. A new policy version goes live only when two different organizers sign the hash of that exact draft; code then re-prices requests still waiting.'],
               [
@@ -161,7 +161,8 @@ export default async function TrustPage() {
             <ul className="mt-5 space-y-4 text-ink-2">
               <li><strong className="font-semibold text-ink">Voice notes are deleted</strong> as soon as they’re transcribed. Only the text and the read-back the neighbor confirmed are kept.</li>
               <li><strong className="font-semibold text-ink">Logs are redacted.</strong> Phone numbers, emails and handles are masked before anything is written to a log.</li>
-              <li><strong className="font-semibold text-ink">Organizers see first names</strong> and a neighborhood: enough to recognise a neighbor, no more.</li>
+              <li><strong className="font-semibold text-ink">The public sees first names</strong> and a neighborhood, never a transcript, phone number, address or full handle. Signed-in organizers see the request itself, because they have to check it; the neighbor who sent it sees their own thread.</li>
+              <li><strong className="font-semibold text-ink">Each visitor’s demo is their own.</strong> Runs you start on /demo or /call are tied to your browser: other visitors can’t see, approve or reset them.</li>
               <li><strong className="font-semibold text-ink">The public report is aggregate-only.</strong> Groups of fewer than 5 people are hidden or merged, so nobody on a small street can be picked out; payout lines never show language, name or place.</li>
               <li><strong className="font-semibold text-ink">Venmo payouts are private</strong> (social feed privacy set to PRIVATE), so a neighbor’s need never appears in a feed.</li>
             </ul>

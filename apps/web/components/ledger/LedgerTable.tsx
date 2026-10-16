@@ -41,7 +41,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
     try {
       const r = await api.reconcile();
       setView(await api.ledger());
-      setNote(`Checked ${r.checked} items against PayPal Transaction Search: ${r.matched} matched, ${r.mismatched} mismatched${r.simulated ? ' (simulated)' : ''}.`);
+      setNote(`Checked ${r.checked} items against PayPal Transaction Search: ${r.matched} matched, ${r.mismatched} mismatched${r.drift ? `, ${r.drift} with status drift or stuck pending` : ''}${r.simulated ? ' (simulated)' : ''}.`);
     } catch (e) {
       setNote(e instanceof ApiError ? e.message : 'Reconcile didn’t run. Try again.');
     } finally {
@@ -168,7 +168,10 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
                       <Check size={14} strokeWidth={3} aria-hidden /> Matched
                     </span>
                   ) : r.reconcile === 'mismatch' ? (
-                    <span className="text-signal">Mismatch</span>
+                    <span className="text-signal">
+                      Mismatch
+                      {r.reconcileDetail && <span className="mt-0.5 block max-w-[28ch] text-[0.8rem] leading-snug text-ink-2">{r.reconcileDetail}</span>}
+                    </span>
                   ) : r.reconcile === 'seeded' ? (
                     <span className="text-ink-3" title="Demo history from the seed script; it never went through this PayPal environment, so there is nothing to reconcile.">
                       Seed history
