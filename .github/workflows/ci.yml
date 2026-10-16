@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege for the default token. Jobs that need more ask for it explicitly.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Zero-credential modes (SPEC §3): no PayPal or model keys are needed anywhere in CI.
+  PAYPAL_MODE: fake
+  AI_MODE: fixture
+  DEMO_MODE: 'true'
+  NEXT_TELEMETRY_DISABLED: '1'
+
+# Third-party actions are pinned to full commit SHAs; the tag is in the trailing comment.
+# Dependabot (.github/dependabot.yml) proposes updates for these pins.
+
+jobs:
+  build-test:
+    name: Typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0 (pnpm version from package.json "packageManager")
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck all packages
+        run: pnpm -r --if-present typecheck
+
+      - name: Unit tests (core, db, agents, paypal, fake-paypal)
+        run: pnpm -r --if-present test
+
+      - name: Build @neighborline/paypal (tsup → dist)
+        run: pnpm --filter @neighborline/paypal build
+
+      - name: Build web app
+        run: pnpm --filter @neighborline/web build
+
+  e2e:
+    name: Playwright e2e (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build-test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # Locally we use a preinstalled browser via PLAYWRIGHT_BROWSERS_PATH (/opt/pw-browsers).
+      # Hosted runners download Chromium and its system dependencies instead.
+      - name: Install Chromium for Playwright
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e (builds, serves on :3100, runs e2e/*.spec.ts)
+        run: pnpm --filter @neighborline/web test:e2e
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+
+  audit:
+    name: Dependency audit (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Known transitive advisories are tracked in THREAT_MODEL.md (R5). Flip to blocking once they are resolved.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: pnpm audit (high and critical)
+        run: pnpm audit --audit-level=high
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # lets gitleaks comment on the offending line in a PR
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # scan the full history, not just the last commit
+          persist-credentials: false
+
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only needed if the repository moves to an organization account.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

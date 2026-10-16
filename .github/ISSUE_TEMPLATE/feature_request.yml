@@ -1,0 +1,33 @@
+name: Feature or improvement
+description: Suggest something Neighborline should do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Neighborline's principles (SPEC.md §2) are fixed: AI never decides who deserves help, code computes every
+        amount, two humans approve every payout. Ideas that keep those are very welcome.
+  - type: textarea
+    id: who
+    attributes:
+      label: Who is this for, and what do they need?
+      description: A neighbor asking for help, an organizer, a donor, a fiscal sponsor, a developer?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+    validations:
+      required: true
+  - type: textarea
+    id: money
+    attributes:
+      label: Does it touch the money path?
+      description: Amounts, destinations, approvals, PayPal calls, webhooks. If yes, how does it stay safe?
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to work on this myself

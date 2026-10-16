@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Aaaaarin/neighborline/security/advisories/new
+    about: Please report vulnerabilities privately, not as public issues. See SECURITY.md.
+  - name: Good first issues
+    url: https://github.com/Aaaaarin/neighborline/blob/main/docs/GOOD_FIRST_ISSUES.md
+    about: Scoped starter tasks with the files to touch and how to know you are done.

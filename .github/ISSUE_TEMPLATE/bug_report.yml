@@ -1,0 +1,63 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security problems (money moving without two approvals, forged webhooks, leaked
+        secrets, exposed personal data) go to SECURITY.md, not here.** Please never paste real names, phone numbers,
+        payout handles or API keys.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. pnpm dev
+        2. open /demo?scenario=rosa&speed=4
+        3. press Play scenario
+        4. …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - apps/web (pages, API routes, stage)
+        - packages/core (policy, amounts, rail checks, state machines, i18n)
+        - packages/db
+        - packages/paypal (client, webhooks, MCP server)
+        - packages/agents (intake, notify, policy compiler, report)
+        - tools/fake-paypal
+        - docs / CI
+        - not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: modes
+    attributes:
+      label: Modes
+      options:
+        - PAYPAL_MODE=fake, AI_MODE=fixture (default)
+        - PAYPAL_MODE=sandbox
+        - AI_MODE=live
+        - sandbox and live
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: git rev-parse --short HEAD
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or traces
+      description: Error output, a PayPal `debug_id`, or the AI trace summary. Remove personal data first.
+      render: text
