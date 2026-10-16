@@ -238,12 +238,12 @@ function Signatures({ view }: { view: RequestView }) {
             key={a.organizerId}
             title={passkey ? `${a.name} unlocked a passkey on ${a.signer!.deviceLabel} to sign this exact payout` : `${a.name}’s demo key is held by the server. It signs the same way but no person unlocked anything.`}
             className={cx(
-              'inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[0.76rem] leading-tight',
+              'inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-[14px] px-2.5 py-1 text-[0.76rem] leading-tight',
               passkey ? 'bg-pine-wash text-pine' : 'border border-dashed border-rule-strong text-ink-2',
             )}
           >
             {passkey ? <Fingerprint size={13} className="shrink-0" aria-hidden /> : <KeyRound size={13} className="shrink-0" aria-hidden />}
-            <span className="truncate">
+            <span className="min-w-0">
               {passkey ? `Signed with passkey · ${a.signer!.deviceLabel}` : `${a.name}: signed with demo key`}
             </span>
           </li>

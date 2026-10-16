@@ -65,8 +65,8 @@ export function Stage({
   const nameOf = useCallback((id: string) => organizers.find((o) => o.id === id)?.name ?? 'Organizer', [organizers]);
 
   const steps = useMemo(
-    () => buildSteps({ scenario: s.run?.scenario ?? scenario, events: s.events, view: s.view, organizerName: nameOf }),
-    [s.run, scenario, s.events, s.view, nameOf],
+    () => buildSteps({ scenario: s.run?.scenario ?? scenario, events: s.events, view: s.view, organizerName: nameOf, claimScripted: modes.paypalMode !== 'sandbox' }),
+    [s.run, scenario, s.events, s.view, nameOf, modes.paypalMode],
   );
   const clock = useMemo(() => clockFrom(s.events), [s.events]);
   const paid = clock.kind === 'stopped' && clock.reason === 'paid';
@@ -208,7 +208,7 @@ export function Stage({
 
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-x-10 lg:gap-y-10 stage:grid-cols-[392px_808px_minmax(0,1fr)] stage:gap-x-12">
           <section id="panel-requester" role="tabpanel" aria-labelledby="tab-requester" className={cx(tab !== 'requester' && 'hidden', 'lg:block')}>
-            <PhoneCaption title={PHONE_OWNER[active.id]} sub={active.sms ? 'Text message (simulated SMS)' : 'Neighbor · voice note'} />
+            <PhoneCaption title={PHONE_OWNER[active.id]} sub={active.sms ? 'Simulated SMS' : 'Neighbor · voice note'} />
             <div className="mx-auto max-w-[360px] stage:max-w-[392px]">
               <RequesterPhone
                 label={PHONE_OWNER[active.id]}

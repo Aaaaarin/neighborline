@@ -62,7 +62,7 @@ export function Stopwatch({
         />
         {status}
       </p>
-      {split && split.totalMs > 0 && <Split split={split} />}
+      {split && split.totalMs > 0 && !blocked && <Split split={split} />}
     </div>
   );
 }

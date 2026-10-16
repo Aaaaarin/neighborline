@@ -40,6 +40,8 @@ export function buildSteps(input: {
   events: TimedEvent[];
   view: RequestView | null;
   organizerName: (id: string) => string;
+  /** fake PayPal: the neighbor's claim is scripted by the demo, so say so */
+  claimScripted?: boolean;
 }): Step[] {
   const { scenario, events, view } = input;
   const plan = planFor(scenario);
@@ -150,6 +152,7 @@ export function buildSteps(input: {
             state: 'money',
             atMs,
             title: scenario === 'rosa' ? `${who} claimed it · SUCCESS` : 'Item SUCCESS · money landed',
+            ...(scenario === 'rosa' && input.claimScripted ? { detail: 'Her claim is scripted in this demo: the PayPal stand-in claims it a few seconds after the help message' } : {}),
             ids: e.transactionId ? [['transaction_id', e.transactionId]] : undefined,
           });
         } else {

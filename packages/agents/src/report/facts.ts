@@ -39,7 +39,7 @@ export function buildFacts(report: TransparencyReport, opts: { groupName?: strin
     add(
       `category.${row.key}`,
       `Category: ${opts.categoryLabels?.[row.key] ?? human(row.key)}`,
-      isNum(row.amountCents) ? `${money(row.amountCents)} in ${count(row.payouts, 'payouts')}` : `fewer than ${report.k} payouts (amount not shown)`,
+      isNum(row.amountCents) ? `${money(row.amountCents)} in ${count(row.payouts, 'payouts')}` : `fewer than ${report.k} payouts, amount not shown`,
     );
   }
   const langs = report.byLanguage.map((r) => langName(r.key));
