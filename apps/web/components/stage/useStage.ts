@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, openStream } from '@/lib/api';
+import { approveAsVisitor } from '@/lib/passkey-client';
 import type { Organizer, PlayMode, RequestView, ScenarioId, ScenarioRun, StreamMessage, ThreadView } from '@/lib/types';
 import type { TimedEvent } from './stage-steps';
 
@@ -15,6 +16,7 @@ export function useStage(organizers: Organizer[]) {
   const [conn, setConn] = useState<Conn>('connecting');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [fallback, setFallback] = useState<{ organizerId: string; reason: string } | null>(null);
   const buffer = useRef<Extract<StreamMessage, { kind: 'stage' }>[]>([]);
   const skew = useRef(0);
   const runRef = useRef<ScenarioRun | null>(null);
@@ -88,6 +90,7 @@ export function useStage(organizers: Organizer[]) {
       setBusy('play');
       setView(null);
       setThread(null);
+      setFallback(null);
       try {
         const r = await api.play(scenario, mode, speed);
         buffer.current = [];
@@ -112,15 +115,30 @@ export function useStage(organizers: Organizer[]) {
     setError(null);
   }, []);
 
+  /**
+   * Dana (scripted) always signs with her labelled demo key. The visitor approving as Marcus signs
+   * with a real passkey on their own device when it has one; otherwise we say why and offer the
+   * demo key — the judge is never blocked, and the card says which one signed.
+   */
   const approve = useCallback(
-    async (organizerId: string) => {
+    async (organizerId: string, opts: { useDemoKey?: boolean } = {}) => {
       const r = runRef.current;
       const org = organizers.find((o) => o.id === organizerId);
       if (!r || !org) return;
       setBusy(organizerId);
       setError(null);
       try {
-        await api.approve({ requestIds: [r.requestId], organizerId, deviceLabel: org.deviceLabel });
+        const visitor = r.manualOrganizerId === organizerId && !opts.useDemoKey;
+        if (visitor) {
+          const out = await approveAsVisitor({ requestIds: [r.requestId], organizerId, name: org.name });
+          if (out.signedWith === 'none') {
+            setFallback({ organizerId, reason: out.reason });
+            return;
+          }
+        } else {
+          await api.approve({ requestIds: [r.requestId], organizerId, signer: { kind: 'demo_key' } });
+        }
+        setFallback(null);
         refresh();
       } catch (e) {
         setError(e instanceof ApiError ? e.message : 'Approval didn’t go through. Try again.');
@@ -131,5 +149,5 @@ export function useStage(organizers: Organizer[]) {
     [organizers, refresh],
   );
 
-  return { run, events, view, thread, conn, error, busy, play, approve, clear, skew };
+  return { run, events, view, thread, conn, error, busy, play, approve, clear, skew, fallback };
 }

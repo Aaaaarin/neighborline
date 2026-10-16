@@ -4,8 +4,10 @@ import { LoaderCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, openStream } from '@/lib/api';
 import { LANGUAGE_NAMES, clockTime, cx, money, walletLabel } from '@/lib/format';
-import type { DeclineReasonCode, Organizer, RequestView } from '@/lib/types';
+import { approveWithPasskey, passkeyErrorMessage } from '@/lib/passkey-client';
+import type { DeclineReasonCode, Organizer, OrganizerSession, PasskeyRoster, RequestView } from '@/lib/types';
 import { ApproveCard } from '../ApproveCard';
+import { SignInPanel, SignedInBar } from './OrganizerAuth';
 
 const REASONS: Array<[DeclineReasonCode, string]> = [
   ['needs_info', 'Need more information'],
@@ -15,9 +17,23 @@ const REASONS: Array<[DeclineReasonCode, string]> = [
   ['other', 'Something else (write a note)'],
 ];
 
-export function OrganizerQueue({ organizers, initial }: { organizers: Organizer[]; initial: RequestView[] }) {
-  const [meId, setMeId] = useState(organizers[0]!.id);
-  const me = organizers.find((o) => o.id === meId)!;
+const GUEST: Organizer = { id: '', name: 'Guest', handle: '', deviceLabel: '' };
+
+export function OrganizerQueue({
+  organizers,
+  initial,
+  session: initialSession,
+  roster,
+}: {
+  organizers: Organizer[];
+  initial: RequestView[];
+  session: OrganizerSession | null;
+  roster: PasskeyRoster;
+}) {
+  const [session, setSession] = useState<OrganizerSession | null>(initialSession);
+  const [demoAs, setDemoAs] = useState<string | null>(null);
+  const meId = session?.organizerId ?? demoAs;
+  const me = organizers.find((o) => o.id === meId) ?? GUEST;
   const [items, setItems] = useState<RequestView[]>(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -45,18 +61,26 @@ export function OrganizerQueue({ organizers, initial }: { organizers: Organizer[
     };
   }, [load]);
 
+  /** Signed in → the phone signs this approval's hash with the organizer's passkey. Demo → the labelled demo key. */
   const approve = async (v: RequestView) => {
     setBusy(v.request.id);
     setErrors((e) => ({ ...e, [v.request.id]: '' }));
     try {
-      await api.approve({ requestIds: [v.request.id], organizerId: me.id, deviceLabel: me.deviceLabel });
+      if (session) await approveWithPasskey({ requestIds: [v.request.id], organizerId: session.organizerId });
+      else if (demoAs) await api.approve({ requestIds: [v.request.id], organizerId: demoAs, signer: { kind: 'demo_key' } });
       await load();
     } catch (err) {
-      setErrors((e) => ({ ...e, [v.request.id]: err instanceof ApiError ? err.message : 'Approval didn’t go through. Try again.' }));
+      setErrors((e) => ({ ...e, [v.request.id]: passkeyErrorMessage(err) }));
     } finally {
       setBusy(null);
     }
   };
+  const canAct = !!session || !!demoAs;
+  const signHint = session
+    ? `Your device asks for Face ID, a fingerprint or your PIN, then signs this exact payout.`
+    : demoAs
+      ? `Signs with ${me.name}’s demo key, held by this demo server.`
+      : undefined;
 
   const waiting = items.filter((v) => v.request.status === 'awaiting_approval');
   const mine = waiting.filter((v) => !v.approvals.some((a) => a.organizerId === me.id) && !v.request.railFlags.some((f) => f.severity === 'block'));
@@ -64,29 +88,20 @@ export function OrganizerQueue({ organizers, initial }: { organizers: Organizer[
 
   return (
     <div className="mx-auto max-w-[560px] px-4 pb-16 pt-8 sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[0.95rem] text-ink-2">Eastside Mutual Aid</p>
-          <h1 className="mt-1 text-h3 text-ink">{mine.length === 0 ? 'You’re all caught up' : mine.length === 1 ? '1 request needs you' : `${mine.length} requests need you`}</h1>
-        </div>
-        <label className="flex flex-col gap-1 text-[0.85rem] text-ink-2">
-          Approving as
-          <select
-            value={meId}
-            onChange={(e) => setMeId(e.target.value)}
-            className="h-11 rounded-full border border-rule-strong bg-raised px-4 text-[0.95rem] font-semibold text-ink"
-          >
-            {organizers.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div>
+        <p className="text-[0.95rem] text-ink-2">Eastside Mutual Aid</p>
+        <h1 className="mt-1 text-h3 text-ink">
+          {!canAct ? 'Approval queue' : mine.length === 0 ? 'You’re all caught up' : mine.length === 1 ? '1 request needs you' : `${mine.length} requests need you`}
+        </h1>
       </div>
       <p className="mt-3 max-w-[52ch] text-[0.95rem] text-ink-2">
-        Every payout needs two different organizers. Amounts come from Policy v1 and can’t be edited here — if something looks wrong, decline with a reason.
+        Every payout needs two different organizers, each signing on their own device. Amounts come from Policy v1 and can’t be edited here — if something looks wrong, decline with a reason.
       </p>
+      {session ? (
+        <SignedInBar session={session} onSignedOut={() => setSession(null)} />
+      ) : (
+        <SignInPanel organizers={organizers} roster={roster} demoAs={demoAs} onDemoAs={setDemoAs} onSession={(s) => { setSession(s); setDemoAs(null); }} />
+      )}
       {loadError && (
         <p role="status" className="mt-4 rounded-xl bg-sunk px-4 py-3 text-[0.9rem] text-ink-2">
           {loadError}
@@ -109,8 +124,9 @@ export function OrganizerQueue({ organizers, initial }: { organizers: Organizer[
             me={me}
             busy={busy === v.request.id}
             error={errors[v.request.id]}
-            onApprove={() => void approve(v)}
-            onDecline={() => setDeclining(v)}
+            onApprove={canAct ? () => void approve(v) : undefined}
+            onDecline={canAct ? () => setDeclining(v) : undefined}
+            signHint={signHint}
           />
         ))}
       </section>

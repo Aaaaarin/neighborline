@@ -1,8 +1,9 @@
 'use client';
 
-import { Ban, Check, ChevronDown, LoaderCircle, Mic, MessageCircle } from 'lucide-react';
+import { Ban, Check, ChevronDown, Fingerprint, KeyRound, LoaderCircle, Mic, MessageCircle } from 'lucide-react';
 import type { Organizer, RequestView } from '@/lib/types';
 import { LANGUAGE_NAMES, clockTime, cx, money, shortId, walletLabel } from '@/lib/format';
+import { dirOf } from '@/lib/i18n';
 import { RailChips } from './RailChips';
 
 const LIMIT_TEXT = {
@@ -21,6 +22,8 @@ export function ApproveCard({
   error,
   dense = false,
   highlight = false,
+  signHint,
+  fallback,
 }: {
   view: RequestView;
   me: Organizer;
@@ -32,6 +35,10 @@ export function ApproveCard({
   dense?: boolean;
   /** the visitor is meant to press this one */
   highlight?: boolean;
+  /** one line under the Approve button: what will sign this tap */
+  signHint?: string;
+  /** the passkey prompt failed; offer the labelled demo key instead (DEMO_MODE) */
+  fallback?: { reason: string; label: string; onUseDemoKey: () => void };
 }) {
   const r = view.request;
   const amount = r.computed?.amountCents ?? 0;
@@ -74,7 +81,7 @@ export function ApproveCard({
             <ChevronDown size={15} className="transition-transform group-open:rotate-180" aria-hidden />
             Original in {lang.en}
           </summary>
-          <p lang={r.lang} className="mt-1 rounded-xl bg-sunk p-3 text-[0.9rem] leading-relaxed text-ink-2">
+          <p lang={r.lang} dir={dirOf(r.lang)} className="mt-1 rounded-xl bg-sunk p-3 text-[0.9rem] leading-relaxed text-ink-2">
             {r.originalText}
           </p>
         </details>
@@ -120,6 +127,7 @@ export function ApproveCard({
 
       <footer className="mt-4">
         <ApprovalProgress view={view} me={me} />
+        <Signatures view={view} />
         <div className="mt-3">
           {item?.status === 'SUCCESS' ? (
             <p className="flex items-center gap-2 rounded-xl bg-lamp-wash px-3 py-3 text-[0.9rem] text-ink">
@@ -160,9 +168,18 @@ export function ApproveCard({
                 highlight && 'outline-3 outline-offset-3 outline-frost-ink/70 animate-breathe-outline',
               )}
             >
-              {busy ? <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden /> : null}
+              {busy ? <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Fingerprint size={19} aria-hidden />}
               Approve {money(amount)}
             </button>
+          )}
+          {signHint && !item && !mine && !block && r.status === 'awaiting_approval' && !fallback && <p className="mt-1.5 text-center text-[0.78rem] leading-snug text-ink-3">{signHint}</p>}
+          {fallback && !mine && !item && (
+            <div role="status" className="mt-2 rounded-xl border border-dashed border-rule-strong p-3 text-[0.82rem] leading-snug text-ink-2">
+              <p>{fallback.reason} This demo can sign with {fallback.label} instead. The card will say so.</p>
+              <button type="button" onClick={fallback.onUseDemoKey} disabled={busy} className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-full border border-rule-strong px-3.5 font-medium text-ink hover:bg-sunk disabled:opacity-60">
+                <KeyRound size={15} aria-hidden /> Approve with {fallback.label}
+              </button>
+            </div>
           )}
           {error && (
             <p role="alert" className="mt-2 text-[0.85rem] text-signal">
@@ -205,6 +222,34 @@ function ApprovalProgress({ view, me }: { view: RequestView; me: Organizer }) {
         {Math.min(view.approvals.length, view.approvalsRequired)} of {view.approvalsRequired} approvals
       </p>
     </div>
+  );
+}
+
+/** "Signed with passkey · Dana’s iPhone" — what proved each approval came from that organizer. */
+function Signatures({ view }: { view: RequestView }) {
+  const signed = view.approvals.filter((a) => a.signer);
+  if (!signed.length) return null;
+  return (
+    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Approval signatures">
+      {signed.map((a) => {
+        const passkey = a.signer!.kind === 'passkey';
+        return (
+          <li
+            key={a.organizerId}
+            title={passkey ? `${a.name} unlocked a passkey on ${a.signer!.deviceLabel} to sign this exact payout` : `${a.name}’s demo key is held by the server. It signs the same way but no person unlocked anything.`}
+            className={cx(
+              'inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[0.76rem] leading-tight',
+              passkey ? 'bg-pine-wash text-pine' : 'border border-dashed border-rule-strong text-ink-2',
+            )}
+          >
+            {passkey ? <Fingerprint size={13} className="shrink-0" aria-hidden /> : <KeyRound size={13} className="shrink-0" aria-hidden />}
+            <span className="truncate">
+              {passkey ? `Signed with passkey · ${a.signer!.deviceLabel}` : `${a.name}: signed with demo key`}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

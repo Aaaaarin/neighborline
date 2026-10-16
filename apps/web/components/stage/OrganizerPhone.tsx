@@ -14,6 +14,8 @@ export function OrganizerPhone({
   error,
   highlight,
   label,
+  signHint,
+  fallback,
 }: {
   me: Organizer;
   view: RequestView | null;
@@ -22,6 +24,8 @@ export function OrganizerPhone({
   error?: string | null;
   highlight?: boolean;
   label: string;
+  signHint?: string;
+  fallback?: { reason: string; label: string; onUseDemoKey: () => void };
 }) {
   const visible = view && view.request.status !== 'intake' ? view : null;
   const buzzKey = visible ? visible.request.id : 0;
@@ -73,7 +77,7 @@ export function OrganizerPhone({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3">
         {visible ? (
-          <ApproveCard view={visible} me={me} onApprove={onApprove} busy={busy} error={error} dense highlight={highlight} />
+          <ApproveCard view={visible} me={me} onApprove={onApprove} busy={busy} error={error} dense highlight={highlight} signHint={signHint} fallback={fallback} />
         ) : (
           <div className="grid h-full place-items-center px-6 text-center">
             <div>

@@ -4,7 +4,7 @@ import type { Lang } from '@neighborline/core';
 import { Camera, Check, Play, Volume2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ThreadMessage } from '@/lib/types';
-import { ui, speechTag } from '@/lib/i18n';
+import { dirOf, ui, speechTag } from '@/lib/i18n';
 import { clockTime, cx, money, shortId, walletLabel } from '@/lib/format';
 
 /** Deterministic waveform so the same voice note always looks the same. */
@@ -76,7 +76,7 @@ export function RequesterThread({
   }, [messages.length, messages.at(-1)?.text, awaitingConfirmation, translated]);
 
   return (
-    <div ref={box} className={cx('flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 pb-4 pt-2', className)} role="log" aria-live="polite" aria-label="Conversation">
+    <div ref={box} className={cx('flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 pb-4 pt-2', className)} role="log" aria-live="polite" aria-label="Conversation" dir={dirOf(lang)}>
       {messages.length === 0 && emptyHint}
       {messages.map((m) => (
         <Bubble key={m.id} m={m} translated={translated} lang={lang} />
@@ -110,19 +110,19 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
   const mine = m.from === 'neighbor';
   const t = ui(lang);
   const en = translated && m.textEn && m.textEn !== m.text && m.lang !== 'en' ? m.textEn : null;
-  const time = <span className={cx('mt-1 block text-right text-[0.68rem] tabular', mine ? 'text-frost-ink' : 'text-ink-3')}>{clockTime(m.at)}</span>;
+  const time = <span className={cx('mt-1 block text-end text-[0.68rem] tabular', mine ? 'text-frost-ink' : 'text-ink-3')}>{clockTime(m.at)}</span>;
 
   if (m.kind === 'paid') {
     return (
       <div className="max-w-[88%] self-start animate-rise">
-        <div className="rounded-[20px] rounded-bl-md border border-lamp bg-raised p-3.5 animate-glow">
+        <div className="rounded-[20px] rounded-es-md border border-lamp bg-raised p-3.5 animate-glow">
           <p className="flex items-baseline gap-2">
             <span className="text-[1.9rem] font-semibold leading-none text-ink">{m.meta?.amountCents ? money(m.meta.amountCents) : ''}</span>
             <span className="text-[0.82rem] text-lamp-ink">
               {m.meta?.wallet ? walletLabel(m.meta.wallet) : ''} · {t.arrived}
             </span>
           </p>
-          <p lang={m.lang} className="mt-2 text-[0.92rem] leading-snug text-ink">
+          <p lang={m.lang} dir={dirOf(m.lang)} className="mt-2 text-[0.92rem] leading-snug text-ink">
             {m.text.replace(m.meta?.transactionId ?? '§', shortId(m.meta?.transactionId, 6, 4))}
           </p>
           {en && <Translation text={en.replace(m.meta?.transactionId ?? '§', shortId(m.meta?.transactionId, 6, 4))} />}
@@ -137,7 +137,7 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
       <div
         className={cx(
           'rounded-[20px] px-3.5 py-2.5',
-          mine ? 'rounded-br-md bg-frost text-frost-ink' : 'rounded-bl-md border border-rule bg-raised text-ink',
+          mine ? 'rounded-ee-md bg-frost text-frost-ink' : 'rounded-es-md border border-rule bg-raised text-ink',
           m.kind === 'claim_help' && 'border-ink/40',
           m.kind === 'blocked' && 'border-signal/40',
         )}
@@ -153,7 +153,7 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
             </div>
             <span className="sr-only">{t.voiceNote}</span>
             {m.text ? (
-              <p lang={m.lang} className="mt-2 border-t border-frost-ink/15 pt-2 text-[0.88rem] leading-snug">
+              <p lang={m.lang} dir={dirOf(m.lang)} className="mt-2 border-t border-frost-ink/15 pt-2 text-[0.88rem] leading-snug">
                 {m.text}
               </p>
             ) : (
@@ -167,7 +167,7 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
             <Camera size={16} aria-hidden /> {m.text}
           </p>
         ) : (
-          <p lang={m.lang} className="whitespace-pre-line text-[0.92rem] leading-snug">
+          <p lang={m.lang} dir={dirOf(m.lang)} className="whitespace-pre-line text-[0.92rem] leading-snug">
             {m.text}
           </p>
         )}
@@ -190,8 +190,8 @@ function Bubble({ m, translated, lang }: { m: ThreadMessage; translated: boolean
 
 function Translation({ text, onDark = false }: { text: string; onDark?: boolean }) {
   return (
-    <p lang="en" className={cx('mt-2 border-t pt-2 text-[0.8rem] leading-snug', onDark ? 'border-frost-ink/15 text-frost-ink/85' : 'border-rule text-ink-3')}>
-      <span className="mr-1 rounded bg-sunk px-1 text-[0.68rem] font-semibold text-ink-2">EN</span>
+    <p lang="en" dir="ltr" className={cx('mt-2 border-t pt-2 text-[0.8rem] leading-snug', onDark ? 'border-frost-ink/15 text-frost-ink/85' : 'border-rule text-ink-3')}>
+      <span className="me-1 rounded bg-sunk px-1 text-[0.68rem] font-semibold text-ink-2">EN</span>
       {text}
     </p>
   );

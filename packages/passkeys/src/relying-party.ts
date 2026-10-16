@@ -5,7 +5,7 @@
  *
  *   WEBAUTHN_ORIGIN   comma-separated origins, e.g. https://neighborline.onrender.com
  *   WEBAUTHN_RP_ID    RP ID (a registrable domain of those origins); default = the origin's hostname
- *   APP_BASE_URL      fallback origin when WEBAUTHN_ORIGIN is unset
+ *   APP_BASE_URL      fallback origin when WEBAUTHN_ORIGIN is unset, then RENDER_EXTERNAL_URL (Render sets it)
  *   DEMO_MODE / NODE_ENV  when DEMO_MODE != 'false' or NODE_ENV != 'production', http://localhost:*
  *                     and http://127.0.0.1:* are also accepted (local dev, e2e, screenshots)
  */
@@ -28,7 +28,7 @@ export function configuredOrigins(env: PasskeyEnv): string[] {
     .map((s) => originOf(s.trim()))
     .filter((s): s is string => !!s);
   if (list.length) return list;
-  return [originOf(env.APP_BASE_URL) ?? 'http://localhost:3000'];
+  return [originOf(env.APP_BASE_URL) ?? originOf(env.RENDER_EXTERNAL_URL) ?? 'http://localhost:3000'];
 }
 
 const LOCAL = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;

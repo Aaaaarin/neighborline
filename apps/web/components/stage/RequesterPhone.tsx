@@ -3,7 +3,7 @@
 import type { Lang } from '@neighborline/core';
 import { ChevronLeft, Mic } from 'lucide-react';
 import type { ThreadView } from '@/lib/types';
-import { ui } from '@/lib/i18n';
+import { dirOf, ui } from '@/lib/i18n';
 import { cx } from '@/lib/format';
 import { PhoneFrame } from '../PhoneFrame';
 import { RequesterThread } from '../RequesterThread';
@@ -54,7 +54,7 @@ export function RequesterPhone({
         <LineAvatar />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[0.95rem] font-semibold leading-tight text-ink">Neighborline</p>
-          <p className="truncate text-[0.74rem] leading-tight text-ink-3" lang={lang}>
+          <p className="truncate text-[0.74rem] leading-tight text-ink-3" lang={lang} dir={dirOf(lang)}>
             {sms ? contactLabel : t.lineSub}
           </p>
         </div>
@@ -86,7 +86,7 @@ export function RequesterPhone({
         emptyHint={idleHint}
       />
       <div className="flex shrink-0 items-center gap-2 px-3 pb-6 pt-1" aria-hidden>
-        <div className="flex h-10 flex-1 items-center rounded-full border border-rule bg-raised px-4 text-[0.85rem] text-ink-3" lang={lang}>
+        <div className="flex h-10 flex-1 items-center rounded-full border border-rule bg-raised px-4 text-[0.85rem] text-ink-3" lang={lang} dir={dirOf(lang)}>
           {t.composer}
         </div>
         <span className="grid size-10 place-items-center rounded-full bg-frost-ink text-raised">

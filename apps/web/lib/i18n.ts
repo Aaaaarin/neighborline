@@ -1,4 +1,7 @@
-import type { Lang } from '@neighborline/core';
+import { textDirection, type Lang } from '@neighborline/core';
+
+/** 'rtl' for Arabic (core textDirection), else 'ltr'. Put it on every element that holds requester text. */
+export const dirOf = (lang: Lang | string | undefined): 'rtl' | 'ltr' => (lang ? textDirection(lang) : 'ltr');
 
 /** Requester-facing UI chrome, written natively. Anything not listed falls back to English. */
 const STRINGS = {
@@ -114,12 +117,40 @@ const STRINGS = {
     noMic: 'Pa gen mikwo? Sèvi ak yon mesaj egzanp',
     whatHappensNext: 'Sa k ap vini',
   },
+  ar: {
+    lineName: 'Neighborline · Eastside',
+    lineSub: 'التكافل في إيستسايد · العربية',
+    composer: 'رسالة',
+    listen: 'استمع',
+    translated: 'ترجمة',
+    voiceNote: 'رسالة صوتية',
+    transcribing: 'نكتب ما قلته…',
+    waiting: 'بانتظار موافقة اثنين من الجيران',
+    sending: 'نرسل المال الآن',
+    arrived: 'وصل المال',
+    claim: 'كيف تستلم المال',
+    declined: 'ليس هذه المرة',
+    yes: 'نعم، هذا صحيح',
+    fix: 'أريد تصحيح شيء',
+    holdToTalk: 'اضغط مطوّلًا وتكلّم',
+    tapToStop: 'اضغط للإيقاف',
+    recording: 'جارٍ التسجيل',
+    typeInstead: 'أفضّل الكتابة',
+    addPhoto: 'أضف صورة',
+    send: 'أرسل',
+    askTitle: 'أخبرنا بما تحتاج إليه.',
+    askSub: 'تكلّم بالعربية أو بأي لغة. يوافق اثنان من منظّمي المجموعة، ثم يصل المال إلى حسابك في PayPal أو Venmo.',
+    language: 'اللغة',
+    auto: 'أي لغة (سنتعرّف عليها)',
+    noMic: 'لا يوجد ميكروفون؟ استخدم رسالة صوتية نموذجية',
+    whatHappensNext: 'ماذا يحدث بعد ذلك',
+  },
 } as const;
 
 export type UiStrings = { [K in keyof (typeof STRINGS)['en']]: string };
 
 export function ui(lang: Lang | undefined): UiStrings {
-  if (lang === 'vi' || lang === 'es' || lang === 'ht') return STRINGS[lang];
+  if (lang === 'vi' || lang === 'es' || lang === 'ht' || lang === 'ar') return STRINGS[lang];
   return STRINGS.en;
 }
 

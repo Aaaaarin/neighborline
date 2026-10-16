@@ -4,7 +4,12 @@
  */
 import type { Channel, Lang, RequestStatus } from '@neighborline/core';
 import type {
+  ApprovalChallenge,
   ApprovalResult,
+  ApproveInput,
+  OrganizerSession,
+  PasskeyAssertionJSON,
+  PasskeyRoster,
   DeclineReasonCode,
   DonationCapture,
   DonationOrder,
@@ -69,7 +74,17 @@ export const api = {
   group: () => call<GroupView>('/api/group'),
   requests: (status?: RequestStatus[]) => call<RequestView[]>(`/api/requests${status?.length ? `?status=${status.join(',')}` : ''}`),
   request: (id: string) => call<RequestView>(`/api/requests/${id}`),
-  approve: (input: { requestIds: string[]; organizerId: string; deviceLabel: string }) => post<ApprovalResult>('/api/approvals', input),
+  approve: (input: ApproveInput) => post<ApprovalResult>('/api/approvals', input),
+  approvalChallenge: (input: { requestIds: string[]; organizerId?: string; credentialIds?: string[] }) => post<ApprovalChallenge>('/api/approvals/challenge', input),
+
+  /* organizer passkeys */
+  organizerMe: () => call<{ session: OrganizerSession | null; roster: PasskeyRoster }>('/api/organizer/me'),
+  passkeyOptions: (organizerId: string, inviteCode?: string) => post<{ optionsJSON: unknown }>('/api/organizer/passkeys/options', { organizerId, ...(inviteCode ? { inviteCode } : {}) }),
+  passkeyRegister: (input: { organizerId: string; deviceLabel: string; inviteCode?: string; response: unknown }) =>
+    post<{ session: OrganizerSession }>('/api/organizer/passkeys', input),
+  signInOptions: () => post<{ optionsJSON: unknown }>('/api/organizer/signin/options'),
+  signIn: (response: PasskeyAssertionJSON) => post<{ session: OrganizerSession }>('/api/organizer/signin', { response }),
+  signOut: () => post<{ ok: true }>('/api/organizer/signout'),
   decline: (id: string, input: { organizerId: string; reasonCode: DeclineReasonCode; note?: string }) =>
     post<{ status: RequestStatus; message: { text: string; textEn: string; lang: Lang } }>(`/api/requests/${id}/decline`, input),
   previewDecline: (id: string, input: { reasonCode: DeclineReasonCode; note?: string }) =>

@@ -4,7 +4,7 @@ import type { Lang } from '@neighborline/core';
 import { Camera, Check, Keyboard, LoaderCircle, Mic, Play, SendHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, openStream } from '@/lib/api';
-import { ui } from '@/lib/i18n';
+import { dirOf, ui } from '@/lib/i18n';
 import { LANGUAGE_NAMES, cx } from '@/lib/format';
 import type { SampleVoiceNote, ScenarioId, ThreadView } from '@/lib/types';
 import { RequesterThread } from '../RequesterThread';
@@ -146,7 +146,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
   const item = thread?.itemStatus;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col" dir={dirOf(picked === 'auto' && !thread ? 'en' : lang)}>
       {/* app bar */}
       <div className="flex shrink-0 items-center gap-2.5 border-b border-rule px-4 pb-3 pt-2">
         <LineAvatar />
@@ -173,7 +173,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
               <select
                 value={picked}
                 onChange={(e) => setPicked(e.target.value as Lang | 'auto')}
-                className="h-10 max-w-[9.5rem] appearance-none rounded-full border border-rule-strong bg-raised pl-3.5 pr-8 text-[0.85rem] text-ink"
+                className="h-10 max-w-[9.5rem] appearance-none rounded-full border border-rule-strong bg-raised ps-3.5 pe-8 text-[0.85rem] text-ink"
               >
                 <option value="auto">Any language</option>
                 {PICKABLE.map((l) => (
@@ -182,7 +182,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
                   </option>
                 ))}
               </select>
-              <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[0.7rem] text-ink-3">
+              <span aria-hidden className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[0.7rem] text-ink-3">
                 ▼
               </span>
             </label>
@@ -323,7 +323,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
             <ul className="border-t border-rule">
               {samples.map((s) => (
                 <li key={s.id} className="border-b border-rule last:border-0">
-                  <button type="button" onClick={() => void sendAudio({ sampleId: s.id })} disabled={busy} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-sunk">
+                  <button type="button" onClick={() => void sendAudio({ sampleId: s.id })} disabled={busy} className="flex w-full items-center gap-3 px-4 py-3 text-start hover:bg-sunk">
                     <span className="grid size-9 shrink-0 place-items-center rounded-full bg-frost text-frost-ink" aria-hidden>
                       <Play size={14} fill="currentColor" />
                     </span>

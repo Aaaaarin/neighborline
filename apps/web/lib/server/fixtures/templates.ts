@@ -133,6 +133,7 @@ export function declined(lang: Lang, code: DeclineReasonCode, note?: string) {
 }
 
 export function quickReplies(lang: Lang): { yes: string; fix: string } {
+  if (lang === 'ar') return { yes: 'نعم، هذا صحيح', fix: 'أريد تصحيح شيء' };
   const by: Record<L, { yes: string; fix: string }> = {
     en: { yes: 'Yes, that’s right', fix: 'Fix something' },
     es: { yes: 'Sí, correcto', fix: 'Corregir' },

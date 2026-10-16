@@ -236,7 +236,7 @@ export function Stage({
               <div>
                 <PhoneCaption title="Dana’s phone" sub="Organizer" />
                 <div className="mx-auto max-w-[360px] stage:max-w-[392px]">
-                  <OrganizerPhone label="Dana’s phone, organizer" me={dana} view={s.view} onApprove={() => s.approve(dana.id)} busy={s.busy === dana.id} />
+                  <OrganizerPhone label="Dana’s phone, organizer" me={dana} view={s.view} onApprove={() => s.approve(dana.id)} busy={s.busy === dana.id} signHint="Signs with Dana’s demo key (held by this demo server)" />
                 </div>
               </div>
               <div>
@@ -253,6 +253,12 @@ export function Stage({
                     onApprove={() => s.approve(marcus.id)}
                     busy={s.busy === marcus.id}
                     highlight={marcusTurn}
+                    signHint={runningMode === 'manual' ? 'Your device asks for Face ID, Touch ID or your PIN, then signs this exact payout as Marcus' : 'Signs with Marcus’s demo key (held by this demo server)'}
+                    fallback={
+                      s.fallback?.organizerId === marcus.id
+                        ? { reason: s.fallback.reason, label: 'Marcus’s demo key', onUseDemoKey: () => void s.approve(marcus.id, { useDemoKey: true }) }
+                        : undefined
+                    }
                   />
                 </div>
               </div>
