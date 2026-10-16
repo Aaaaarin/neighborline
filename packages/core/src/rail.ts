@@ -138,6 +138,7 @@ const SIGNAL_LABEL: Record<InjectionSignal['id'], string> = {
   encoded_blob: 'contains an encoded blob',
   hidden_characters: 'contains hidden control characters',
   large_amount_directive: 'demands an amount far above any cap',
+  authority_claim: 'claims an organizer approved an amount above the cap',
   addressed_to_ai: 'is written to the AI rather than to the organizers',
 };
 
@@ -145,7 +146,7 @@ export function checkInjection(text: string | readonly string[] | undefined, pol
   const parts = typeof text === 'string' ? [text] : [...(text ?? [])];
   const seen = new Map<InjectionSignal['id'], InjectionSignal>();
   for (const t of parts) {
-    for (const s of detectPromptInjection(t, { largeAmountCents: policy.householdCapPer30dCents * 10 })) {
+    for (const s of detectPromptInjection(t, { largeAmountCents: policy.householdCapPer30dCents * 10, inflatedAmountCents: policy.householdCapPer30dCents })) {
       if (!seen.has(s.id)) seen.set(s.id, s);
     }
   }

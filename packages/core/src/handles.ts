@@ -29,6 +29,43 @@ export const CONFUSABLES: Readonly<Record<string, string>> = {
   'α': 'a', 'β': 'b', 'ε': 'e', 'ι': 'l', 'κ': 'k', 'ν': 'v', 'ο': 'o', 'ρ': 'p', 'τ': 't', 'υ': 'u', 'χ': 'x',
 };
 
+/**
+ * Non-Latin letter → the Latin letter it is drawn like (Cyrillic and Greek). Unlike CONFUSABLES this
+ * keeps i as i: it answers "what does this handle look like on screen", not "what could be confused".
+ */
+export const LATIN_LOOKALIKES: Readonly<Record<string, string>> = {
+  // Cyrillic
+  'а': 'a', 'в': 'b', 'е': 'e', 'ё': 'e', 'з': '3', 'і': 'i', 'ї': 'i', 'ј': 'j', 'к': 'k', 'м': 'm', 'н': 'h', 'о': 'o',
+  'п': 'n', 'р': 'p', 'с': 'c', 'т': 't', 'у': 'y', 'х': 'x', 'ѕ': 's', 'ԁ': 'd', 'ӏ': 'l', 'ԛ': 'q', 'ԝ': 'w', 'һ': 'h', 'ь': 'b',
+  // Greek
+  'α': 'a', 'β': 'b', 'ε': 'e', 'ι': 'i', 'κ': 'k', 'ν': 'v', 'ο': 'o', 'ρ': 'p', 'τ': 't', 'υ': 'u', 'χ': 'x', 'ω': 'w',
+};
+
+const LATIN_LETTER = /[a-z]/;
+const NON_LATIN_LETTER = /[^\p{Script=Latin}\P{L}]/u;
+
+/**
+ * Map lookalike letters to Latin inside words that are clearly meant as Latin: a word that mixes
+ * Latin and non-Latin letters ("mutuaіd" with a Cyrillic і), or a handle/email ("@еastside").
+ * Words written wholly in another script ("мой", "собака") are left alone. Run this BEFORE any step
+ * that strips non-Latin characters, or "@eastside-mutuaіd" silently becomes "@eastside-mutuad" and
+ * no longer looks like the group's handle to the lookalike check.
+ */
+export function latinizeLookalikes(text: string): string {
+  return text.replace(/[\p{L}\p{N}@._+-]+/gu, (word) => {
+    const lower = word.toLowerCase();
+    if (!NON_LATIN_LETTER.test(lower)) return word;
+    const handleShaped = lower.includes('@');
+    if (!handleShaped && !LATIN_LETTER.test(lower)) return word;
+    const mapped = Array.from(word, (ch) => LATIN_LOOKALIKES[ch.toLowerCase()] ?? ch).join('');
+    // A word that is still mostly non-Latin after mapping was not a disguised Latin word.
+    return handleShaped || !NON_LATIN_LETTER.test(mapped.toLowerCase()) ? mapped : word;
+  });
+}
+
+/** True when a handle or email contains letters outside the Latin script (a homoglyph, or a typo). */
+export const hasNonLatinLetters = (value: string): boolean => NON_LATIN_LETTER.test(value);
+
 /** Multi-character lookalikes, applied after single-character folding (so "c1" → "cl" → "d"). */
 export const MULTI_CONFUSABLES: ReadonlyArray<readonly [string, string]> = [
   ['rn', 'm'],

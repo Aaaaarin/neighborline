@@ -3,6 +3,7 @@ export * from './money.js';
 export * from './policy.js';
 export * from './policy-draft.js';
 export * from './identity.js';
+export * from './phone.js';
 export * from './amounts.js';
 export * from './handles.js';
 export * from './injection.js';
