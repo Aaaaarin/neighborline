@@ -1,0 +1,17 @@
+{
+  "name": "@neighborline/passkeys",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "MIT",
+  "description": "Passkey (WebAuthn) signatures bound to a two-person approval hash: challenge encoding, verification, and a labelled demo software authenticator.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "14.0.3",
+    "zod": "^3.23.8"
+  }
+}
