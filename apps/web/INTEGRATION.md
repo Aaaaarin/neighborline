@@ -20,7 +20,9 @@ call one `services()` method → JSON), and server components (`/demo`, `/organi
 | `webhooks.ts` | verify signature → dedupe (recordWebhookEvent) → settle |
 | `ledger.ts`, `report.ts`, `donations.ts` | /ledger + reconcile, /report + /trust, Orders v2 + Subscriptions |
 | `scenario-runner.ts` | `/demo` Play: drives the public methods with fixture samples; only human beats are scripted |
-| `../approval-service.ts` | **the only module with a Payouts client** (enforced by `lib/server/least-privilege.test.ts`) |
+| `internal.ts` | background jobs behind `/api/internal/*` (reconcile window, unclaimed sweep/renotify, organizer alerts, report versions); state in the audit log |
+| `../approval-service.ts` | collects organizer signatures (`createOrGetApproval` → `addApproverTx`) and, when complete, asks the **approver process** to execute via `../approver-client.ts` (HMAC-signed HTTP). **The web app has no Payouts client, creates no payout batches and never sees `PAYPAL_PAYOUTS_*`** (enforced by `lib/server/least-privilege.test.ts`) |
+| `../audio-retention.ts`, `../log.ts` | `AUDIO_RETENTION=none|24h` for raw recordings; JSON logger that redacts emails, phones and handles |
 
 Demo rehearsals get request ids `req_demo_…` and never count against a household's caps, velocity or
 the daily budget (otherwise the third visitor to play "Mrs. Lan" would be blocked by her household cap).
@@ -44,11 +46,12 @@ export interface Services {
   getGroup(): Promise<GroupView>;
   listRequests({ status? }): Promise<RequestView[]>;
   getRequest(requestId): Promise<RequestView | null>;
-  approve({ requestIds, organizerId, deviceLabel }): Promise<ApprovalResult>;  // emit approval.added; on 2nd distinct
-                                                                               // approver → payout.batch_created + payout.item_updated(PENDING)
+  approve(input: ApproveInput): Promise<ApprovalResult>;                      // passkey/demo-key signature over the approval hash;
+                                                                               // emit approval.added; on 2nd distinct approver the
+                                                                               // approver process pays → payout.batch_created + item PENDING
   decline({ requestId, organizerId, reasonCode, note? }): Promise<{ status, message }>;   // emit notify.sent
   previewDecline({ requestId, reasonCode, note? }): Promise<{ text, textEn, lang }>;
-  cancelPayoutItem({ batchId, itemId }): Promise<{ status }>;                  // only UNCLAIMED
+  cancelPayoutItem({ batchId, itemId }): Promise<{ status }>;                  // only UNCLAIMED; executed by the approver
 
   // PayPal
   handlePaypalWebhook({ headers, rawBody }): Promise<{ verified, eventType }>; // emit webhook.verified, payout.item_updated, notify.sent
@@ -72,6 +75,10 @@ export interface Services {
   // demo stage only (DEMO_MODE=true)
   playScenario({ scenario, mode: 'auto' | 'manual', speed? }): Promise<ScenarioRun>;
   resetDemo(): Promise<void>;
+
+  // background jobs (real engine only; POST /api/internal/*, contract in workflows/src/contract.ts)
+  readonly internal?: { reconcileWindow; unclaimedSweep; renotify; organizerAlert; reportRefresh };
+  approverUp?(): Promise<boolean>;                                             // for GET /api/health
 }
 ```
 
@@ -112,11 +119,11 @@ What each screen reads from events:
 | Facade method | Real implementation (see `NOTES-core.md`, `NOTES-agents.md`, `NOTES-paypal.md`) |
 |---|---|
 | `startIntake` | `db.createRequest` |
-| `submitAudio` | `agents.intake.fromAudio({ audio: Uint8Array, mimeType, categories, langHint, speakReadBack: true })` → store `originalText`/`englishText`/`extracted`; delete audio. `sampleId` → `fixtureAudioBytes(<scenario>)` (`lan_vi`, `rosa_es`, `jean_ht`, `walter_en`). `simulatedTranscript = agents.providers.mode !== 'live'` |
+| `submitAudio` | `agents.intake.fromAudio({ audio: Uint8Array, mimeType, categories, langHint, speakReadBack: true })` → store `originalText`/`englishText`/`extracted`; then `disposeAudio`: with `AUDIO_RETENTION=none` (default) the buffer is zero-filled and only the transcript is kept, with `24h` it is written 0600 and swept after 24 h; an `audio.deleted`/`audio.retained` audit row records the size. `sampleId` → `fixtureAudioBytes(<scenario>)` (`lan_vi`, `rosa_es`, `jean_ht`, `walter_en`). `simulatedTranscript = agents.providers.mode !== 'live'` |
 | `submitText` | `agents.intake.fromText` (stateless: re-run on previous text + answer) — replaces `mock-text-intake.ts` |
 | `confirmIntake` | `getActivePolicy` → `getHistoryForDestination` → `getTodaySpentCents` → core `computeAmount` + `checkRail` → `updateRequest(status: 'awaiting_approval')` → `agents.notify.render({ key: 'confirmed_waiting' })` |
-| `approve` | `createOrGetApproval` → `addApproverTx` → if complete: `createBatch` → `paypal` create-batch with `senderBatchId`, `senderItemId`, `toPayPalValue`, `purpose: NON_GOODS_OR_SERVICES`, Venmo `social_feed_privacy: PRIVATE` → `updateBatch`/`setPaypalItemId`. Block flags must throw a 409 (`HttpError`) with the flag detail — the card shows it. |
-| `handlePaypalWebhook` | `paypal.WebhooksApi.verify` → `recordWebhookEvent` (skip duplicates) → `itemStatusForWebhookEvent` → `upsertItemFromEvent` → `notifyKeyFor` → `agents.notify.render` → `recordNotification` |
+| `approve` | web: verify + record the organizer's assertion → `createOrGetApproval` → `addApproverTx` → if complete: `POST /v1/execute` to **apps/approver** with `{ approvalId, hash, payload (core approvalPayload), approvers }`. The approver re-reads everything from the database (hash, ≥ 2 distinct organizers, signatures, amounts via `computeAmount`, `checkRail`), then `createBatch` → PayPal create-batch with `senderBatchId`, `senderItemId`, `purpose: NON_GOODS_OR_SERVICES`, Venmo `social_feed_privacy: PRIVATE` → `updateBatch`/`setPaypalItemId`. Block flags throw a 409 (`HttpError`) with the flag detail; approver refusals come back as 403/409 with its reason. |
+| `handlePaypalWebhook` | `paypal.WebhooksApi.verify` (main app's `PAYPAL_WEBHOOK_ID`; for `PAYMENT.PAYOUTS*` events that fail it, the approver verifies against the Payouts app's webhook) → `recordWebhookEvent` (skip duplicates) → `itemStatusForWebhookEvent` → `upsertItemFromEvent` → `notifyKeyFor` → `agents.notify.render` → `recordNotification` |
 | `getReport` | `db.listForReport` → core `buildReport` → `agents.report.write` → map `narrative` + `numberTrace` to `NarrativeSegment[][]` (`{ figure, ref }` for every grounded number) |
 | `getLedger` / `reconcile` | `listItems` + Transaction Search via `@neighborline/paypal`; `reconcile: 'matched' | 'pending' | 'mismatch'` per item |
 | `createDonationOrder` / `captureDonationOrder` | `paypal.OrdersApi` (`buildDonationOrder`, `summarizeCapture`) → `recordDonation` |
@@ -158,9 +165,15 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 | `PAYPAL_MODE` | `sandbox` flips the "simulated" tags off where real calls are made |
 | `AI_MODE` | `live` changes the Sandbox-reality line for AI |
 | `DEMO_MODE=false` | Disables `/api/demo/*` (play/reset) |
+| `APPROVER_URL`, `NEIGHBORLINE_APPROVER_SECRET` | Where the approver listens (default `http://127.0.0.1:4020`) and the HMAC key shared with it. `pnpm dev` / `render-start.sh` set both |
+| `DATABASE_URL`, `DEV_DB_CONTROL_URL` | The database shared with the approver; `pnpm dev` points both at `tools/dev-db`, whose control URL lets `/demo` reset swap in a fresh database |
+| `NEIGHBORLINE_INTERNAL_SECRET` | HMAC key for `/api/internal/*` (Render Workflows) |
+| `AUDIO_RETENTION`, `AUDIO_DIR` | `none` (default) or `24h` for raw voice recordings |
+| `PAYPAL_PAYOUTS_*` | **Never** given to the web process (the build fails if web code reads them); only the approver gets them |
 
 ## Extensions to SPEC §5 (documented, additive)
 
+`GET /api/health`, `POST /api/internal/{reconcile,unclaimed-sweep,unclaimed/renotify,organizer-alert,report-refresh}` (HMAC-signed, Render Workflows),
 `GET /api/intake/:id/thread`, `GET /api/intake/samples`, `GET /api/requests/:id`,
 `POST /api/requests/:id/decline` (+ `/preview`), `POST /api/donate/subscription/activated`,
 `GET /api/ledger`, `GET /api/group`, `POST /api/demo/play`. `GET /api/stream` accepts `?requestId=`.
@@ -168,9 +181,10 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 ## Tests
 
 `pnpm --filter @neighborline/web test` runs the engine integration tests (vitest: in-memory PGlite +
-in-process fake PayPal + fixture AI) and the least-privilege check.
-`pnpm --filter @neighborline/web test:e2e` starts tools/fake-paypal on :4110, builds, starts on :3100 (real
-engine, `PAYPAL_MODE=fake`) and runs `e2e/*.spec.ts`
+in-process fake PayPal + the real approver HTTP service on a random port sharing that database + fixture AI),
+the internal-endpoint tests, the privacy tests and the least-privilege check.
+`pnpm --filter @neighborline/web test:e2e` starts tools/dev-db on :4130, tools/fake-paypal on :4110, apps/approver on
+:4120, builds into `.next-e2e`, starts on :3100 (real engine, `PAYPAL_MODE=fake`) and runs `e2e/*.spec.ts`
 (Lan → SUCCESS with the stopwatch frozen; visitor approves as Marcus; lookalike blocked; approval
 idempotency over the API; `/call` sample voice note on a phone viewport). Set `BASE_URL` to test a
 running server instead. Chromium comes from `PLAYWRIGHT_BROWSERS_PATH`.

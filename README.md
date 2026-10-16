@@ -85,7 +85,7 @@ sequenceDiagram
     participant C as Core (policy + rail checks, pure code)
     actor A as Organizer A
     actor B as Organizer B
-    participant S as Approval service
+    participant S as Approver (separate process)
     participant P as PayPal Payouts
     participant W as Webhook handler
     participant T as Notify agent
@@ -100,7 +100,7 @@ sequenceDiagram
     C-->>B: Same card on a second phone
     A->>S: Approve (signature 1)
     B->>S: Approve (signature 2, different organizer)
-    S->>S: Approval hash pins requests, amounts, destinations, policy version
+    S->>S: Re-derive from the DB: approval hash, 2 distinct organizers, signatures, amounts, rail checks
     S->>P: POST /v1/payments/payouts · sender_batch_id = "nl_" + hash[0..24] · PayPal-Request-Id
     P-->>S: 201 payout_batch_id, PENDING
     P->>W: PAYMENT.PAYOUTS-ITEM.SUCCEEDED (or UNCLAIMED)
@@ -215,15 +215,27 @@ describes how AI-written code is checked.
 
 ```
 apps/web            Next.js 15 (App Router) + Tailwind 4. Pages /, /demo, /call, /organizer, /donate,
-                    /report, /trust, /ledger and the /api/* route handlers. One seam: lib/server/services.ts
+                    /report, /trust, /ledger and the /api/* route handlers. One seam: lib/server/services.ts.
+                    Runs intake and every AI agent. Has NO Payouts client and never sees Payouts credentials
+apps/approver       The approval service: a separate process, the only one with PAYPAL_PAYOUTS_* credentials.
+                    Pays only a two-person approval record it re-verifies from the database (hash, 2 distinct
+                    organizers, passkey signatures, amounts recomputed from policy, rail checks)
 packages/core       Domain contract (zod), policy engine, amounts, rail protection, approvals + hashing,
-                    state machines, i18n catalog, transparency report math. Pure: no I/O
+                    state machines, i18n catalog, transparency report math, PII redaction. Pure: no I/O
 packages/db         Drizzle schema + repositories. Postgres in production, PGlite (embedded) for dev/tests.
-                    Two-signature table, append-only hash-chained audit log
+                    Two-signature table, passkey credentials, append-only hash-chained audit log
+packages/passkeys   WebAuthn where the challenge is the approval hash; one verifier for web and approver
 packages/paypal     @neighborline/paypal: typed PayPal client + neighborline-payouts-mcp (publishable, MIT)
 packages/agents     LLM/STT/TTS providers + intake, policy compiler, notify and report agents
 tools/fake-paypal   Local PayPal look-alike: OAuth, Payouts, Orders, Billing, Transaction Search, signed webhooks
+tools/dev-db        Local only: one embedded Postgres shared by web and approver over the wire protocol
 ```
+
+`pnpm dev` starts four processes: dev-db (:4030), fake PayPal (:4010), the approver (:4020) and the web app (:3000).
+The web app asks the approver to pay over HMAC-signed, timestamped, nonce-checked HTTP; the approver trusts nothing
+in that request except the approval id. [`least-privilege.test.ts`](apps/web/lib/server/least-privilege.test.ts) fails
+the build if web code imports a Payouts client, creates a payout batch (other than seeding fictional demo history) or reads `PAYPAL_PAYOUTS_*`. On Render the
+approver is a second process in the web instance with its own environment ([docs/DEPLOY.md](docs/DEPLOY.md#approver-process)).
 
 `packages/core` depends on nothing but zod. `db` and `agents` depend on `core`. `paypal` stands alone so it can be
 published, and [a drift test](packages/paypal/src/core-compat.test.ts) keeps its state machine identical to core's.
@@ -233,18 +245,21 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Package | Unit tests | What they cover |
 |---|---|---|
-| `packages/core` | 259 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics (including polite pleas that must not flag), approval hashing (NIST SHA-256 vectors), state machines, i18n, k-anonymous report |
-| `packages/db` | 57 | Two distinct signers, voiding on content change, idempotent batch creation, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), migration drift |
+| `packages/core` | 267 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics (including polite pleas that must not flag), approval hashing (NIST SHA-256 vectors), state machines, i18n, k-anonymous report, PII redaction |
+| `packages/db` | 60 | Two distinct signers, voiding on content change, idempotent batch creation, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), passkey credentials and assertions, migration drift |
 | `packages/agents` | 93 | Validate → repair → re-ask, grounding (an injected "$5000 to @x" is dropped), data-tag escape, back-translation fact check, report number grounding |
+| `packages/passkeys` | 11 | Approval-hash challenge, WebAuthn verification, labelled demo authenticator |
 | `packages/paypal` | 79 | Payouts idempotency and duplicate resolution, Venmo rules, raw-body webhook verification, retries, Transaction Search chunking, reconcile, MCP approval tokens |
-| `tools/fake-paypal` | 14 | The fake's own contract |
-| `apps/web` (Playwright) | 14 | Lan → `SUCCESS` with the clock frozen, a visitor approving as the second organizer, lookalike blocked, approval idempotency over HTTP, mobile `/call`, and axe WCAG 2.1 AA checks on all 8 pages plus the dark-mode stage |
+| `apps/approver` | 22 | Pays a complete two-person record once; re-execute returns the same batch; replayed, unsigned and stale requests refused; tampered amount (with and without a recomputed hash), single approver forced to "complete", an inflated amount written into the database, a swapped-in lookalike destination and today's budget all refused before PayPal; passkey signatures re-verified; poll and cancel-unclaimed |
+| `apps/web` (vitest) | 43 | The real engine through the approver process (Lan, Rosa, lookalike, double taps, cancel, reset), signed `/api/internal/*` jobs and `/api/health`, audio deletion and log redaction, and the least-privilege check that fails the build if web code can reach Payouts |
+| `tools/fake-paypal`, `tools/dev-db` | 15 + 5 | The fake's own contract; the shared dev database under concurrent pooled connections and reset |
+| `apps/web` (Playwright) | 17 | Same process layout as production (dev-db, fake PayPal, approver, web): Lan → `SUCCESS` with the clock frozen, a visitor approving as the second organizer with a passkey or demo key, lookalike blocked, approval idempotency over HTTP, mobile `/call`, and axe WCAG 2.1 AA checks |
 
 ```bash
 pnpm test                                    # all unit tests (vitest), offline
 pnpm typecheck                               # tsc --noEmit, strict + noUncheckedIndexedAccess
 pnpm --filter @neighborline/paypal build     # tsup → dist (ESM + d.ts)
-pnpm --filter @neighborline/web test:e2e     # builds and serves on :3100, runs Playwright
+pnpm --filter @neighborline/web test:e2e     # dev-db + fake PayPal + approver + web build on :3100, runs Playwright
 ```
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs all of these, a dependency audit and a gitleaks
@@ -256,7 +271,7 @@ What is real and what is simulated today:
 
 | | Status |
 |---|---|
-| `/demo`, `/call`, `/organizer` and the other pages | Run on the in-memory engine. PayPal ids are generated locally and marked "Sandbox: simulated" |
+| `/demo`, `/call`, `/organizer` and the other pages | Run on the real engine (core, db, agents, paypal) with the approver as a separate process. With `PAYPAL_MODE=fake` the PayPal ids come from `tools/fake-paypal` and are marked "Sandbox: simulated" |
 | `@neighborline/paypal` against PayPal's API shapes | Tested against `tools/fake-paypal`, which mirrors the documented request and response shapes, error bodies and webhook headers. The fake signs webhooks with HMAC where PayPal uses RSA |
 | Real PayPal sandbox | Supported by `PAYPAL_MODE=sandbox`. The sandbox spike list is in [docs/PAYPAL.md](docs/PAYPAL.md#to-verify-in-the-real-sandbox) |
 | Venmo payouts in sandbox | **Unverified.** PayPal documents only a mock (`POSPYO003`). Sandbox also rejects `recipient_type: PHONE` |
@@ -299,12 +314,12 @@ The `/trust` page shows the fiscal-sponsor checklist on screen.
 
 Not built yet, in rough priority order:
 
-1. Finish wiring the web routes to the real packages (in progress), then run the real PayPal sandbox spike.
+1. Run the real PayPal sandbox spike (Payouts app + main app, webhooks on both).
 2. Organizer authentication (passkeys) and device binding for approvals.
-3. Run the approval service as a separate process that alone holds the Payouts credentials.
-4. A scheduled nightly reconcile against Transaction Search (the function exists; the schedule does not).
+3. Give the approver its own container (Render private service, block ready in render.yaml) and its own Postgres role.
+4. Deploy the Render Workflows jobs (nightly reconcile, unclaimed follow-ups, report refresh): the tasks and the signed `/api/internal/*` endpoints exist; they run once the Blueprint is applied.
 5. Voice hotline and WhatsApp intake (Twilio), then SMS once carrier registration clears.
-6. Audio deletion after transcription and PII redaction in logs.
+6. Rate limiting and bot protection on intake.
 7. Vetted catalog text for French, Tagalog, Korean and Russian (today they get a checked LLM translation or English).
 8. Hosting on Render.
 

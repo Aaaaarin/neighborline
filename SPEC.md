@@ -30,24 +30,32 @@ agent calls/texts her in Spanish with claim help → SUCCESS. Third beat (5s): a
 1. **AI never decides who deserves help.** No need scores, no fraud scores on people. AI transcribes,
    translates, extracts structured fields, cites the rule, drafts messages. **Code computes every amount**
    from the versioned policy. **Two humans approve** every payout.
-2. **The intake agent cannot move money.** Only the `approval-service` holds PayPal Payouts credentials and
-   only executes with a valid two-person approval record. (Least privilege; mirrors PayPal's own
-   "authorize twice" MCP Hub pattern.)
+2. **The intake agent cannot move money.** Only the approver (`apps/approver`, a separate process) holds PayPal
+   Payouts credentials, and it only executes a valid two-person approval record that it re-verifies itself from the
+   database: approval hash, ≥ 2 distinct organizers, their passkey signatures over that hash, and every amount
+   recomputed from the policy. The web app (intake, AI agents, UI) has no Payouts client and never sees
+   `PAYPAL_PAYOUTS_*`; a test fails the build otherwise. (Least privilege; mirrors PayPal's own "authorize twice"
+   MCP Hub pattern.)
 3. **Every AI output is schema-validated** (zod). Validate → repair (one LLM repair pass) → if still invalid
    or low-confidence, **re-ask the neighbor in their language** instead of guessing.
 4. **Protect the rail, not suspect the person:** lookalike organizer handles, same payout destination under
    different names, velocity caps, rule-cap violations, prompt-injection in request text.
 5. **Idempotent money:** `sender_batch_id` = hash(approval record); retries/double taps return the original
    batch. All webhooks signature-verified. Nightly reconcile against Transaction Search.
-6. **Privacy by default:** audio deleted after transcription (configurable), PII redacted from logs,
-   transparency report is aggregate-only, Venmo `social_feed_privacy: PRIVATE`.
+6. **Privacy by default:** raw audio wiped right after transcription (`AUDIO_RETENTION=none`, or `24h` then deleted),
+   only the transcript kept; emails, phone numbers and handles masked in logs and AI traces (`core.redactPII`);
+   transparency report is aggregate-only; Venmo `social_feed_privacy: PRIVATE`.
 7. **Honest about sandbox:** a "Sandbox reality" panel states what is simulated (e.g., Venmo SUCCESS via
    PayPal's documented mock if real sandbox Venmo does not settle; SMS sender registration).
 
 ## 3. Architecture
 
 ```
-apps/web (Next.js 15, App Router, TS, Tailwind)        ← UI + API routes (server)
+apps/approver            The approval service, a separate Node process (node:http). The ONLY process with
+                         Payouts credentials. HMAC-signed, nonce-checked POST /v1/execute | /v1/poll/:batchId |
+                         /v1/cancel-unclaimed/:itemId | /v1/verify-webhook. Re-derives hash, approvers,
+                         signatures, amounts (computeAmount) and rail checks from the DB before paying.
+apps/web (Next.js 15, App Router, TS, Tailwind)        ← UI + API routes (server); no Payouts client
   /             landing + "Try the hotline" CTA
   /demo         STAGE: requester phone | organizer A | organizer B | live PayPal event rail + timer
   /call         requester phone (standalone, mobile) — record voice / type / photo
@@ -71,7 +79,15 @@ packages/db              Drizzle ORM schema + repo functions. Postgres in prod (
                          PGlite (embedded Postgres) for local dev + tests.
 tools/fake-paypal        Local fake PayPal sandbox (HTTP) implementing the subset we use, emitting
                          webhooks — enables dev/tests with no credentials and deterministic demos.
+tools/dev-db             Local only: one PGlite served over the Postgres wire protocol on loopback, so web and
+                         approver (two processes) share a database in `pnpm dev` and e2e.
+packages/passkeys        WebAuthn: the challenge an organizer signs IS the approval hash; verification shared by
+                         web (at tap time) and approver (before paying).
 ```
+
+Process layout: `pnpm dev` = dev-db :4030 + fake-paypal :4010 + approver :4020 + web :3000. On Render the approver
+runs as a second process in the web instance with its own environment (secrets on stdin); a private-service
+variant is in render.yaml. Background jobs (Render Workflows) call HMAC-signed `/api/internal/*` on the web app.
 
 Runtime mode via env `PAYPAL_MODE=fake|sandbox` and `AI_MODE=fixture|live`.
 
@@ -147,7 +163,7 @@ POST /api/intake/:id/audio        multipart audio → transcribe → extract →
 POST /api/intake/:id/text         {text}
 POST /api/intake/:id/confirm      {confirmed: boolean, corrections?} → status awaiting_approval | needs_clarification
 GET  /api/requests?status=        organizer queue (computed amount + rule citation + rail flags)
-POST /api/approvals               {requestIds, organizerId, deviceLabel} → records approver; when 2 distinct → executes batch
+POST /api/approvals               {requestIds, signer} → records a signed approver; when 2 distinct → approver process executes
 POST /api/payouts/:batchId/cancel-item {itemId}       (only UNCLAIMED)
 POST /api/webhooks/paypal         verify signature → update item state → trigger notify agent
 GET  /api/stream                  SSE: request/approval/payout events for /demo stage
@@ -156,6 +172,8 @@ POST /api/donate/subscription     returns plan id for JS SDK subscription button
 GET  /api/report                  aggregate report JSON + AI narrative
 POST /api/reconcile               Transaction Search reconcile (also scheduled nightly)
 POST /api/demo/reset              reseed demo data
+GET  /api/health                  Render health check (+ approver up/down)
+POST /api/internal/*              Render Workflows jobs, HMAC-signed (workflows/src/contract.ts)
 ```
 
 ## 6. Agents (packages/agents)

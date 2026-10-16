@@ -6,7 +6,7 @@ period ends on **Dec 15 2026, 8:00 am PT**. Winners are announced around Dec 21.
 
 | Resource | Render type | What it does | Plan / cost |
 |---|---|---|---|
-| `neighborline` | Web service (Node 22) | Next.js app, API, PayPal webhooks, SSE stage | `0.5c-512mb` (Starter) **$7/mo**, never sleeps |
+| `neighborline` | Web service (Node 22) | Next.js app, API, PayPal webhooks, SSE stage, **plus the approver (`apps/approver`) as a separate process** — the only process with Payouts credentials | `0.5c-512mb` (Starter) **$7/mo**, never sleeps |
 | `neighborline-db` | Render Postgres 17 | Requests, approvals, payouts, audit log | `0.1c-256mb` (Basic-256mb) **$6/mo** + 1 GB at $0.30/GB |
 | `neighborline-workflows` | **Render Workflow** | Nightly reconcile, unclaimed-payout follow-up, report refresh | Flex compute, billed per second: **~$0.10–0.50/mo** at demo volume |
 | `neighborline-scheduler` | Cron job (every 15 min) | Starts due workflow runs through the Render API | **$1/mo minimum** ($0.00016/min while it runs) |
@@ -18,11 +18,15 @@ Hobby plan. Paid resources need a payment method on file. Check the hackathon's 
 (<https://paypalaihackathon.devpost.com/details/render>) for a credit or promo code before adding a card.
 
 ```
- judges / neighbors ──HTTPS──▶ neighborline (web) ◀──webhooks── PayPal sandbox
-                                   │   ▲  internal URL
-                       private net │   │ POST /api/internal/*  (HMAC-signed)
-                                   ▼   │
-                          neighborline-db   neighborline-workflows ◀── startTask (Render API) ── neighborline-scheduler (cron */15)
+ judges / neighbors ──HTTPS──▶ ┌ neighborline instance ─────────────────────────────┐ ◀──webhooks── PayPal sandbox
+                               │ next start ($PORT)   ──HMAC, loopback──▶ approver   │ ──Payouts──▶ PayPal (Payouts app)
+                               │ no Payouts creds        127.0.0.1:4020   (Payouts    │
+                               │                                          creds only) │
+                               └──────┬────────────────────────▲──────────────┬──────┘
+                                      │ private net            │ POST /api/internal/* (HMAC-signed)
+                                      ▼                        │              │
+                              neighborline-db ◀────────────────┼──────────────┘ (both processes read/write it)
+                                                     neighborline-workflows ◀── startTask (Render API) ── neighborline-scheduler (cron */15)
 ```
 
 Why there is no Dockerfile: Render's native Node runtime builds the pnpm monorepo directly (`scripts/render-build.sh`),
@@ -34,11 +38,11 @@ and Workflows only support the `node`/`python` runtimes anyway. Docker would add
 
 The Blueprint assumes the web app has these. Missing ones make the deploy fail or the workflows go red:
 
-- [ ] `GET /api/health` returns 200 quickly, with no PayPal or LLM calls. **This is Render's health check: without it every deploy fails.**
-      (Workaround until it exists: clear *Health Check Path* in the service settings.)
-- [ ] The 5 `POST /api/internal/*` routes in [Endpoint contract](#endpoint-contract-for-the-integrator).
-- [ ] `APP_BASE_URL` falls back to `RENDER_EXTERNAL_URL` when it is empty.
-- [ ] The app listens on `$PORT`. `scripts/render-start.sh` already runs `next start -p $PORT -H 0.0.0.0`; the app itself needs no change.
+- [x] `GET /api/health` returns 200 quickly, with no PayPal or LLM calls (it also reports whether the approver answers). This is Render's health check.
+- [x] The 5 `POST /api/internal/*` routes in [Endpoint contract](#endpoint-contract-for-the-integrator).
+- [x] `APP_BASE_URL` falls back to `RENDER_EXTERNAL_URL` when it is empty (`scripts/render-start.sh` exports it for both processes).
+- [x] The app listens on `$PORT` (`next start -p $PORT -H 0.0.0.0`); the approver listens on `127.0.0.1:4020` only.
+- [ ] A **second PayPal sandbox REST app used only for Payouts** (step 4). Without `PAYPAL_PAYOUTS_CLIENT_ID/SECRET` the approver refuses to start in sandbox mode, and the instance restarts in a loop.
 
 ## 1. Create a Render account with GitHub
 
@@ -58,7 +62,7 @@ The Blueprint assumes the web app has these. Missing ones make the deploy fail o
 3. Name the Blueprint `neighborline`. Review the 4 resources and 2 environment groups it lists.
 4. Render now asks for every `sync: false` value. Fill them in using the table in step 4.
    - You can leave `PAYPAL_WEBHOOK_ID` empty for now (step 5 fills it in).
-   - You can leave `PAYPAL_PAYOUTS_CLIENT_*` empty.
+   - `PAYPAL_PAYOUTS_CLIENT_*` are **required** for `PAYPAL_MODE=sandbox` (see step 4). `PAYPAL_PAYOUTS_WEBHOOK_ID` can wait for step 5.
    - You can leave `RENDER_API_KEY` empty if you haven't made one yet (step 4).
 5. Click **Apply**. The first build takes about 3–5 minutes for the web app and about 1 minute each for the workflow and cron.
    The web service gets the URL `https://neighborline.onrender.com`. If that name is taken, Render adds a suffix. Note the real URL.
@@ -72,7 +76,9 @@ The Blueprint assumes the web app has these. Missing ones make the deploy fail o
 |---|---|---|
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | web | developer.paypal.com → **Apps & Credentials** → *Sandbox* → your app |
 | `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | web | The same Client ID. Next.js inlines it at **build** time, so changing it needs a rebuild |
-| `PAYPAL_PAYOUTS_CLIENT_ID`, `PAYPAL_PAYOUTS_CLIENT_SECRET` | web | Optional: a second sandbox app used only for Payouts (least privilege). Empty = use the main app |
+| `PAYPAL_PAYOUTS_CLIENT_ID`, `PAYPAL_PAYOUTS_CLIENT_SECRET` | web service, handed **only to the approver process** | **Required in sandbox.** developer.paypal.com → Apps & Credentials → Sandbox → **Create App** (e.g. `neighborline-payouts`) under the same business sandbox account; enable the **Payouts** feature on it. On the main app (`PAYPAL_CLIENT_ID`), **turn Payouts off** so the web process's keys cannot send money even at PayPal |
+| `PAYPAL_PAYOUTS_WEBHOOK_ID` | web service, handed only to the approver | Step 5: payout webhooks go to the Payouts app; the approver verifies them for the web app |
+| `NEIGHBORLINE_APPROVER_SECRET` | none | HMAC key between Next and the approver. `scripts/render-start.sh` generates a fresh one on every boot; it exists only in those two processes |
 | `PAYPAL_WEBHOOK_ID` | web | Step 5 |
 | `ANTHROPIC_API_KEY` | web | console.anthropic.com → API keys |
 | `OPENAI_API_KEY` | web | platform.openai.com → API keys (speech-to-text and text-to-speech) |
@@ -85,7 +91,7 @@ Why the PayPal and AI keys are `sync: false` on the web service and not in an en
 - Render's environment groups can't hold prompted (`sync: false`) values, so they would have to be committed.
 - Only the web service needs those keys. Workflows and the cron job get only what they use: the HMAC secret and the Render API key.
 
-The money-moving approval secret never leaves the web service (SPEC §2, principle 2).
+The money-moving secrets never leave the web service's instance, and inside it they reach only the approver process (next section). `NEIGHBORLINE_APPROVAL_SECRET` (MCP approval tokens) is unrelated to the approver and is not needed by the hosted demo.
 
 To rotate a secret: open the service (or group) → **Environment** → edit → *Save, rebuild, and deploy*. If you rotate `NEIGHBORLINE_INTERNAL_SECRET`, both the web service and the workflow pick it up on their next deploy or run.
 
@@ -104,8 +110,11 @@ To rotate a secret: open the service (or group) → **Environment** → edit →
 3. Save, then copy the **Webhook ID** shown in the list.
 4. Render → **neighborline → Environment → `PAYPAL_WEBHOOK_ID`** → paste → *Save, rebuild, and deploy*.
 
-> If you use a separate Payouts app (`PAYPAL_PAYOUTS_CLIENT_ID`), PayPal sends payout events to **that** app's webhooks.
-> That app gets its own webhook and its own ID. The app has to accept both IDs, so check with the integrator before you split apps.
+5. Payout events (`PAYMENT.PAYOUTS*`) are delivered to the **Payouts app's** webhooks. Open the Payouts app → **Webhooks → Add webhook**
+   with the same URL and the `PAYMENT.PAYOUTSBATCH.*` and `PAYMENT.PAYOUTS-ITEM.*` events, copy its ID into `PAYPAL_PAYOUTS_WEBHOOK_ID`.
+   The web app first verifies with `PAYPAL_WEBHOOK_ID`; for an unverified `PAYMENT.PAYOUTS*` event it asks the approver
+   (`POST /v1/verify-webhook`), which verifies with the Payouts app's credentials. The web app never sees them.
+   Even without this webhook, sandbox payouts settle through the approver's read-only poll (`/v1/poll`) at 5 s, 15 s, 45 s, …
 > Events from PayPal's *Webhooks simulator* can't be signature-verified, so a 400 response to them is expected.
 
 ## 6. Verify
@@ -130,6 +139,36 @@ To rotate a secret: open the service (or group) → **Environment** → edit →
 
 ---
 
+## Approver process
+
+SPEC §2 principle 2 says only the approval service holds Payouts credentials. On Render that is enforced like this:
+
+| | Next.js (`neighborline` web) | Approver (`apps/approver`) |
+|---|---|---|
+| Started by | `scripts/render-start.sh`: `exec env -u PAYPAL_PAYOUTS_* … next start` | `scripts/render-start.sh`: `env -i` + an allow-list, `127.0.0.1:4020` |
+| PayPal keys | Main app (`PAYPAL_CLIENT_ID`): Orders, Subscriptions, webhooks, Transaction Search. No Payouts client in the code (`least-privilege.test.ts`) | Payouts app (`PAYPAL_PAYOUTS_CLIENT_ID`), received as JSON on **stdin**, so they never appear in `/proc/<pid>/environ` |
+| Database | `DATABASE_URL` | `DATABASE_URL` (same Postgres) |
+| Can move money | No. It can only ask the approver to look at an approval record | Yes, after re-deriving hash, two distinct organizers, signatures, amounts and rail checks from the database |
+| If it exits | Render restarts the instance | The start script stops the instance, Render restarts both |
+
+**Why the same instance and not a Render private service.** Render private services have no free instance type
+(<https://render.com/free>: free instances exist only for web services, Postgres and Key Value), so a separate
+`neighborline-approver` costs **+$7/mo** (≈ $11 more through judging). The same-instance layout costs nothing extra and
+still separates code, credentials and environment by process. Its limit, stated plainly: both processes run as the
+same Unix user in one container, so an attacker with **arbitrary code execution** in the Next process could still
+attack the approver process (for example by reading its memory). It does protect against everything short of that:
+logic bugs and prompt-injected tool use in the web app (there is no Payouts code to misuse), SSRF or dependency code
+that dumps environment variables (the web process has no Payouts variables), and any web code path calling PayPal
+Payouts directly (the build fails).
+
+**Upgrade to full isolation** (recommended for real money): uncomment the `neighborline-approver` private-service block
+at the end of `render.yaml`, move `PAYPAL_PAYOUTS_*` to it, create an env group `neighborline-approver-link` holding
+`NEIGHBORLINE_APPROVER_SECRET` (generated) and attach it to both services, and on `neighborline` set
+`SKIP_EMBEDDED_APPROVER=true` and `APPROVER_URL=http://<approver hostport>`. Then the web container has no Payouts
+credentials at all, and the approver is reachable only on the private network. A Postgres role per process (web without
+`INSERT` on `payout_batches`) is the next step after that; Render Postgres gives one role by default, so it is not in
+the Blueprint.
+
 ## Cold starts and keeping it warm for judges
 
 A **free** web service spins down after 15 minutes without inbound traffic. Waking it takes about 1 minute, and judges see a loading page meanwhile.
@@ -150,7 +189,7 @@ Free instances also have only 0.1 CPU, which makes Next.js server rendering and 
 
 If the PayPal sandbox misbehaves during judging, set `PAYPAL_MODE=fake` on the web service and *Save and deploy*.
 `scripts/render-start.sh` then starts `tools/fake-paypal` inside the same instance on `127.0.0.1:4010`. It delivers signed webhooks to Next over loopback.
-- No PayPal credentials are needed.
+- No PayPal credentials are needed. The approver process still runs and is still the only process that calls the (fake) Payouts API.
 - Outcomes are deterministic: Rosa's payout goes UNCLAIMED, everything else goes SUCCESS.
 - The `/trust` page says the mode out loud.
 - Caveats:
@@ -233,6 +272,13 @@ The cron job then runs the same task code in its own process. The trade-offs:
 
 Types live in [`workflows/src/contract.ts`](../workflows/src/contract.ts), and signing lives in [`workflows/src/signing.ts`](../workflows/src/signing.ts).
 
+**Status: implemented** in `apps/web/app/api/health` and `apps/web/app/api/internal/*` (logic in
+[`lib/server/engine/internal.ts`](../apps/web/lib/server/engine/internal.ts); the contract and signing files are copied
+into `apps/web/lib/server/internal-contract.ts` / `internal-auth.ts` and a test fails if they drift). Durable state for
+these jobs is written to the hash-chained audit log, not to new tables: `reconcile.window`, `unclaimed.renotify`,
+`organizer.alert` and `report.generated` rows, each deduped by its idempotency key. Alerts appear as `alerts` on the
+organizer group view and the ledger view. None of these routes can move money: they run in the web process.
+
 **Auth for every `/api/internal/*` route:**
 - Read the raw body first.
 - Call `verifyInternalRequest({ secret: process.env.NEIGHBORLINE_INTERNAL_SECRET, method, path: url.pathname, rawBody, headers: req.headers })`. Copy the function into `apps/web/lib/server/internal-auth.ts`; it only needs `node:crypto`.
@@ -269,7 +315,8 @@ The existing UI route `POST /api/reconcile` can stay as it is. The internal rout
 
 | Symptom | Fix |
 |---|---|
-| Deploy hangs then fails on the health check | `/api/health` is missing or slow. Implement it, or clear *Health Check Path* temporarily |
+| Deploy hangs then fails on the health check | Check the log for `[render-start]` and `config.invalid` lines: in sandbox mode the approver exits without `PAYPAL_PAYOUTS_CLIENT_ID/SECRET`, and the start script then stops the instance |
+| Approve returns 503 "approval service is unreachable" | The approver process is down or still booting; `GET /api/health` shows `approver: "down"`. See the instance log for `svc":"approver"` lines |
 | Build fails at `pnpm install --frozen-lockfile` | Run `pnpm install` locally and commit `pnpm-lock.yaml` |
 | `smokeTest` fails with `HTTP 401 (permanent)` | Web and workflow have different `NEIGHBORLINE_INTERNAL_SECRET` values. Redeploy both after changing the group |
 | `smokeTest` fails with `ECONNREFUSED` / `ENOTFOUND` | The web service is on the free plan (it can't receive private traffic). Set `NEIGHBORLINE_BASE_URL` on the workflow |

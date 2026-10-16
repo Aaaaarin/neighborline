@@ -4,23 +4,25 @@ Scope: everything between a neighbor's voice note and money arriving in their Pa
 donor inflow and the MCP server. The method is STRIDE (Spoofing, Tampering, Repudiation, Information disclosure,
 Denial of service, Elevation of privilege). Every mitigation names the file that implements it.
 
-**Status legend.** Implemented means the code exists and has tests. Package only means it is implemented and tested
-in a package but the web routes do not call it yet. Roadmap means it is not built.
+**Status legend.** Implemented means the code exists, runs in the app and has tests. Roadmap means it is not built.
 
-> **Read this first.** As of Oct 16, 2026 the web routes run on an in-memory engine
-> ([`apps/web/lib/server/mock-engine.ts`](apps/web/lib/server/mock-engine.ts)) while they are being wired to the
-> real packages. That engine moves no money, and its webhook check only looks for the presence of PayPal's headers.
-> It is a demo stand-in, not the security boundary. The mitigations below live in `packages/*`. Rows marked
-> **Package only** become active in the app once the wiring in [`apps/web/INTEGRATION.md`](apps/web/INTEGRATION.md)
-> lands.
+> **Process layout (Oct 16, 2026).** The web app (`apps/web`: UI, intake, every AI agent) and the approver
+> (`apps/approver`) are **separate processes**. Only the approver holds PayPal Payouts credentials and constructs a
+> Payouts client; the web app asks it over HMAC-signed HTTP to execute an approval record, and the approver
+> re-derives everything that matters from the database before paying. `ENGINE=mock` still switches the web app to an
+> in-memory demo engine that moves no money; it is a fallback, not the default.
 
 ## 1. Assets
 
 | Asset | Why it matters |
 |---|---|
 | A1. Funds in the fiscal sponsor's PayPal balance | The thing an attacker wants |
-| A2. PayPal REST credentials (`PAYPAL_CLIENT_ID`/`SECRET`) | Whoever holds them can call Payouts |
-| A3. `NEIGHBORLINE_APPROVAL_SECRET` | Mints approval tokens for `neighborline-payouts-mcp` |
+| A2. Payouts app credentials (`PAYPAL_PAYOUTS_CLIENT_ID`/`SECRET`) | Whoever holds them can call Payouts. Only the approver process gets them |
+| A2b. Main app credentials (`PAYPAL_CLIENT_ID`/`SECRET`) | Orders, Subscriptions, webhooks, Transaction Search for the web app. With Payouts **disabled** on this app in the PayPal dashboard, they cannot send money |
+| A3. `NEIGHBORLINE_APPROVAL_SECRET` | Mints approval tokens for `neighborline-payouts-mcp` (not used by the hosted app) |
+| A3b. `NEIGHBORLINE_APPROVER_SECRET` | Authenticates web → approver requests. It cannot move money by itself: the approver still requires a valid record |
+| A3c. `NEIGHBORLINE_INTERNAL_SECRET` | Authenticates Render Workflows → `/api/internal/*` (reconcile, follow-ups, alerts, report). Cannot reach the approver |
+| A3d. Organizer passkeys (`organizer_credentials`) and demo keys | A valid signature over an approval hash is what makes an approver count |
 | A4. `PAYPAL_WEBHOOK_ID` and webhook integrity | Forged events could mark unpaid items paid, or trigger messages |
 | A5. Model API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) | Cost and abuse |
 | A6. Neighbors' data: voice audio, transcripts, payout destinations, phone numbers | Many neighbors are vulnerable, some undocumented |
@@ -31,30 +33,33 @@ in a package but the web routes do not call it yet. Roadmap means it is not buil
 ## 2. Trust boundaries
 
 ```
- Neighbor (untrusted text/audio) ──TB1──▶ Web server ──TB2──▶ LLM / STT / TTS provider (untrusted output)
+ Neighbor (untrusted text/audio) ──TB1──▶ Web process ──TB2──▶ LLM / STT / TTS provider (untrusted output)
+                                            │  (intake, agents, UI; NO Payouts client, NO Payouts credentials)
+ Organizer phones ──TB3 (passkey signature over the approval hash)──▶ │ /api/approvals
                                             │
- Organizer phones ───────────────TB3──────▶ │ /api/approvals
-                                            │
-                                    Approval service ──TB4──▶ PayPal REST API (holds A2)
-                                            ▲
- PayPal ──────────────TB5 (webhooks)────────┘
+                                            ├──TB10 (HMAC, nonce, ±120 s)──▶ Approver process ──TB4──▶ PayPal Payouts
+                                            │                                 (Payouts creds only)
+ PayPal ──────────────TB5 (webhooks)───────▶│
+ Render Workflows ────TB11 (HMAC)──────────▶│ /api/internal/*
  MCP client / agent ──TB6──▶ neighborline-payouts-mcp ──TB4──▶ PayPal
  Donor browser ──TB7──▶ PayPal JS SDK ──▶ /api/donate/*
  npm registry, GitHub Actions ──TB8──▶ build and CI
- Web server ──TB9──▶ Postgres / PGlite
+ Web process, approver process ──TB9──▶ Postgres (dev: tools/dev-db)
 ```
 
 | Boundary | What crosses it | Trust |
 |---|---|---|
 | TB1 Requester input | Audio, free text, payout handles | Untrusted. May contain instructions, lookalike handles, hidden characters |
 | TB2 Model output | JSON from Claude/OpenAI, transcripts, translations | Untrusted. May be invalid, hallucinated or steered by TB1 text |
-| TB3 Organizer devices | `{requestIds, organizerId, deviceLabel}` | **Not authenticated today** (see residual risk R1) |
+| TB3 Organizer devices | `{requestIds, signer}`: a WebAuthn assertion whose challenge is the approval hash (or, in `DEMO_MODE`, a request to sign with a labelled server-held demo key) | The approver identity comes from the credential that signed, not from the body. See R1 |
 | TB4 PayPal API | Payout batches, OAuth tokens | Trusted endpoint over TLS; our requests must be idempotent |
 | TB5 Webhooks | Event JSON plus `PAYPAL-*` headers | Untrusted until PayPal's verify API says `SUCCESS` |
 | TB6 MCP | Tool calls from any MCP client, possibly model-driven | Untrusted. Money tools need a human-minted token |
 | TB7 Donor checkout | Order ids from the JS SDK | Untrusted ids, confirmed server-side by capture |
 | TB8 Supply chain | Dependencies, Actions | Partially trusted; pinned and scanned |
-| TB9 Database | Rows | Trusted, but the audit log is defended against later edits |
+| TB9 Database | Rows | Shared by web and approver (one role today, see R11). The approver re-derives amounts and re-verifies signatures instead of trusting rows written by the web process; the audit log is append-only |
+| TB10 Web → approver | `{approvalId, hash, payload, approvers}` | Authenticated (HMAC) but **untrusted for content**: only "look at approval X" is used |
+| TB11 Workflows → web | Signed job requests | Authenticated (HMAC, ±300 s); idempotent; cannot reach Payouts |
 
 ## 3. Threats and mitigations
 
@@ -77,26 +82,29 @@ in a package but the web routes do not call it yet. Roadmap means it is not buil
 | T8 | S, E | **Self-payment**: an organizer routes aid to their own or the group's account | Exact match against group and organizer handles (including phones) → `DEST_IS_GROUP_HANDLE`, block | [`core/src/rail.ts`](packages/core/src/rail.ts) | Implemented |
 | T9 | S | **Same destination, different names**, or one destination hit many times | `DUP_DESTINATION_DIFF_NAME` and `VELOCITY` review flags. Name matching is generous (order, accents, partial names) so families sharing an account are not flagged | [`core/src/rail.ts`](packages/core/src/rail.ts) | Implemented |
 | T10 | T | **Cap evasion** by splitting requests | Household and per-category 30-day caps keyed on the normalized destination and phone; daily budget. Exhausted caps are block flags | [`core/src/amounts.ts`](packages/core/src/amounts.ts), [`core/src/identity.ts`](packages/core/src/identity.ts) | Implemented |
-| T11 | E | A blocked request gets approved anyway | `createOrGetApproval` refuses requests with block flags (`NOT_APPROVABLE`) | [`db/src/repo/approvals.ts`](packages/db/src/repo/approvals.ts) | Package only |
+| T11 | E | A blocked request gets approved anyway | `createOrGetApproval` refuses requests with block flags (`NOT_APPROVABLE`), and the approver re-runs `checkRail` itself before paying (a lookalike written into the row later is refused) | [`db/src/repo/approvals.ts`](packages/db/src/repo/approvals.ts), [`approver/src/recheck.ts`](apps/approver/src/recheck.ts) | Implemented |
 
 ### Approvals and payouts (TB3, TB4)
 
 | # | STRIDE | Threat | Mitigation | Code | Status |
 |---|---|---|---|---|---|
-| T12 | E | **Single-organizer fraud**: one insider approves twice | `addApprover` counts *distinct* organizer ids and requires ≥ 2 (`requiredApprovers` throws below 2). The `approval_signatures` primary key `(approval_id, organizer_id)` makes it a database guarantee. Only organizers of the group are eligible | [`core/src/approvals.ts`](packages/core/src/approvals.ts), [`db/src/schema.ts`](packages/db/src/schema.ts), [`db/src/repo/approvals.ts`](packages/db/src/repo/approvals.ts) | Package only. **The caller's identity is not authenticated: see R1** |
-| T13 | T | **Approve one thing, pay another**: the amount or destination changes after the first signature | The approval hash is SHA-256 over canonical JSON of sorted request ids, amounts, wallets, recipient types, normalized receivers and the policy version. Before each signature and before execution the content is recomputed from the rows (under `SELECT … FOR UPDATE`). A mismatch voids the approval | [`core/src/approvals.ts`](packages/core/src/approvals.ts), [`db/src/repo/approvals.ts`](packages/db/src/repo/approvals.ts), [`db/src/repo/payouts.ts`](packages/db/src/repo/payouts.ts) | Package only |
-| T14 | T, D | **Double payout** from a double tap, a retry or a timeout | `sender_batch_id = "nl_" + approvalHash[0..24]`, so one approval maps to one PayPal batch. `createBatch` returns the existing batch for an approval. The client sends `PayPal-Request-Id = sender_batch_id`, retries only 429/5xx, and replays a write after a network error only with that key. If PayPal reports the id as used, the client follows the error's link to the original batch | [`core/src/approvals.ts`](packages/core/src/approvals.ts), [`db/src/repo/payouts.ts`](packages/db/src/repo/payouts.ts), [`paypal/src/payouts.ts`](packages/paypal/src/payouts.ts), [`paypal/src/retry.ts`](packages/paypal/src/retry.ts) | Package only |
-| T15 | E | **The intake agent moves money** | It has no tools. Only the approval path calls Payouts, and only for a complete, untampered approval (`canExecute`) | [`agents/src/intake/intake-agent.ts`](packages/agents/src/intake/intake-agent.ts), [`core/src/approvals.ts`](packages/core/src/approvals.ts) | Implemented (logical separation; see R3) |
+| T12 | E | **Single-organizer fraud**: one insider approves twice | `addApprover` counts *distinct* organizer ids and requires ≥ 2 (`requiredApprovers` throws below 2). The `approval_signatures` primary key `(approval_id, organizer_id)` makes it a database guarantee. Only organizers of the group are eligible | [`core/src/approvals.ts`](packages/core/src/approvals.ts), [`db/src/schema.ts`](packages/db/src/schema.ts), [`db/src/repo/approvals.ts`](packages/db/src/repo/approvals.ts), [`approver/src/approver.ts`](apps/approver/src/approver.ts) | Implemented. Each approver is the owner of the credential that signed the hash ([NOTES-passkeys.md](NOTES-passkeys.md)); the approver re-verifies every stored signature and counts distinct current organizers itself. See R1 for demo keys |
+| T13 | T | **Approve one thing, pay another**: the amount or destination changes after the first signature | The approval hash is SHA-256 over canonical JSON of sorted request ids, amounts, wallets, recipient types, normalized receivers and the policy version. Before each signature and before execution the content is recomputed from the rows (under `SELECT … FOR UPDATE`). A mismatch voids the approval | [`core/src/approvals.ts`](packages/core/src/approvals.ts), [`db/src/repo/approvals.ts`](packages/db/src/repo/approvals.ts), [`db/src/repo/payouts.ts`](packages/db/src/repo/payouts.ts), [`approver/src/approver.ts`](apps/approver/src/approver.ts) | Implemented. The approver also recomputes the hash from the request rows it reads itself |
+| T14 | T, D | **Double payout** from a double tap, a retry or a timeout | `sender_batch_id = "nl_" + approvalHash[0..24]`, so one approval maps to one PayPal batch. `createBatch` returns the existing batch for an approval. The client sends `PayPal-Request-Id = sender_batch_id`, retries only 429/5xx, and replays a write after a network error only with that key. If PayPal reports the id as used, the client follows the error's link to the original batch | [`core/src/approvals.ts`](packages/core/src/approvals.ts), [`db/src/repo/payouts.ts`](packages/db/src/repo/payouts.ts), [`paypal/src/payouts.ts`](packages/paypal/src/payouts.ts), [`paypal/src/retry.ts`](packages/paypal/src/retry.ts) | Implemented. The approver is single-flight per approval and returns the existing batch on a re-execute (tested) |
+| T15 | E | **The intake agent moves money** | It has no tools, and the process it runs in has no Payouts client and no Payouts credentials. Only the approver process calls Payouts, and only for a complete, untampered record it re-verifies. A build-failing test enforces that no web module imports a Payouts API, creates a batch or reads `PAYPAL_PAYOUTS_*`, and that `apps/approver` is the only runtime code constructing `PayoutsApi` | [`agents/src/intake/intake-agent.ts`](packages/agents/src/intake/intake-agent.ts), [`web/lib/server/least-privilege.test.ts`](apps/web/lib/server/least-privilege.test.ts), [`approver/src/approver.ts`](apps/approver/src/approver.ts) | Implemented (process separation; see R3) |
+| T31 | E, T | **A compromised or buggy web process pays a different amount, destination or number of approvers** | The approver ignores the request body except the approval id: it checks the canonical payload hashes to the stored record's hash, rebuilds the content from the request rows, re-runs `computeAmount` + `checkRail` from policy, history, today's spend and handles it reads itself (approved ≤ allowed, no block flag), requires ≥ 2 distinct current organizers matching the record, and re-verifies each stored passkey signature with the stored public key. Tests: tampered amount (with and without a recomputed hash), single approver forced to `complete`, an inflated amount written straight into the database, a lookalike destination swapped in, today's budget | [`approver/src/approver.ts`](apps/approver/src/approver.ts), [`approver/src/recheck.ts`](apps/approver/src/recheck.ts), [`approver/src/assertions.ts`](apps/approver/src/assertions.ts), [`approver/src/approver.test.ts`](apps/approver/src/approver.test.ts) | Implemented. Limits in R11 |
+| T32 | S, R | **Forged or replayed request to the approver** | HMAC-SHA256 over `ts.nonce.METHOD.path.body` with a ≥ 32-char secret, ±120 s, each nonce accepted once (bounded cache, fails closed when full), constant-time compare. The approver binds `127.0.0.1` on Render; a replay is refused before any work | [`approver/src/protocol.ts`](apps/approver/src/protocol.ts), [`approver/src/server.ts`](apps/approver/src/server.ts) | Implemented |
+| T33 | I, E | **Payouts credentials leak from the web process** (SSRF, a dependency dumping env, a log line) | The web process never receives them: `scripts/dev.mjs` and `scripts/render-start.sh` strip `PAYPAL_PAYOUTS_*` from its environment; the approver gets them on stdin under `env -i` so they are not in any `/proc/<pid>/environ`. In sandbox the approver refuses to start without a dedicated Payouts app (`APPROVER_ALLOW_SHARED_CREDENTIALS=true` is a loud, local-only escape hatch reported on `/trust`) | [`scripts/render-start.sh`](scripts/render-start.sh), [`approver/src/config.ts`](apps/approver/src/config.ts) | Implemented. Same-user limit in R3 |
 | T16 | E | **An MCP-connected agent pays someone** | `create_payout_batch` needs an HMAC token bound to the exact batch digest, ≥ 2 distinct approvers and an expiry (default 10 min). Comparison is constant-time. The default verifier denies everything; without `NEIGHBORLINE_APPROVAL_SECRET` the server refuses all payouts. Every call goes to `onAudit` (no amounts or receivers) | [`paypal/src/approval.ts`](packages/paypal/src/approval.ts), [`paypal/src/mcp/server.ts`](packages/paypal/src/mcp/server.ts) | Implemented |
-| T17 | R | **"I never approved that"** | Each signature stores organizer, time and device label. The audit log is hash-chained (`prev_hash`, `row_hash`) and a database trigger rejects UPDATE, DELETE and TRUNCATE. `verifyAuditChain` re-checks it | [`db/src/repo/audit.ts`](packages/db/src/repo/audit.ts), [`db/drizzle/0001_audit_append_only.sql`](packages/db/drizzle/0001_audit_append_only.sql) | Package only |
-| T18 | T | **Policy tampering**: raise a cap quietly | Policies are versioned and immutable by id. Activation needs ≥ 2 organizers of the group in `approvedBy`. Only one active policy per group (partial unique index). The AI compiler only drafts, and every cap must be a number the organizers wrote | [`db/src/repo/groups.ts`](packages/db/src/repo/groups.ts), [`agents/src/policy/compiler.ts`](packages/agents/src/policy/compiler.ts) | Package only (no policy editor UI yet) |
+| T17 | R | **"I never approved that"** | Each signature stores organizer, time and device label. The audit log is hash-chained (`prev_hash`, `row_hash`) and a database trigger rejects UPDATE, DELETE and TRUNCATE. `verifyAuditChain` re-checks it | [`db/src/repo/audit.ts`](packages/db/src/repo/audit.ts), [`db/drizzle/0001_audit_append_only.sql`](packages/db/drizzle/0001_audit_append_only.sql) | Implemented. Passkey signatures are stored per (approval hash, organizer); the approver logs `approver.executed` with each approver's signature kind, and every refusal as `approver.execute_refused` |
+| T18 | T | **Policy tampering**: raise a cap quietly | Policies are versioned and immutable by id. Activation needs ≥ 2 organizers of the group in `approvedBy`. Only one active policy per group (partial unique index). The AI compiler only drafts, and every cap must be a number the organizers wrote | [`db/src/repo/groups.ts`](packages/db/src/repo/groups.ts), [`agents/src/policy/compiler.ts`](packages/agents/src/policy/compiler.ts) | Implemented in the repositories; no policy editor UI yet. The approver refuses an approval made under a policy version that is no longer active |
 
 ### Webhooks (TB5)
 
 | # | STRIDE | Threat | Mitigation | Code | Status |
 |---|---|---|---|---|---|
-| T19 | S | **Forged webhook** marks an item paid | Verify every delivery with `POST /v1/notifications/verify-webhook-signature`. The raw body is spliced in byte-for-byte, because the signature covers a CRC32 of the exact bytes. Missing headers or a non-object body fail without a network call | [`paypal/src/webhooks.ts`](packages/paypal/src/webhooks.ts) | Package only. The mock engine checks header presence only |
-| T20 | T | **Replayed or duplicated webhook** | Dedupe on PayPal's event id (`webhook_events` primary key; `recordWebhookEvent` returns false for a duplicate) | [`db/src/schema.ts`](packages/db/src/schema.ts), [`db/src/repo/misc.ts`](packages/db/src/repo/misc.ts) | Package only |
+| T19 | S | **Forged webhook** marks an item paid | Verify every delivery with `POST /v1/notifications/verify-webhook-signature`. The raw body is spliced in byte-for-byte, because the signature covers a CRC32 of the exact bytes. Missing headers or a non-object body fail without a network call | [`paypal/src/webhooks.ts`](packages/paypal/src/webhooks.ts), [`web/lib/server/engine/webhooks.ts`](apps/web/lib/server/engine/webhooks.ts) | Implemented. Payout events addressed to the Payouts app are verified by the approver with that app's webhook id |
+| T20 | T | **Replayed or duplicated webhook** | Dedupe on PayPal's event id (`webhook_events` primary key; `recordWebhookEvent` returns false for a duplicate) | [`db/src/schema.ts`](packages/db/src/schema.ts), [`db/src/repo/misc.ts`](packages/db/src/repo/misc.ts) | Implemented |
 | T21 | T | **Out-of-order webhook** (a late `HELD` after `SUCCESS`) | Monotonic item state machine: terminal states never change, `SUCCESS` can only become `REFUNDED`/`REVERSED`. The paypal package's copy is tested identical to core's | [`core/src/state.ts`](packages/core/src/state.ts), [`paypal/src/payout-status.ts`](packages/paypal/src/payout-status.ts), [`paypal/src/core-compat.test.ts`](packages/paypal/src/core-compat.test.ts) | Implemented |
 | T22 | D | Webhook flood | PayPal retries up to 25 times over 3 days, so the handler returns quickly and work is idempotent | — | Roadmap: rate limiting |
 
@@ -104,17 +112,17 @@ in a package but the web routes do not call it yet. Roadmap means it is not buil
 
 | # | STRIDE | Threat | Mitigation | Code | Status |
 |---|---|---|---|---|---|
-| T23 | I | **PII in logs** | The PayPal client's `onRequest` hook reports method, path (query stripped), status and `debug_id`, never bodies. MCP audit entries carry no amounts or receivers | [`paypal/src/client.ts`](packages/paypal/src/client.ts), [`paypal/src/mcp/server.ts`](packages/paypal/src/mcp/server.ts) | Implemented for these paths. General log redaction: Roadmap |
+| T23 | I | **PII in logs and AI traces** | Web and approver log JSON lines through one logger each that deep-redacts every string (`core.redactPII`: emails, phone numbers and @handles masked except the last 2 characters). AI trace summaries shown on organizer cards and the stage are redacted the same way. The PayPal client's `onRequest` hook reports method, path, status and `debug_id`, never bodies. MCP audit entries carry no amounts or receivers | [`core/src/redact.ts`](packages/core/src/redact.ts), [`web/lib/server/log.ts`](apps/web/lib/server/log.ts), [`approver/src/log.ts`](apps/approver/src/log.ts), [`paypal/src/client.ts`](packages/paypal/src/client.ts) | Implemented. Organizer-facing views still show destinations and transcripts by design |
 | T24 | I | **Re-identification from the public report** | Any cell describing fewer than 3 people is masked (`'<3'`). Transaction ids appear only on category and donation-source rows, so masked cells cannot be differenced out | [`core/src/report.ts`](packages/core/src/report.ts) | Implemented |
 | T25 | I | **Venmo feed exposure** | `social_feed_privacy: PRIVATE` is always sent explicitly on Venmo items | [`paypal/src/payouts.ts`](packages/paypal/src/payouts.ts) | Implemented |
-| T26 | I | **Audio retention** | The agents package never stores audio | — | Roadmap: delete stored audio after transcription in the web wiring |
+| T26 | I | **Audio retention** | `AUDIO_RETENTION=none` (default): the recording is transcribed in memory and the buffer is zero-filled right after; only the transcript is stored, and an `audio.deleted` audit row records the size. `24h`: kept with mode 0600 and deleted by a sweep at boot and hourly | [`web/lib/server/audio-retention.ts`](apps/web/lib/server/audio-retention.ts), [`web/lib/server/engine/intake.ts`](apps/web/lib/server/engine/intake.ts) | Implemented |
 | T27 | I | **Leaked keys** in code or commits, including AI-written code | No secrets in code (CLAUDE.md rule). `.env*` is gitignored except `.env.example`, which has empty values. Only `NEXT_PUBLIC_PAYPAL_CLIENT_ID` reaches the browser. CI runs gitleaks over full history; a local gitleaks 8.24.3 scan of all commits found no leaks on Oct 16, 2026. The MCP approval secret must be ≥ 32 characters | [`.gitignore`](.gitignore), [`.github/workflows/ci.yml`](.github/workflows/ci.yml), [`paypal/src/approval.ts`](packages/paypal/src/approval.ts) | Implemented |
 
 ### Supply chain (TB8)
 
 | # | STRIDE | Threat | Mitigation | Status |
 |---|---|---|---|---|
-| T28 | T, E | **Malicious or vulnerable dependency** | `pnpm install --frozen-lockfile` in CI; committed `pnpm-lock.yaml`; Dependabot for npm and Actions; `pnpm audit --audit-level=high` in CI (non-blocking at first, see R5). `packages/core` depends only on zod. `@paypal/agent-toolkit` is an **optional** dependency, loaded only at runtime for the report in sandbox mode, with only `transactions.list` enabled | Implemented |
+| T28 | T, E | **Malicious or vulnerable dependency** | `pnpm install --frozen-lockfile` in CI; committed `pnpm-lock.yaml`; Dependabot for npm and Actions; `pnpm audit --prod --audit-level=high` **blocks** CI (two documented, unreachable advisories ignored by GHSA id, see R5); a full audit including dev tooling is reported. `packages/core` depends only on zod. `@paypal/agent-toolkit` is an **optional** dependency, loaded only at runtime for the report in sandbox mode, with only `transactions.list` enabled | Implemented |
 | T29 | T | **Compromised GitHub Action** | Third-party Actions are pinned to full commit SHAs (version in a comment). The workflow's default token is `contents: read` | Implemented |
 | T30 | T | **Typosquatted package added by an AI agent** | Dependency changes show up in `pnpm-lock.yaml` diffs and the PR template asks reviewers to check each new package by name | Implemented (process) |
 
@@ -122,16 +130,18 @@ in a package but the web routes do not call it yet. Roadmap means it is not buil
 
 | # | Risk | Why it remains | Plan |
 |---|---|---|---|
-| R1 | **No organizer authentication.** `/api/approvals` takes `organizerId` from the request body. Anyone who can reach the API can approve as both organizers. Two-person approval is enforced on ids, not on people | Demo scope | Passkeys per organizer, approvals bound to an authenticated session and device; reject self-approval of one's own request |
-| R2 | The web app runs on the in-memory engine until wiring lands. Its webhook check is header presence only, and it uses simplified stand-ins for rail checks (`mock-rail.ts`) | Integration in progress | Wire per `apps/web/INTEGRATION.md`; then delete the mock paths from production builds |
-| R3 | The "approval service" is a module in the same Next.js process as intake, so it shares memory and environment (including PayPal credentials) | One deployable for the hackathon | Separate service that alone holds Payouts credentials, called with an approval token |
+| R1 | **Demo keys and enrollment.** With `DEMO_MODE` on (the hosted demo), a visitor can approve as a demo organizer with a server-held, labelled demo key, so two-person approval there proves two credentials, not two humans. Enrollment of real passkeys is gated by per-organizer invite codes; one person holding two codes can enroll both | Judges must be able to play the second organizer | `DEMO_MODE=false` stops demo keys in both web and approver; `NEIGHBORLINE_REQUIRE_PASSKEYS=true` makes the approver refuse unsigned approvers; distribute invite codes out of band |
+| R2 | `ENGINE=mock` still exists as a UI fallback; it moves no money and its webhook check is header presence only | Kept for UI work without a database | Never set in deployment; `/trust` reports the engine |
+| R3 | **Same instance, same Unix user.** On Render the approver is a second process in the web instance. Code, credentials and environment are separated, but an attacker with arbitrary code execution in the Next process could attack the approver process (ptrace/memory) | A Render private service costs +$7/mo; private services have no free tier | The private-service block in `render.yaml` gives the approver its own container (docs/DEPLOY.md "Approver process") |
 | R4 | Two colluding organizers can pay anyone within policy caps | Inherent to two-person control | Caps, velocity flags, public aggregate report, append-only audit, Transaction Search reconcile |
-| R5 | `pnpm audit` reports high and critical advisories on Oct 16, 2026, mostly transitive: `@paypal/agent-toolkit` (via `@langchain/core`, `langsmith`, `mathjs`, `ai`/`jsondiffpatch`), dev-only `vitest` 2.x (`vitest`, `tinypool`, `vite`), and `postcss` via `next` | Upstream versions; the audit job is non-blocking so CI stays green while they are triaged | Upgrade vitest to ≥ 3.2.6 and Next; track the toolkit's transitive deps; make the audit blocking |
+| R5 | `pnpm audit` (Oct 16, 2026, after upgrading to vitest 4.1.12 / vite 7 and overriding `next>postcss` ^8.5.23, `@paypal/agent-toolkit>mathjs` ^15.2.0 and `@paypal/agent-toolkit>@langchain/core` 0.3.80): **0 critical**; 2 high, both inside `@paypal/agent-toolkit` entry points we never import: `langsmith` <0.6.0 (GHSA-3644-q5cj-c5c7, via `@langchain/core`, used only by the toolkit's `/langchain` entry) and `jsondiffpatch` <0.7.6 (GHSA-j4fx-xxwh-2485, via `ai@4`, used only by its `/ai-sdk` entry). We load only `@paypal/agent-toolkit/openai`, which requires `mathjs` (`round` only), `axios`, `zod`, `lodash` and the PayPal server SDK. Both are listed in `pnpm.auditConfig.ignoreGhsas` so the prod audit can block. Moderate/low remain: `esbuild` via `drizzle-kit` and `tsup` (dev only), `langsmith`/`uuid`/`ai`/`@ai-sdk/provider-utils` (same unused entry points) | The toolkit (1.11.0, latest) pins `@langchain/core` 0.3.6 and `ai` ^4; the `jsondiffpatch` fix is ESM-only and would break `ai@4`'s CommonJS build; a `langsmith` 0.6 override is untested with `@langchain/core` 0.3 | Re-check on each toolkit release; drop the ignores when it moves to `ai@5` / newer `@langchain/core`; or vendor the single `list_transactions` call and remove the toolkit |
 | R6 | Prompt-injection heuristics are regexes. A novel phrasing will get through | Heuristics only flag for review; the real control is that the model has no tools and amounts come from code | Add red-team fixtures over time |
 | R7 | STT can mishear a handle | The read-back and neighbor confirmation are the control. A misheard handle that looks like the group's is blocked | Show the transcript next to the read-back on organizer cards (done in the UI) |
 | R8 | Lookalike detection can false-positive on short or common handles | Thresholds scale with length; block flags tell the organizer to confirm the destination with the neighbor | Tune with real data |
 | R9 | No rate limiting or bot protection on intake | Demo scope | Per-IP and per-destination rate limits |
 | R10 | Venmo payouts in sandbox are unverified | PayPal documents only a mock (`POSPYO003`) | Spike in the real sandbox |
+| R11 | **Shared database role.** Web and approver use the same Postgres credentials. A fully compromised web process could write rows (requests, approvals, signatures). The approver's independent checks (T31) stop it from paying more than policy allows or without two valid signatures, but it cannot stop a compromised web process that also holds a demo key (DEMO_MODE) from signing as demo organizers | Render Postgres provisions one role | Separate roles: web without `INSERT`/`UPDATE` on `payout_batches`/`payout_items` creation paths and without `UPDATE` on `approval_assertions`; `DEMO_MODE=false` + `NEIGHBORLINE_REQUIRE_PASSKEYS=true` for real money |
+| R12 | **Public read APIs in the demo.** `/api/requests/:id` and the SSE stream (`/api/stream`) are unauthenticated so the stage and judges can watch; they expose demo transcripts and payout handles | Demo data is fictional | Gate organizer reads behind the organizer session for real deployments |
 
 ## Reviewing AI-written code
 
@@ -140,13 +150,13 @@ None of them assume the author was careful.
 
 **Automated, on every push (CI):**
 1. `tsc --noEmit` in every package, with `strict` and `noUncheckedIndexedAccess` ([`tsconfig.base.json`](tsconfig.base.json)).
-2. 502 unit tests across five packages, all offline. Tests encode the money invariants directly: two *distinct*
+2. Unit and integration tests across every workspace package (vitest), all offline. Tests encode the money invariants directly: two *distinct*
    approvers, voiding on content change, one batch per approval, terminal states never regress, amounts never from
    the model, injected destinations dropped.
 3. **Drift tests** across lanes: [`core-compat.test.ts`](packages/paypal/src/core-compat.test.ts) fails if the paypal
    package's state machine diverges from core's; [`migrate-audit.test.ts`](packages/db/src/migrate-audit.test.ts)
    fails if the embedded migrations diverge from the SQL files.
-4. 14 Playwright tests, including axe accessibility checks.
+4. Playwright end-to-end tests against the same process layout as production (dev-db, fake PayPal, approver, web), including axe accessibility checks.
 5. gitleaks over full git history, and `pnpm audit`.
 
 **Structural:**
