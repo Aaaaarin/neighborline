@@ -119,6 +119,19 @@ export class DuplicateBatchError extends PayPalError {
   }
 }
 
+/**
+ * Did this failed write possibly land at PayPal? Timeouts, network errors and 5xx responses are
+ * ambiguous: PayPal may have accepted the request before the connection broke. A duplicate
+ * sender_batch_id without a link means it certainly landed. For any of these, do NOT record a
+ * failure; resolve by replaying the same idempotency key (sender_batch_id / PayPal-Request-Id) or by
+ * reading the resource. Only a definite 4xx rejection (or local validation) is a real failure.
+ */
+export function isAmbiguousPayPalError(err: unknown): boolean {
+  if (err instanceof PayPalTimeoutError || err instanceof PayPalNetworkError || err instanceof DuplicateBatchError) return true;
+  if (err instanceof PayPalApiError) return err.status >= 500 || err.status === 429 || err.status === 408;
+  return !(err instanceof PayPalError); // an unexpected throw (bug, aborted fetch): we cannot know either way
+}
+
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v ? v : undefined;
 }

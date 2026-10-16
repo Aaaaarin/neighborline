@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { apiCalls, startFake, type FakeHarness } from '../test/fake.js';
 import { PayPalClient } from './client.js';
-import { PayPalApiError, PayPalAuthError, PayPalTimeoutError } from './errors.js';
+import { PayPalApiError, PayPalAuthError, PayPalInputError, PayPalNetworkError, PayPalTimeoutError, isAmbiguousPayPalError } from './errors.js';
 import { backoffDelayMs, DEFAULT_RETRY, isRetryableStatus, isSafeToReplay, retryAfterMs } from './retry.js';
 
 let h: FakeHarness;
@@ -13,6 +13,22 @@ afterEach(() => {
   h.calls.length = 0;
 });
 afterAll(() => h.close());
+
+describe('isAmbiguousPayPalError', () => {
+  const api = (status: number) => new PayPalApiError({ status, body: { name: 'X' }, method: 'POST', path: '/v1/payments/payouts' });
+  it('treats timeouts, network errors and 5xx as "may have landed"', () => {
+    expect(isAmbiguousPayPalError(new PayPalTimeoutError('POST', '/v1/payments/payouts', 30_000))).toBe(true);
+    expect(isAmbiguousPayPalError(new PayPalNetworkError('POST', '/v1/payments/payouts', new Error('socket hang up')))).toBe(true);
+    expect(isAmbiguousPayPalError(api(503))).toBe(true);
+    expect(isAmbiguousPayPalError(api(429))).toBe(true);
+    expect(isAmbiguousPayPalError(new Error('unexpected'))).toBe(true);
+  });
+  it('treats definite rejections as failures', () => {
+    expect(isAmbiguousPayPalError(api(422))).toBe(false);
+    expect(isAmbiguousPayPalError(api(400))).toBe(false);
+    expect(isAmbiguousPayPalError(new PayPalInputError('bad note'))).toBe(false);
+  });
+});
 
 describe('retry policy (pure)', () => {
   it('retries only 429 and 5xx', () => {

@@ -9,7 +9,8 @@
  */
 export const PAYOUT_ITEM_STATUSES = ['PENDING', 'SUCCESS', 'UNCLAIMED', 'RETURNED', 'ONHOLD', 'BLOCKED', 'FAILED', 'REFUNDED', 'REVERSED', 'CANCELED'] as const;
 export type PayoutItemStatus = (typeof PAYOUT_ITEM_STATUSES)[number];
-export const BATCH_STATUSES = ['CREATING', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED'] as const;
+/** UNKNOWN is local only: the create call failed ambiguously (timeout, network, 5xx) and is resolved by re-sending the same sender_batch_id. */
+export const BATCH_STATUSES = ['CREATING', 'UNKNOWN', 'PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED', 'FAILED'] as const;
 export type BatchStatus = (typeof BATCH_STATUSES)[number];
 
 /** PayPal `transaction_status` (wire) values. */

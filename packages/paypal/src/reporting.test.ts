@@ -63,6 +63,30 @@ describe('reconcile (pure)', () => {
     expect(r.ok).toBe(false);
     expect(r.summary).toContain('1 within 3h reporting lag');
   });
+  it('detects status drift between our item and PayPal transaction_status', () => {
+    const t = (id: string, status: string) => ({ ...txn(id, -100), status });
+    const items: LocalPayoutItem[] = [
+      { id: 'paid-but-reversed', transactionId: 'T1', amountCents: 100, status: 'SUCCESS' },
+      { id: 'returned-but-success', transactionId: 'T2', amountCents: 100, status: 'RETURNED' },
+      { id: 'paid-ok', transactionId: 'T3', amountCents: 100, status: 'SUCCESS' },
+      { id: 'unclaimed-pending', transactionId: 'T4', amountCents: 100, status: 'UNCLAIMED' },
+    ];
+    const r = reconcile(items, [t('T1', 'V'), t('T2', 'S'), t('T3', 'S'), t('T4', 'P')], { asOf });
+    expect(r.statusDrift.map((d) => d.local.id)).toEqual(['paid-but-reversed', 'returned-but-success']);
+    expect(r.statusDrift[0]!.detail).toContain('reversed');
+    expect(r.matched.map((m) => m.local.id)).toEqual(['paid-ok', 'unclaimed-pending']);
+    expect(r.ok).toBe(false);
+  });
+  it('flags a currency mismatch and items stuck PENDING without a transaction id', () => {
+    const r = reconcile(
+      [local('a', 'T1', 100), { id: 'stuck', amountCents: 100, status: 'PENDING', lastEventAt: '2026-10-14T00:00:00Z' }, { id: 'fresh', amountCents: 100, status: 'PENDING', lastEventAt: '2026-10-16T11:00:00Z' }],
+      [{ ...txn('T1', -100), currency: 'EUR' }],
+      { asOf },
+    );
+    expect(r.currencyMismatch.map((m) => m.local.id)).toEqual(['a']);
+    expect(r.stuckPending.map((i) => i.id)).toEqual(['stuck']);
+    expect(r.ok).toBe(false);
+  });
   it('is ok when everything lines up', () => {
     expect(reconcile([local('a', 'T1', 100)], [txn('T1', -100)], { asOf }).ok).toBe(true);
   });
