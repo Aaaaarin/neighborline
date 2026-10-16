@@ -95,7 +95,7 @@ Dev vs held-out for the same run:
 ### Fixture mode: heuristic extractor (no LLM)
 
 - **What is measured:** FixtureLLM, i.e. the offline keyword extractor in src/intake/heuristic.ts (no language model), followed by the real grounding, validation and rail code.
-- Run 2026-10-16 22:29 UTC · commit `847f476` · dataset `67367ce662ae` (208 cases, 48 held out) · Node v22.22.0 · 879 ms total
+- Run 2026-10-16 22:57 UTC · commit `3f7c293` · dataset `67367ce662ae` (208 cases, 48 held out) · Node v22.22.0 · 818 ms total
 
 **Dev vs held-out** (rules are tuned on dev only; see "Held-out split" below)
 
@@ -192,13 +192,13 @@ Payout, intake set: of 92 requests that gave a destination, 92/92 were extracted
 
 **Latency and cost**
 
-- Model time per intake: p50 0.27 ms, p95 1 ms · wall time per intake: p50 0.75 ms, p95 7 ms
+- Model time per intake: p50 0.30 ms, p95 0.61 ms · wall time per intake: p50 0.78 ms, p95 4 ms
 - Per intake: 2.5 model calls, ~814.4 input + ~178.6 output tokens (characters ÷ 4 of the exact prompts a live model would receive; the heuristic writes far less output than a model would) · cost: pass `--price-in` / `--price-out` (USD per million tokens) to estimate
 
 ### Oracle: gold labels as the model (pipeline ceiling)
 
 - **What is measured:** a perfect "model" that answers each extraction with the human gold labels (original text as its English translation), followed by the real grounding, validation and rail code: the ceiling of the pipeline around the model.
-- Run 2026-10-16 22:29 UTC · commit `847f476` · dataset `67367ce662ae` (208 cases, 48 held out) · Node v22.22.0 · 558 ms total
+- Run 2026-10-16 22:57 UTC · commit `3f7c293` · dataset `67367ce662ae` (208 cases, 48 held out) · Node v22.22.0 · 478 ms total
 
 **Dev vs held-out** (rules are tuned on dev only; see "Held-out split" below)
 
@@ -295,7 +295,7 @@ Payout, intake set: of 92 requests that gave a destination, 92/92 were extracted
 
 **Latency and cost**
 
-- Model time per intake: p50 0.03 ms, p95 0.14 ms · wall time per intake: p50 0.52 ms, p95 6 ms
+- Model time per intake: p50 0.03 ms, p95 0.16 ms · wall time per intake: p50 0.57 ms, p95 4 ms
 - Per intake: 2.4 model calls, ~798 input + ~149.6 output tokens · cost: pass `--price-in` / `--price-out` (USD per million tokens) to estimate
 
 <!-- END GENERATED -->
