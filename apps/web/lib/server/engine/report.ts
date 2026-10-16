@@ -158,11 +158,30 @@ export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
   };
 }
 
-export function buildTrust(ctx: BaseCtx, group: GroupView): TrustView {
+/** What the approver process reports about itself (GET /v1/health; null = unreachable). */
+export interface ApproverStatus {
+  credentials: 'fake' | 'dedicated' | 'shared-fallback';
+  requirePasskeys: boolean;
+}
+
+function leastPrivilegeLine(a: ApproverStatus | null): TrustView['sandboxReality'][number] {
+  const base =
+    'Only the approver — a separate process (apps/approver) — holds PayPal Payouts credentials. This web server has no Payouts client (a test fails the build otherwise); it can only ask the approver to look at an approval record. The approver re-reads the requests, recomputes the approval hash and every amount from the policy, requires two distinct organizers and re-verifies their signatures before it pays.';
+  if (!a) return { label: 'Least privilege for money movement', status: 'not_yet', detail: `${base} The approver is not reachable right now, so nothing can be paid.` };
+  const creds =
+    a.credentials === 'dedicated'
+      ? ' It uses its own PayPal REST app, separate from the one this server uses for donations and reporting.'
+      : a.credentials === 'fake'
+        ? ' In this mode it talks to the local fake PayPal.'
+        : ' Warning: it is using the main PayPal app’s keys (local fallback), so the separation is not enforced at PayPal.';
+  const keys = a.requirePasskeys ? ' Every approver must have signed with a passkey.' : '';
+  return { label: 'Least privilege for money movement', status: a.credentials === 'shared-fallback' ? 'simulated' : 'real', detail: base + creds + keys };
+}
+
+export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverStatus | null = null): TrustView {
   const sandbox = ctx.cfg.paypalMode === 'sandbox';
   const live = ctx.agents.providers.mode === 'live';
   const donorSdk = Boolean(ctx.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID);
-  const separatePayoutsApp = Boolean(ctx.env.PAYPAL_PAYOUTS_CLIENT_ID);
   return {
     group,
     modes: { paypalMode: ctx.cfg.paypalMode, aiMode: live ? 'live' : 'fixture', engine: 'real' },
@@ -186,11 +205,7 @@ export function buildTrust(ctx: BaseCtx, group: GroupView): TrustView {
           ? 'Every webhook is checked with verify-webhook-signature before we believe it. (Simulator events cannot be verified, by PayPal design.)'
           : 'The fake signs PayPal’s transmission string; we verify it through the same verify-webhook-signature call, and drop duplicates by event id.',
       },
-      {
-        label: 'Least privilege for money movement',
-        status: 'real',
-        detail: `Only the approval service constructs a Payouts client (a test fails the build otherwise), and only after two distinct organizers sign the approval hash.${separatePayoutsApp ? ' It uses its own PayPal REST app (PAYPAL_PAYOUTS_CLIENT_ID).' : ' In production give it its own PayPal REST app via PAYPAL_PAYOUTS_CLIENT_ID.'}`,
-      },
+      leastPrivilegeLine(approver),
       {
         label: 'Speech-to-text, translation, read-back',
         status: live ? 'real' : 'simulated',

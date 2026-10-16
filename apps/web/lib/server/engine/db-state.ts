@@ -35,7 +35,12 @@ export async function openGeneration(cfg: EngineConfig, gen: number, opts: { fre
   let kind: DbGeneration['kind'];
   let dir: string | undefined;
   if (cfg.databaseUrl && !opts.memory) {
-    if (opts.fresh) throw new Error('reset needs the embedded database (unset DATABASE_URL)');
+    if (opts.fresh) {
+      // Local dev / e2e: the shared dev database (tools/dev-db) swaps in an empty database for us.
+      if (!cfg.devDbControlUrl) throw new Error('reset needs the embedded or local dev database (Postgres keeps its append-only audit log)');
+      const res = await fetch(`${cfg.devDbControlUrl.replace(/\/$/, '')}/reset`, { method: 'POST', signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) throw new Error(`dev database reset failed (${res.status})`);
+    }
     handle = createDb({ url: cfg.databaseUrl });
     kind = 'postgres';
   } else if (cfg.pgliteDir && !opts.memory) {

@@ -1,18 +1,19 @@
 /**
- * The approval service — the ONLY server module allowed to construct a PayPal Payouts client
- * (enforced by lib/server/least-privilege.test.ts). It has no AI in it and executes a payout only
- * for a complete two-person approval record (db.addApproverTx → db.createBatch, which re-checks the
- * approval hash against the live requests and refuses blocked destinations).
+ * Web side of two-person approval. It records organizer signatures (db.createOrGetApproval →
+ * db.addApproverTx) and, when the record is complete, asks the APPROVER PROCESS to execute it.
  *
- * Least privilege in deployment: give it its own PayPal REST app via PAYPAL_PAYOUTS_CLIENT_ID /
- * PAYPAL_PAYOUTS_CLIENT_SECRET (falls back to PAYPAL_CLIENT_ID/SECRET), so the credentials used for
- * donations, webhooks and reporting cannot send money.
+ * This module holds no PayPal Payouts client and no Payouts credentials, and it does not create
+ * payout batches: apps/approver is the only process that can (enforced by
+ * lib/server/least-privilege.test.ts). The approver re-derives everything that matters — the approval
+ * hash, ≥ 2 distinct organizers, their passkey signatures, the amounts (core.computeAmount from the
+ * policy and history it reads itself) and the rail checks — before it calls PayPal, so a bug or a
+ * compromise here cannot pay a different amount, destination or number of approvers than the record.
  */
-import { hasBlockingFlag, type Group, type HelpRequest, type Lang, type PayoutBatch, type PayoutItem } from '@neighborline/core';
+import { approvalPayload, hasBlockingFlag, type Group, type HelpRequest, type PayoutBatch, type PayoutItem } from '@neighborline/core';
 import {
   RepoError,
   addApproverTx,
-  createBatch,
+  contentFromRequests,
   createOrGetApproval,
   getApproval,
   getBatch,
@@ -20,15 +21,12 @@ import {
   listApprovalsForRequest,
   listItemsForRequest,
   listOrganizers,
-  setPaypalItemId,
-  updateBatch,
   type BatchWithItems,
   type Db,
 } from '@neighborline/db';
-import { PayPalClient, PayoutsApi, resolvePayPalEnv, type NormalizedPayoutItem, type PayoutItemInput } from '@neighborline/paypal';
+import type { ExecuteRequest } from '@neighborline/approver/protocol';
 import type { ApprovalResult } from '../types';
-import { PAYOUT_PURPOSE } from './engine/constants';
-import type { Env } from './engine/env';
+import { ApproverClient, type Env } from './approver-client';
 import type { EventBus } from './engine/events';
 import { nowIso } from './engine/events';
 import { HttpError } from './errors';
@@ -48,19 +46,12 @@ export interface SentBatch {
 
 export type ApproveOutcome = ApprovalResult & { sent?: SentBatch };
 
-
-/** PayPal notification_language for recipients without an account (only locales PayPal lists). */
-const NOTIFICATION_LANG: Partial<Record<Lang, string>> = { en: 'en-US', es: 'es-ES', fr: 'fr-FR', zh: 'zh-CN', ru: 'ru-RU', ko: 'ko-KR' };
-
 export class ApprovalService {
-  private readonly payouts: PayoutsApi;
+  readonly approver: ApproverClient;
   private readonly inflight = new Map<string, Promise<{ bw: BatchWithItems; sent?: SentBatch }>>();
 
   constructor(env: Env) {
-    const r = resolvePayPalEnv(env);
-    const clientId = (r.mode !== 'fake' && env.PAYPAL_PAYOUTS_CLIENT_ID) || r.clientId;
-    const clientSecret = (r.mode !== 'fake' && env.PAYPAL_PAYOUTS_CLIENT_SECRET) || r.clientSecret;
-    this.payouts = new PayoutsApi(new PayPalClient({ clientId, clientSecret, baseUrl: r.baseUrl }));
+    this.approver = new ApproverClient(env);
   }
 
   async approve(d: ApprovalDeps, input: { requestIds: string[]; organizerId: string; deviceLabel: string }): Promise<ApproveOutcome> {
@@ -128,7 +119,7 @@ export class ApprovalService {
     return { approvalId, count, required, executed: true, batchId: bw.batch.id, senderBatchId: bw.batch.senderBatchId };
   }
 
-  /** Single-flight per approval: concurrent completions share one PayPal call. */
+  /** Single-flight per approval inside this process (the approver is single-flight and idempotent too). */
   private execute(d: ApprovalDeps, approvalId: string) {
     let p = this.inflight.get(approvalId);
     if (!p) {
@@ -138,54 +129,42 @@ export class ApprovalService {
     return p;
   }
 
-  private async send(d: ApprovalDeps, approvalId: string): Promise<{ bw: BatchWithItems; sent?: SentBatch }> {
-    let bw: BatchWithItems;
+  /** The request the approver gets: "look at approval X", with the canonical payload we believe it covers. */
+  private async executeRequest(db: Db, approvalId: string): Promise<{ req: ExecuteRequest; requests: HelpRequest[] }> {
+    const approval = await getApproval(db, approvalId);
+    if (!approval) throw new HttpError(404, 'Approval record not found');
+    const requests = (await Promise.all(approval.requestIds.map((id) => getRequest(db, id)))).filter((r): r is HelpRequest => !!r);
+    let payload: ExecuteRequest['payload'];
     try {
-      bw = await createBatch(d.db, { approvalId, actor: 'approval-service' });
+      payload = approvalPayload(contentFromRequests(requests)) as unknown as ExecuteRequest['payload'];
     } catch (err) {
-      if (err instanceof RepoError) throw new HttpError(409, `Can’t execute: ${err.message}`);
-      throw err;
+      throw new HttpError(409, `Can’t execute: ${err instanceof Error ? err.message : err}`);
     }
-    if (bw.batch.paypalBatchId) return { bw };
-    const requests = (await Promise.all(bw.items.map((i) => getRequest(d.db, i.requestId)))).filter((r): r is HelpRequest => !!r);
-    const ids = requests.map((r) => r.id);
-    const note = `Mutual aid from your neighbors at ${d.group.name}. No need to pay it back.`;
-    const items: PayoutItemInput[] = bw.items.map((it) => {
-      const lang = requests.find((r) => r.id === it.requestId)?.lang;
-      const nl = lang ? NOTIFICATION_LANG[lang] : undefined;
-      return {
-        senderItemId: it.senderItemId,
-        amountCents: it.amountCents,
-        receiver: it.receiver,
-        recipientType: it.recipientType,
-        wallet: it.wallet,
-        note,
-        purpose: PAYOUT_PURPOSE,
-        ...(it.wallet === 'VENMO' ? { socialFeedPrivacy: 'PRIVATE' as const } : {}),
-        ...(nl ? { notificationLanguage: nl } : {}),
-      };
-    });
+    return {
+      requests,
+      req: {
+        approvalId,
+        hash: approval.hash,
+        payload,
+        approvers: approval.approvers.map((a) => ({
+          organizerId: a.organizerId,
+          at: a.at,
+          deviceLabel: a.deviceLabel,
+          assertion: a.assertion ? { kind: a.assertion.kind, credentialId: a.assertion.credentialId } : null,
+        })),
+      },
+    };
+  }
 
-    let paypalBatchId: string;
-    try {
-      const res = await this.payouts.createBatch({ senderBatchId: bw.batch.senderBatchId, emailSubject: `Your neighbors at ${d.group.name} sent you help`, items });
-      paypalBatchId = res.batchId;
-      await updateBatch(d.db, bw.batch.id, { paypalBatchId, status: res.status === 'CREATING' ? 'PENDING' : res.status });
-    } catch (err) {
-      await updateBatch(d.db, bw.batch.id, { status: 'FAILED' }).catch(() => {});
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new HttpError(502, `PayPal didn’t accept the payout batch: ${msg}`);
-    }
-    try {
-      const details = await this.payouts.getBatch(paypalBatchId);
-      for (const it of details.items) if (it.senderItemId) await setPaypalItemId(d.db, it.senderItemId, it.payoutItemId);
-    } catch {
-      /* item ids also arrive with the item webhooks; the stage just shows them later */
-    }
-    bw = (await getBatch(d.db, bw.batch.id)) ?? bw;
-    const total = bw.items.reduce((s, i) => s + i.amountCents, 0);
+  private async send(d: ApprovalDeps, approvalId: string): Promise<{ bw: BatchWithItems; sent?: SentBatch }> {
+    const { req, requests } = await this.executeRequest(d.db, approvalId);
+    const res = await this.approver.execute(req);
+    const bw = await getBatch(d.db, res.batchId);
+    if (!bw) throw new HttpError(502, 'The approval service reported a batch this server cannot find');
+    if (!res.sentNow) return { bw };
+    const ids = bw.items.map((i) => i.requestId);
     d.bus.emit(
-      { type: 'payout.batch_created', at: nowIso(), batchId: bw.batch.id, senderBatchId: bw.batch.senderBatchId, paypalBatchId, itemCount: bw.items.length, totalCents: total },
+      { type: 'payout.batch_created', at: nowIso(), batchId: bw.batch.id, senderBatchId: bw.batch.senderBatchId, paypalBatchId: res.paypalBatchId, itemCount: bw.items.length, totalCents: res.totalCents },
       ids,
     );
     for (const it of bw.items) {
@@ -194,22 +173,21 @@ export class ApprovalService {
         [it.requestId],
       );
     }
-    return { bw, sent: { batch: bw.batch, items: bw.items, requests } };
+    return { bw, sent: { batch: bw.batch, items: bw.items, requests: requests.filter((r) => ids.includes(r.id)) } };
   }
 
-  /** Read-only poll of a batch (fallback when no webhook URL is reachable, e.g. sandbox on localhost). */
-  async pollBatch(paypalBatchId: string): Promise<NormalizedPayoutItem[]> {
-    return this.payouts.listAllItems(paypalBatchId);
+  /** Read-only poll of one of our batches through the approver (webhook safety net, sandbox on localhost). */
+  pollBatch(batchId: string) {
+    return this.approver.poll(batchId).then((r) => r.items);
   }
 
-  /** Cancel an UNCLAIMED item; the money returns to the fund. Returns the item for the caller to settle. */
-  async cancelUnclaimed(d: ApprovalDeps, input: { batchId: string; itemId: string }): Promise<PayoutItem> {
+  /** Cancel an UNCLAIMED item through the approver; the money returns to the fund. */
+  async cancelUnclaimed(d: ApprovalDeps, input: { batchId: string; itemId: string; organizerId?: string }): Promise<PayoutItem> {
     const bw = await getBatch(d.db, input.batchId);
     const item = bw?.items.find((i) => i.id === input.itemId);
     if (!item) throw new HttpError(404, 'No such payout item');
     if (item.status !== 'UNCLAIMED') throw new HttpError(409, 'Only unclaimed items can be cancelled');
-    if (!item.paypalItemId) throw new HttpError(409, 'PayPal has not assigned this item an id yet');
-    await this.payouts.cancelUnclaimedItem(item.paypalItemId);
+    await this.approver.cancelUnclaimed(item.id, { batchId: input.batchId, ...(input.organizerId ? { organizerId: input.organizerId } : {}) });
     return item;
   }
 }

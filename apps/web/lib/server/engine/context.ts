@@ -21,6 +21,11 @@ export interface Ctx {
   /** Present only in PAYPAL_MODE=fake. */
   fake: FakePayPalControl | null;
   approvals: ApprovalService;
+  /**
+   * Verify a PayPal webhook addressed to the separate Payouts app (its webhook id and credentials live
+   * only in the approver). Read-only: it cannot move money, so the intake/webhook context keeps it.
+   */
+  verifyPayoutsWebhook: (input: { headers: Record<string, string>; rawBody: string }) => Promise<boolean>;
   bus: EventBus;
   meta: MetaStore;
   /** Run `fn` after `ms` (scaled by speed and NEIGHBORLINE_BEAT_SCALE) unless the demo was reset. */

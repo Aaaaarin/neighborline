@@ -2,8 +2,10 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Lets two dev/build processes share one checkout without clobbering each other's output.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // Workspace packages ship TypeScript source (see CLAUDE.md); Next transpiles them.
-  transpilePackages: ['@neighborline/core', '@neighborline/db', '@neighborline/paypal', '@neighborline/agents', '@neighborline/passkeys'],
+  transpilePackages: ['@neighborline/core', '@neighborline/db', '@neighborline/paypal', '@neighborline/agents', '@neighborline/passkeys', '@neighborline/approver'],
   // Loaded by Node at runtime instead of bundled: PGlite ships WASM + data files next to its JS,
   // postgres-js uses Node sockets, the Agent Toolkit is an optional server-only dependency.
   serverExternalPackages: ['@electric-sql/pglite', 'postgres', '@paypal/agent-toolkit'],

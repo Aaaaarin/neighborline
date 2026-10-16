@@ -75,6 +75,9 @@ importers:
       '@neighborline/agents':
         specifier: workspace:*
         version: link:../../packages/agents
+      '@neighborline/approver':
+        specifier: workspace:*
+        version: link:../approver
       '@neighborline/core':
         specifier: workspace:*
         version: link:../../packages/core

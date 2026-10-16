@@ -20,9 +20,11 @@ export async function handleWebhook(ctx: BaseCtx, input: { headers: Record<strin
     throw new HttpError(400, 'Body is not JSON');
   }
   const webhookId = ctx.paypal.env.webhookId;
-  if (!webhookId) return { verified: false, eventType };
-  const v = await ctx.paypal.webhooks.verifyWebhookSignature({ headers: input.headers, rawBody: input.rawBody, webhookId });
-  if (!v.verified) return { verified: false, eventType };
+  let verified = webhookId ? (await ctx.paypal.webhooks.verifyWebhookSignature({ headers: input.headers, rawBody: input.rawBody, webhookId })).verified : false;
+  // Payout events are delivered to the separate Payouts app's webhook; only the approver holds that
+  // app's webhook id and credentials, so it verifies them for us (read-only).
+  if (!verified && eventType.startsWith('PAYMENT.PAYOUTS')) verified = await ctx.verifyPayoutsWebhook(input);
+  if (!verified) return { verified: false, eventType };
 
   let ev;
   try {

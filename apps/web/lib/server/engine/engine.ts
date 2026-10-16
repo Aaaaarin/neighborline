@@ -3,7 +3,7 @@
  * i18n, report) + @neighborline/db (PGlite / Postgres) + @neighborline/paypal (fake or sandbox) +
  * @neighborline/agents (fixture or live). Payouts go only through lib/server/approval-service.ts.
  */
-import type { Channel, HelpRequest, Lang, RequestStatus } from '@neighborline/core';
+import type { Channel, HelpRequest, Lang, PayoutItemStatus, RequestStatus } from '@neighborline/core';
 import { InvalidTransitionError } from '@neighborline/core';
 import { createAgents, type Agents } from '@neighborline/agents';
 import { createRequest, getRequest, listItemsForRequest, listOrganizers, recordNotification, updateRequest } from '@neighborline/db';
@@ -101,6 +101,7 @@ export class Engine implements Services {
       paypal: this.paypal,
       fake: this.fake,
       approvals: this.approvals,
+      verifyPayoutsWebhook: (input) => this.approvals.approver.verifyPayoutsWebhook(input),
       bus: this.bus,
       meta: new MetaStore(),
       later: (ms, fn, speed = 1) => {
@@ -223,24 +224,24 @@ export class Engine implements Services {
       ctx.meta.message(r.id, { from: 'line', kind: 'status', lang: r.lang, text: n.text, textEn: tpl.sending('en').textEn });
       await recordNotification(ctx.db, { requestId: r.id, channel: r.channel, lang: r.lang, messageKey: 'approved_sending', text: n.text, status: 'sent' });
     }
-    if (ctx.cfg.paypalMode === 'sandbox' && sent.batch.paypalBatchId) this.pollBatch(ctx, sent.batch.paypalBatchId);
+    if (ctx.cfg.paypalMode === 'sandbox' && sent.batch.paypalBatchId) this.pollBatch(ctx, sent.batch.id);
   }
 
   /**
    * Webhook safety net / localhost fallback: GET the batch at growing intervals and apply item
    * statuses through the same idempotent path as webhooks (a status applied twice is a no-op).
    */
-  private pollBatch(ctx: Ctx, paypalBatchId: string) {
+  private pollBatch(ctx: Ctx, batchId: string) {
     const schedule = [5_000, 15_000, 45_000, 120_000, 300_000, 900_000, 1_800_000, 3_600_000];
     const { approvals: _a, ...base } = ctx;
     const tick = (i: number) => {
       ctx.later(schedule[i]!, async () => {
-        const items = await this.approvals.pollBatch(paypalBatchId);
+        const items = await this.approvals.pollBatch(batchId);
         let open = false;
         for (const it of items) {
           if (it.status === 'PENDING' || it.status === 'ONHOLD' || it.status === 'UNCLAIMED') open = true;
           if (it.status === 'PENDING') continue;
-          await applyItemStatus(base, { paypalItemId: it.payoutItemId, ...(it.senderItemId ? { senderItemId: it.senderItemId } : {}), status: it.status, ...(it.transactionId ? { transactionId: it.transactionId } : {}), actor: 'paypal-poll' });
+          await applyItemStatus(base, { paypalItemId: it.payoutItemId, ...(it.senderItemId ? { senderItemId: it.senderItemId } : {}), status: it.status as PayoutItemStatus, ...(it.transactionId ? { transactionId: it.transactionId } : {}), actor: 'paypal-poll' });
         }
         if (open && i + 1 < schedule.length) tick(i + 1);
       });
@@ -334,7 +335,7 @@ export class Engine implements Services {
 
   async getTrust() {
     const ctx = await this.base();
-    return buildTrust(ctx, await groupView(ctx));
+    return buildTrust(ctx, await groupView(ctx), await this.approvals.approver.health());
   }
 
   /* ---------------- live events ---------------- */
