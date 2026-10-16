@@ -2,8 +2,8 @@
 
 Ordered by impact on judging. ✅ done · 🔄 in progress · ⏳ blocked on human · ☐ todo
 
-Status as of Oct 16, 2026 (evening): 711 unit tests and 30 Playwright tests pass on `main`
-(`pnpm test`, `playwright test --list`).
+Status as of Oct 16, 2026 (late evening): 795 unit tests (`pnpm test`, plus the workflows' node tests) and 31
+Playwright tests pass on `main`.
 
 ## Blocked on human
 - ⏳ PayPal sandbox client id/secret for the main app **and** a separate Payouts app (Payouts enabled) → real sandbox
@@ -60,17 +60,24 @@ Status as of Oct 16, 2026 (evening): 711 unit tests and 30 Playwright tests pass
 - ✅ CI: `ci.yml` was invalid YAML since 14:05 (unquoted `: ` in a step name), so no job ran; fixed
 
 ## Still open (no human needed)
-- ☐ Re-take `home-1920.png` / `home-390.png`: the home story clock now reads 0:00–0:22 (measured), the committed
-  screenshots still show the old 0:31
 - ☐ Re-record the video takes with the current build (Lan now freezes at about 0:22.5) and re-cut Draft 1; then VO
   once the OpenAI key arrives
 - ☐ Single-use, expiring invite codes stored hashed (QA P2-13, THREAT_MODEL R13)
 - ☐ Shared rate-limit store and bot protection before any real deployment (R9)
 - ☐ Venmo `note` and email subject in the neighbor's language; translate the organizer's free-text decline note (QA P3)
 - ☐ Stop `next build` with a custom `NEXT_DIST_DIR` from rewriting `apps/web/next-env.d.ts` and `tsconfig.json` (QA P3)
-- ☐ Not re-verified since QA: reloading `/demo?…&autoplay=1` mid-run starting a second run; `/report` CLS (QA P3)
-- ☐ `apps/web/scripts/screenshots.mjs` and `docs/submission/video/lib/record.mjs` still POST `/api/demo/reset`
-  unsigned (now a harmless 401; fresh browser contexts already isolate runs). Drop the call or sign it
+
+## Judge panel 2: consistency and fallback rail ✅
+- ✅ #3 one fiscal sponsor name (db seed); the seeded month has one genuinely unclaimed 25-day-old payout, so the day-25
+  alert, the ledger row and the Unclaimed total agree; /report, /donate and /ledger compute every total from one query
+  and one 30-day window with the same labels (Donations in, Landed with neighbors), pinned by `test/consistency.test.ts`;
+  /call shows no "Sending the money" step on a declined request; offline mode's untranslated marker is a hint beside
+  the neighbor's words, never inside them; home bubbles follow the story clock
+- ✅ #10 payout rail adapter: PayPal Payouts primary; account-level refusals → `FAILED_RAIL` + organizer alert; a
+  manual fallback (group setting, off by default) records cash/check hand-overs with the same two passkey
+  signatures plus a receipt note and never moves money (THREAT_MODEL T36, R16)
+- ✅ QA P3: autoplay reload starts no second run (e2e); /report CLS 0 (fonts preloaded); no unsigned reset in the
+  screenshot and video scripts; screenshots re-taken
 
 ## Wave 4: real world
 - ☐ Real sandbox spike: Payouts PayPal + Venmo, webhooks, Transaction Search, Orders/Subscriptions buttons
