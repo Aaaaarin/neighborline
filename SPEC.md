@@ -77,6 +77,8 @@ Runtime mode via env `PAYPAL_MODE=fake|sandbox` and `AI_MODE=fixture|live`.
 
 ## 4. Domain model (packages/core)
 
+> **Authoritative contract: `packages/core/src/schemas.ts`** (zod). Amounts there are integer cents (`amountCents`); the sketch below uses USD for readability.
+
 ```ts
 type Lang = 'en'|'es'|'vi'|'ht'|'zh'|'ar'|'fr'|'tl'|'ko'|'ru'; // BCP-47 primary subtag, extensible
 
