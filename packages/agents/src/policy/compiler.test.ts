@@ -77,6 +77,56 @@ describe('PolicyCompiler', () => {
   });
 });
 
+describe('PolicyCompiler review data (fixture mode)', () => {
+  const compile = (text: string) => new PolicyCompiler({ llm: createFixtureLLM() }).compile({ sourceText: text, previous: demo });
+
+  it('a changed cap: same keys, translations kept, quotes point at the edited line', async () => {
+    const r = await compile(DEMO_POLICY_SOURCE_TEXT.replace('Groceries: up to $100 per request, $200', 'Groceries: up to $125 per request, $250'));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.diffText).toEqual(['Groceries: per-request max $100 → $125', 'Groceries: per-household 30-day cap $200 → $250']);
+    expect(r.draft.categories.map((c) => c.key)).toEqual(demo.categories.map((c) => c.key));
+    expect(r.draft.categories.find((c) => c.key === 'groceries')?.label).toEqual(demo.categories.find((c) => c.key === 'groceries')?.label);
+    expect(r.quotes.groceries).toBe('Groceries: up to $125 per request, $250 per household in 30 days.');
+    expect(r.limitQuotes).toEqual({
+      householdCapPer30dCents: 'No household gets more than $400 in any 30 days. We spend at most $2,500 per day.',
+      dailyBudgetCents: 'No household gets more than $400 in any 30 days. We spend at most $2,500 per day.',
+      maxRequestsPerDestinationPer30d: 'The same payout account can be used at most twice in 30 days.',
+    });
+  });
+
+  it('a new baby_supplies rule is added with its own labels, nothing else changes', async () => {
+    const text = DEMO_POLICY_SOURCE_TEXT.replace(
+      '- Anything else:',
+      '- Baby supplies (diapers, formula, wipes): up to $80 per request, $160 per household in 30 days.\n- Anything else:',
+    );
+    const r = await compile(text);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.changes.map((c) => [c.kind, c.path])).toEqual([['added', 'categories.baby_supplies']]);
+    const baby = r.draft.categories.find((c) => c.key === 'baby_supplies')!;
+    expect(baby).toMatchObject({ maxCents: 8000, perHouseholdPer30dCents: 16000 });
+    expect(baby.label.en).toBe('Baby supplies');
+    expect(baby.label.es).toBe('Artículos para bebé');
+    expect(r.quotes.baby_supplies).toBe('Baby supplies (diapers, formula, wipes): up to $80 per request, $160 per household in 30 days.');
+    expect(r.trace.status).toBe('valid');
+  });
+
+  it('plain prose rules parse offline too', () => {
+    const m = parsePolicyOffline(`After the ice storm, we cover up to $150 for power outages, $300 per household in 30 days.
+We pay up to $90 for groceries.
+For anything else we give up to $50 for other needs, once per household in 30 days.
+No household gets more than $400 in any 30 days. We spend at most $2,000 per day.
+The same payout account can be used at most twice in 30 days.`);
+    expect(m.categories.map((c) => [c.key, c.maxCents, c.perHouseholdPer30dCents])).toEqual([
+      ['power_outages', 15000, 30000],
+      ['groceries', 9000, 9000],
+      ['other', 5000, 5000],
+    ]);
+    expect(m.ambiguities).toEqual([]);
+  });
+});
+
 describe('diffPolicies', () => {
   it('reports photo, label and household cap changes', () => {
     const next: Policy = {

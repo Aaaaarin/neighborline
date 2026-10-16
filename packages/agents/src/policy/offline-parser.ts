@@ -11,7 +11,26 @@ const norm = (s: string): string => s.replace(/\s+/g, ' ').trim();
 const slug = (s: string): string =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(\d)/, 'c_$1').slice(0, 40) || 'rule';
 const usd = (s: string | undefined): number | null => (s ? parseUsdToCents(s) : null);
-const WORDS: Record<string, number> = { once: 1, twice: 2, one: 1, two: 2, three: 3, four: 4, five: 5 };
+const WORDS: Record<string, number> = { once: 1, twice: 2, thrice: 3, one: 1, two: 2, three: 3, four: 4, five: 5 };
+
+/**
+ * Canned translations for a few categories groups commonly add, so a fixture-mode draft still shows
+ * neighbors their own language. Live mode asks the LLM for these labels instead.
+ */
+const FIXTURE_LABELS: Readonly<Record<string, Record<string, string>>> = {
+  baby_supplies: { es: 'Artículos para bebé', vi: 'Đồ dùng cho em bé', ht: 'Bagay pou tibebe', zh: '婴儿用品', ar: 'مستلزمات الأطفال' },
+  school_supplies: { es: 'Útiles escolares', vi: 'Đồ dùng học tập', ht: 'Founiti lekòl', zh: '学习用品', ar: 'لوازم مدرسية' },
+  phone_bill: { es: 'Factura del teléfono', vi: 'Tiền điện thoại', ht: 'Bòdwo telefòn', zh: '电话费', ar: 'فاتورة الهاتف' },
+};
+
+const MONEY = String.raw`\$[\d,]+(?:\.\d{2})?`;
+/** House style: "Groceries: up to $100 per request, $200 per household in 30 days." */
+const RULE = new RegExp(String.raw`^([^:]+):\s*up to (${MONEY})(?: per request)?(?:,\s*(?:at most\s*)?(${MONEY}) per household in 30 days|,\s*once per household in 30 days)?`, 'i');
+/** Plain prose: "After the ice storm, we cover up to $150 for power outages, $300 per household in 30 days." */
+const PROSE = new RegExp(
+  String.raw`\b(?:cover|pay|give|send)s?\s+up to (${MONEY})(?: per request)?\s+(?:for|toward|towards)\s+([^,.;]+?)(?:\s*(?:[,;]|and)\s*(?:at most\s*|up to\s*)?(${MONEY}) per household(?: in (?:any )?30 days)?|\s*,\s*once per household(?: in 30 days)?)?\s*(?:[.;]|$)`,
+  'i',
+);
 
 export interface KnownCategory {
   key: string;
@@ -59,20 +78,25 @@ export function parsePolicyOffline(sourceText: string, known: readonly KnownCate
   let daily: number | null = null;
   let perDest: number | null = null;
   for (const line of lines) {
-    const rule = /^([^:]+):\s*up to (\$[\d,]+(?:\.\d{2})?)(?: per request)?(?:,\s*(?:at most\s*)?(\$[\d,]+(?:\.\d{2})?) per household in 30 days|,\s*once per household in 30 days)?/i.exec(line);
+    const house = RULE.exec(line);
+    const prose = house ? null : PROSE.exec(line);
+    const rule = house ? { name: house[1] ?? '', max: house[2], cap: house[3] } : prose ? { name: prose[2] ?? '', max: prose[1], cap: prose[3] } : null;
     if (rule) {
-      const name = (rule[1] ?? '').trim();
-      const paren = /\(([^)]+)\)/.exec(name)?.[1];
-      const isOther = /anything else|other/i.test(name);
-      const max = usd(rule[2]) ?? 0;
+      const name = rule.name.trim();
+      // "(utility outage)" names the rule; "(diapers, formula, wipes)" lists examples.
+      const parenRaw = /\(([^)]+)\)/.exec(name)?.[1];
+      const paren = parenRaw && !parenRaw.includes(',') && parenRaw.split(' ').length <= 3 ? parenRaw : undefined;
+      const isOther = /anything else|\bother\b|everything else/i.test(name);
+      const max = usd(rule.max) ?? 0;
       const bare = name.replace(/\([^)]*\)/, '').trim();
       const knownKey = isOther ? undefined : keyFor([paren ?? '', bare].filter(Boolean), known);
-      const labelEn = isOther ? 'Other' : (known.find((k) => k.key === knownKey)?.label ?? (paren && paren.split(' ').length <= 3 ? paren : bare));
+      const labelEn = isOther ? 'Other' : (known.find((k) => k.key === knownKey)?.label ?? paren ?? bare);
+      const key = isOther ? 'other' : (knownKey ?? slug(labelEn));
       categories.push({
-        key: isOther ? 'other' : (knownKey ?? slug(labelEn)),
-        label: { en: labelEn.replace(/^\w/, (c) => c.toUpperCase()) },
+        key,
+        label: { ...(FIXTURE_LABELS[key] ?? {}), en: labelEn.replace(/^\w/, (c) => c.toUpperCase()) },
         maxCents: max,
-        perHouseholdPer30dCents: usd(rule[3]) ?? max,
+        perHouseholdPer30dCents: usd(rule.cap) ?? max,
         ...(/photo required|needs? a photo/i.test(line) ? { requiresPhoto: true } : /no photo/i.test(line) ? { requiresPhoto: false } : {}),
         sourceQuote: line,
       });
