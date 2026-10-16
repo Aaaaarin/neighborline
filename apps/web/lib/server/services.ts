@@ -152,6 +152,11 @@ declare global {
 
 function createServices(): Services {
   if (process.env.ENGINE === 'mock') return new MockEngine();
+  // `next build` can evaluate server code while collecting page data. Never let a build process
+  // touch (or half-seed) the real database: give it a throwaway in-memory one.
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return new Engine({ env: { ...process.env, DATABASE_URL: '', DEV_DB_CONTROL_URL: '', PGLITE_DIR: '' } });
+  }
   return new Engine();
 }
 

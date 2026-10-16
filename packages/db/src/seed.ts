@@ -16,6 +16,7 @@ import {
   type PayoutDestination,
   type Policy,
 } from '@neighborline/core';
+import { sql } from 'drizzle-orm';
 import type { Db } from './client.js';
 import { activatePolicy, createGroup, createOrganizer, getGroupBySlug, listOrganizers, getActivePolicy, getRailHandles } from './repo/groups.js';
 import { createRequest, getHistoryForDestination, updateRequest } from './repo/requests.js';
@@ -81,7 +82,19 @@ export interface SeedResult {
   alreadySeeded: boolean;
 }
 
+/**
+ * Seed the demo group in ONE transaction: a process that dies half-way (a build worker, a killed
+ * boot) leaves nothing behind instead of a group without an active policy. Concurrent seeders are
+ * serialized by a transaction-scoped advisory lock, so the second one sees the first one's rows.
+ */
 export async function seedDemo(db: Db, opts: { now?: Date } = {}): Promise<SeedResult> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(4242001)`);
+    return seedDemoTx(tx as unknown as Db, opts);
+  });
+}
+
+async function seedDemoTx(db: Db, opts: { now?: Date }): Promise<SeedResult> {
   const now = opts.now ?? new Date();
   const existing = await getGroupBySlug(db, DEMO_GROUP.slug);
   if (existing) {
