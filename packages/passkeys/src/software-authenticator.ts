@@ -33,7 +33,10 @@ export function coseFromEcPublicKey(key: KeyObject): Uint8Array {
   return isoCBOR.encode(m as unknown as Parameters<typeof isoCBOR.encode>[0]);
 }
 
-export function createSoftwareAuthenticator(opts: { privateKeyPem?: string; credentialId?: string } = {}): SoftwareAuthenticator {
+/**
+ * `userVerified` exists for tests that stand in for a phone's passkey; the demo signer never sets it.
+ */
+export function createSoftwareAuthenticator(opts: { privateKeyPem?: string; credentialId?: string; userVerified?: boolean } = {}): SoftwareAuthenticator {
   const privateKey = opts.privateKeyPem ? createPrivateKey(opts.privateKeyPem) : generateKeyPairSync('ec', { namedCurve: 'P-256' }).privateKey;
   const publicKey = createPublicKey(privateKey);
   const cose = coseFromEcPublicKey(publicKey);
@@ -42,8 +45,8 @@ export function createSoftwareAuthenticator(opts: { privateKeyPem?: string; cred
     credentialId,
     publicKey: toB64url(cose),
     sign({ challenge, origin, rpId }) {
-      // authenticatorData = rpIdHash(32) | flags(1) | signCount(4). Flags: UP only (0x01).
-      const authData = Buffer.concat([sha256(rpId), Buffer.from([0x01]), Buffer.alloc(4)]);
+      // authenticatorData = rpIdHash(32) | flags(1) | signCount(4). Flags: UP (0x01), + UV (0x04) only when asked.
+      const authData = Buffer.concat([sha256(rpId), Buffer.from([opts.userVerified ? 0x05 : 0x01]), Buffer.alloc(4)]);
       const clientData = Buffer.from(JSON.stringify({ type: 'webauthn.get', challenge, origin, crossOrigin: false }), 'utf8');
       const signature = sign('sha256', Buffer.concat([authData, sha256(clientData)]), { key: privateKey, dsaEncoding: 'der' });
       return {

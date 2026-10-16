@@ -29,6 +29,7 @@ import {
   upsertItemFromEvent,
   type Db,
 } from '@neighborline/db';
+import { demoModeOn, demoSign } from '../passkeys/demo-signer';
 
 export const PRIYA = { id: 'org_priya', name: 'Priya', handles: ['priya@eastside-mutualaid.org', '@priya-eastside'], lang: 'en' as Lang };
 
@@ -126,6 +127,11 @@ async function file(db: Db, policy: Policy, q: { id: string; createdAt: Date; la
   await updateRequest(db, q.id, { status: 'awaiting_approval', confirmedByRequester: true, computed: amount.computed, policyVersionId: policy.id, railFlags }, { at: new Date(q.createdAt.getTime() + 60_000) });
 }
 
+/** Seeded approvals are signed with the organizers' labelled demo keys (DEMO_MODE), like /demo taps. */
+async function signSeeded(db: Db, groupId: string, organizerId: string, approvalHash: string, at?: Date) {
+  if (demoModeOn(process.env)) await demoSign(db, process.env, { groupId, organizerId, approvalHash, ...(at ? { at } : {}) });
+}
+
 export async function seedDemoQueue(db: Db, s: { group: Group; policy: Policy; organizers: Organizer[] }): Promise<void> {
   if (await getRequest(db, QUEUE[0]!.id)) return;
   if (!s.organizers.some((o) => o.id === PRIYA.id)) await createOrganizer(db, { ...PRIYA, groupId: s.group.id });
@@ -146,8 +152,12 @@ export async function seedDemoQueue(db: Db, s: { group: Group; policy: Policy; o
     dest: { wallet: 'PAYPAL', type: 'EMAIL', value: 'ana.r.lopez@example.com', nameOnFile: 'Beatriz Ortega' },
   });
   const { approval } = await createOrGetApproval(db, { requestIds: [prevId], actor: 'org_dana' });
-  await addApproverTx(db, { approvalId: approval.id, organizerId: 'org_dana', deviceLabel: 'Dana’s phone', at: new Date(prevAt.getTime() + 3 * 60_000) });
-  await addApproverTx(db, { approvalId: approval.id, organizerId: 'org_marcus', deviceLabel: 'Marcus’s phone', at: new Date(prevAt.getTime() + 5 * 60_000) });
+  const danaAt = new Date(prevAt.getTime() + 3 * 60_000);
+  const marcusAt = new Date(prevAt.getTime() + 5 * 60_000);
+  await signSeeded(db, s.group.id, 'org_dana', approval.hash, danaAt);
+  await addApproverTx(db, { approvalId: approval.id, organizerId: 'org_dana', deviceLabel: 'Dana’s phone (demo key)', at: danaAt });
+  await signSeeded(db, s.group.id, 'org_marcus', approval.hash, marcusAt);
+  await addApproverTx(db, { approvalId: approval.id, organizerId: 'org_marcus', deviceLabel: 'Marcus’s phone (demo key)', at: marcusAt });
   const { items } = await createBatch(db, { approvalId: approval.id, now: new Date(prevAt.getTime() + 5 * 60_000 + 5_000) });
   await upsertItemFromEvent(db, {
     senderItemId: items[0]!.senderItemId,
@@ -173,5 +183,6 @@ export async function seedDemoQueue(db: Db, s: { group: Group; policy: Policy; o
   }
   // Priya already said yes to Minh; one more organizer completes it.
   const minh = await createOrGetApproval(db, { requestIds: ['req_seed_q_minh'], actor: PRIYA.id });
-  await addApproverTx(db, { approvalId: minh.approval.id, organizerId: PRIYA.id, deviceLabel: 'Priya’s phone' });
+  await signSeeded(db, s.group.id, PRIYA.id, minh.approval.hash);
+  await addApproverTx(db, { approvalId: minh.approval.id, organizerId: PRIYA.id, deviceLabel: 'Priya’s phone (demo key)' });
 }

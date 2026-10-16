@@ -69,10 +69,53 @@ export interface AmountBreakdown {
   limitedBy: 'requested' | 'category' | 'household' | 'daily';
 }
 
+export type SignerKind = 'passkey' | 'demo_key';
+
 export interface ApprovalMark {
   organizerId: string;
   name: string;
   at: string;
+  /** How this approval was signed: a passkey on the organizer's device, or the labelled demo key. Absent = unsigned (old history). */
+  signer?: { kind: SignerKind; deviceLabel: string };
+}
+
+/** The WebAuthn assertion a browser returns (@simplewebauthn/browser AuthenticationResponseJSON). */
+export interface PasskeyAssertionJSON {
+  id: string;
+  rawId: string;
+  type: 'public-key';
+  response: { authenticatorData: string; clientDataJSON: string; signature: string; userHandle?: string };
+  clientExtensionResults?: Record<string, unknown>;
+  authenticatorAttachment?: string;
+}
+
+/**
+ * One organizer's Approve tap. Every tap is signed over the approval hash: with the organizer's
+ * passkey, or — only when DEMO_MODE is on — with that organizer's server-held demo key.
+ */
+export type ApproveInput =
+  | { requestIds: string[]; signer: { kind: 'passkey'; assertion: PasskeyAssertionJSON }; organizerId?: string }
+  | { requestIds: string[]; signer: { kind: 'demo_key' }; organizerId: string };
+
+export interface ApprovalChallenge {
+  approvalHash: string;
+  /** PublicKeyCredentialRequestOptionsJSON for @simplewebauthn/browser startAuthentication */
+  optionsJSON: Record<string, unknown> & { challenge: string };
+}
+
+export interface OrganizerSession {
+  organizerId: string;
+  name: string;
+  credentialId: string;
+  deviceLabel: string;
+  kind: SignerKind;
+}
+
+/** Who has enrolled what (no keys), for the /organizer onboarding screen. */
+export interface PasskeyRoster {
+  demoMode: boolean;
+  inviteRequired: boolean;
+  organizers: Array<{ id: string; name: string; passkeys: Array<{ deviceLabel: string; createdAt: string }> }>;
 }
 
 export interface RequestView {
@@ -156,6 +199,8 @@ export type DeclineReasonCode = 'outside_area' | 'household_cap' | 'needs_info' 
 
 export interface ApprovalResult {
   approvalId: string;
+  /** what this tap was signed with */
+  signer?: { organizerId: string; kind: SignerKind; deviceLabel: string };
   count: number;
   required: number;
   executed: boolean;

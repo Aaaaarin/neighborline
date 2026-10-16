@@ -9,6 +9,9 @@ import { createAgents, type Agents } from '@neighborline/agents';
 import { createRequest, getRequest, listItemsForRequest, listOrganizers, recordNotification, updateRequest } from '@neighborline/db';
 import type {
   ApprovalResult,
+  ApproveInput,
+  OrganizerSession,
+  PasskeyAssertionJSON,
   DeclineReasonCode,
   DonationSource,
   PlayMode,
@@ -28,6 +31,7 @@ import * as donations from './donations';
 import { readConfig, type EngineConfig, type Env } from './env';
 import { EventBus, nowIso } from './events';
 import * as intake from './intake';
+import * as passkeys from './passkeys';
 import { buildLedger, runReconcile, type ReconcileCache } from './ledger';
 import { MetaStore } from './meta';
 import { buildReportView, buildTrust } from './report';
@@ -170,11 +174,44 @@ export class Engine implements Services {
     return getRequestView(await this.base(), requestId);
   }
 
-  async approve(input: { requestIds: string[]; organizerId: string; deviceLabel: string }): Promise<ApprovalResult> {
+  async approve(input: ApproveInput & { origin?: string | null }): Promise<ApprovalResult> {
     const ctx = await this.ctx();
-    const { sent, ...result } = await ctx.approvals.approve({ db: ctx.db, group: ctx.gen.group, bus: ctx.bus }, input);
+    // Verify the tap's signature over the approval hash and store it first (passkeys.ts); the
+    // approver identity comes from the credential, never from the request body.
+    const signed = await passkeys.signTap(ctx, { ...input, origin: input.origin ?? null });
+    const deviceLabel = signed.assertion.deviceLabel;
+    const { sent, ...result } = await ctx.approvals.approve(
+      { db: ctx.db, group: ctx.gen.group, bus: ctx.bus },
+      { requestIds: input.requestIds, organizerId: signed.organizerId, deviceLabel },
+    );
     if (sent) await this.afterSent(ctx, sent);
-    return result;
+    return { ...result, signer: { organizerId: signed.organizerId, kind: signed.assertion.kind, deviceLabel } };
+  }
+
+  /* ---------------- organizer passkeys ---------------- */
+
+  async passkeyRoster() {
+    return passkeys.roster(await this.base());
+  }
+
+  async passkeyRegistrationOptions(input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null }) {
+    return passkeys.registrationOptions(await this.base(), input);
+  }
+
+  async passkeyRegister(input: { organizerId: string; origin: string | null; response: unknown; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null }) {
+    return passkeys.register(await this.base(), input as Parameters<typeof passkeys.register>[1]);
+  }
+
+  async passkeySignInOptions(input: { origin: string | null }) {
+    return passkeys.signInOptions(await this.base(), input);
+  }
+
+  async passkeySignIn(input: { response: PasskeyAssertionJSON }) {
+    return passkeys.signIn(await this.base(), input);
+  }
+
+  async approvalChallenge(input: { requestIds: string[]; origin: string | null; organizerId?: string; credentialIds?: string[] }) {
+    return passkeys.approvalChallenge(await this.base(), input);
   }
 
   /** "Two neighbors said yes — sending now" to each requester; in sandbox, poll as a webhook safety net. */

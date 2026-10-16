@@ -51,9 +51,10 @@ export async function playScenario(host: RunnerHost, ctx: Ctx, input: { scenario
 
   // The voice note arrives: bubble first, transcript fills in when speech-to-text finishes.
   const bubble = ctx.meta.message(id, { from: 'neighbor', kind: 'voice', lang: s.lang, text: '', ...(s.audioSeconds ? { meta: { audioSeconds: s.audioSeconds } } : {}) });
-  const marcus = () => svc.approve({ requestIds: [id], organizerId: 'org_marcus', deviceLabel: "Marcus's phone" }).catch(warn('approve Marcus'));
+  // Scripted organizers sign with their labelled demo keys (DEMO_MODE): same verification path as a passkey.
+  const marcus = () => svc.approve({ requestIds: [id], organizerId: 'org_marcus', signer: { kind: 'demo_key' } }).catch(warn('approve Marcus'));
   const dana = async () => {
-    await svc.approve({ requestIds: [id], organizerId: 'org_dana', deviceLabel: "Dana's phone" }).catch(warn('approve Dana'));
+    await svc.approve({ requestIds: [id], organizerId: 'org_dana', signer: { kind: 'demo_key' } }).catch(warn('approve Dana'));
     if (mode === 'auto') ctx.later(BEATS.secondLook, marcus, speed);
   };
   const confirm = async () => {

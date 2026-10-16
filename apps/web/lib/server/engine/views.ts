@@ -99,7 +99,12 @@ export async function requestView(ctx: Ctx, r: HelpRequest, cache: { policy?: Po
     requester: { displayName: meta?.displayName ?? seeded?.displayName ?? 'Neighbor', ...((meta?.area ?? seeded?.area) ? { area: meta?.area ?? seeded?.area } : {}) },
     categoryLabel: categoryLabelFor(policy, r.computed?.ruleKey ?? r.extracted?.category),
     ...(meta?.audioSeconds ? { audioSeconds: meta.audioSeconds } : {}),
-    approvals: (approvals?.approvers ?? []).map((a) => ({ organizerId: a.organizerId, name: orgs.find((o) => o.id === a.organizerId)?.name ?? a.organizerId, at: a.at })),
+    approvals: (approvals?.approvers ?? []).map((a) => ({
+      organizerId: a.organizerId,
+      name: orgs.find((o) => o.id === a.organizerId)?.name ?? a.organizerId,
+      at: a.at,
+      ...(a.assertion ? { signer: { kind: a.assertion.kind, deviceLabel: a.assertion.deviceLabel } } : {}),
+    })),
     approvalsRequired: ctx.gen.group.requiredApprovals,
     amountBreakdown: meta?.breakdown ?? null,
     payout: item && batch ? { batch, item } : null,

@@ -6,7 +6,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { HelpRequest, Lang, PayoutBatch, PayoutItem, PayoutItemStatus, RequestStatus, StageEvent } from '@neighborline/core';
 import type {
+  ApprovalChallenge,
   ApprovalResult,
+  ApproveInput,
+  OrganizerSession,
+  PasskeyRoster,
   DeclineReasonCode,
   DonationCapture,
   DonationOrder,
@@ -432,7 +436,28 @@ export class MockEngine implements Services {
     return rec ? this.toView(rec) : null;
   }
 
-  async approve(input: { requestIds: string[]; organizerId: string; deviceLabel: string }): Promise<ApprovalResult> {
+  /* Passkeys need the real engine (database-backed credentials). The mock only knows demo keys. */
+  async passkeyRoster(): Promise<PasskeyRoster> {
+    return { demoMode: true, inviteRequired: false, organizers: ORGANIZERS.map((o) => ({ id: o.id, name: o.name, passkeys: [] })) };
+  }
+  async passkeyRegistrationOptions(): Promise<{ optionsJSON: unknown }> {
+    throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
+  }
+  async passkeyRegister(): Promise<OrganizerSession> {
+    throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
+  }
+  async passkeySignInOptions(): Promise<{ optionsJSON: unknown }> {
+    throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
+  }
+  async passkeySignIn(): Promise<OrganizerSession> {
+    throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
+  }
+  async approvalChallenge(): Promise<ApprovalChallenge> {
+    throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
+  }
+
+  async approve(input: ApproveInput): Promise<ApprovalResult> {
+    if (input.signer.kind !== 'demo_key') throw new HttpError(501, 'Passkeys need the real engine (unset ENGINE=mock).');
     const org = ORGANIZERS.find((o) => o.id === input.organizerId);
     if (!org) throw new HttpError(403, 'Unknown organizer');
     const recs = input.requestIds.map((id) => this.rec(id));

@@ -3,9 +3,9 @@ import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
-export function hexToBytes(hex: string): Uint8Array {
+export function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
   if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex)) throw new TypeError('hexToBytes: not a hex string');
-  const out = new Uint8Array(hex.length / 2);
+  const out = new Uint8Array(new ArrayBuffer(hex.length / 2));
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   return out;
 }

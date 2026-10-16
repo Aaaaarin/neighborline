@@ -9,7 +9,12 @@
 import 'server-only';
 import type { Channel, HelpRequest, Lang, RequestStatus } from '@neighborline/core';
 import type {
+  ApprovalChallenge,
   ApprovalResult,
+  ApproveInput,
+  OrganizerSession,
+  PasskeyAssertionJSON,
+  PasskeyRoster,
   DeclineReasonCode,
   DonationCapture,
   DonationOrder,
@@ -61,7 +66,20 @@ export interface Services {
   getGroup(): Promise<GroupView>;
   listRequests(filter?: { status?: RequestStatus[] }): Promise<RequestView[]>;
   getRequest(requestId: string): Promise<RequestView | null>;
-  approve(input: { requestIds: string[]; organizerId: string; deviceLabel: string }): Promise<ApprovalResult>;
+  /**
+   * One signed Approve tap: the WebAuthn assertion (or, in DEMO_MODE, the labelled demo key) is
+   * verified over the current approval hash and stored before the approver is recorded.
+   * `origin` = the browser's Origin header (route handlers pass it; server-side callers omit it).
+   */
+  approve(input: ApproveInput & { origin?: string | null }): Promise<ApprovalResult>;
+
+  /* organizer passkeys (WebAuthn) */
+  passkeyRoster(): Promise<PasskeyRoster>;
+  passkeyRegistrationOptions(input: { organizerId: string; origin: string | null; inviteCode?: string; session: OrganizerSession | null }): Promise<{ optionsJSON: unknown }>;
+  passkeyRegister(input: { organizerId: string; origin: string | null; response: unknown; deviceLabel: string; inviteCode?: string; session: OrganizerSession | null }): Promise<OrganizerSession>;
+  passkeySignInOptions(input: { origin: string | null }): Promise<{ optionsJSON: unknown }>;
+  passkeySignIn(input: { response: PasskeyAssertionJSON }): Promise<OrganizerSession>;
+  approvalChallenge(input: { requestIds: string[]; origin: string | null; organizerId?: string; credentialIds?: string[] }): Promise<ApprovalChallenge>;
   decline(input: {
     requestId: string;
     organizerId: string;

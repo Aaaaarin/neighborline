@@ -21,6 +21,43 @@ importers:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@22.20.5)(lightningcss@1.32.0)
 
+  apps/approver:
+    dependencies:
+      '@neighborline/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@neighborline/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@neighborline/passkeys':
+        specifier: workspace:*
+        version: link:../../packages/passkeys
+      '@neighborline/paypal':
+        specifier: workspace:*
+        version: link:../../packages/paypal
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.1)(postgres@3.4.9)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@neighborline/fake-paypal':
+        specifier: workspace:*
+        version: link:../../tools/fake-paypal
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.5
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@22.20.5)(lightningcss@1.32.0)
+
   apps/web:
     dependencies:
       '@electric-sql/pglite':
@@ -44,6 +81,9 @@ importers:
       '@neighborline/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@neighborline/passkeys':
+        specifier: workspace:*
+        version: link:../../packages/passkeys
       '@neighborline/paypal':
         specifier: workspace:*
         version: link:../../packages/paypal

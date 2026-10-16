@@ -47,9 +47,9 @@ export async function runScenario(e: MockEngine, input: { scenario: ScenarioId; 
     e.emit({ type: 'request.readback', at: now(), requestId: id, text: s.readback, lang: s.lang }, [id]);
   });
   e.later(rec, 9500, () => void e.confirmIntake(id, { confirmed: true }));
-  e.later(rec, 16_500, () => void e.approve({ requestIds: [id], organizerId: 'org_dana', deviceLabel: "Dana's phone" }).catch(() => {}));
+  e.later(rec, 16_500, () => void e.approve({ requestIds: [id], organizerId: 'org_dana', signer: { kind: 'demo_key' } }).catch(() => {}));
   if (input.mode === 'auto') {
-    e.later(rec, 23_500, () => void e.approve({ requestIds: [id], organizerId: 'org_marcus', deviceLabel: "Marcus's phone" }).catch(() => {}));
+    e.later(rec, 23_500, () => void e.approve({ requestIds: [id], organizerId: 'org_marcus', signer: { kind: 'demo_key' } }).catch(() => {}));
   }
   return { requestId: id, scenario: s.id, mode: input.mode, speed, manualOrganizerId };
 }

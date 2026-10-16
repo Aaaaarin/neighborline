@@ -94,7 +94,7 @@ describe('engine (in-memory PGlite + fake PayPal + fixture AI)', () => {
     if (flagged.type !== 'request.flagged') throw new Error('unexpected');
     expect(flagged.flags[0]).toMatchObject({ code: 'LOOKALIKE_HANDLE', severity: 'block' });
     expect(flagged.flags.map((f) => f.code)).toContain('PROMPT_INJECTION');
-    await expect(h.engine.approve({ requestIds: [run.requestId], organizerId: 'org_dana', deviceLabel: 'test' })).rejects.toMatchObject({ status: 409 });
+    await expect(h.engine.approve({ requestIds: [run.requestId], organizerId: 'org_dana', signer: { kind: 'demo_key' } })).rejects.toMatchObject({ status: 409 });
     expect(types(run.requestId)).not.toContain('request.readback'); // the lookalike destination is never read back
     expect(await listItemsForRequest(await db(), run.requestId)).toEqual([]);
     expect(h.fake.state.batches.size).toBe(batchesBefore);
@@ -110,13 +110,13 @@ describe('engine (in-memory PGlite + fake PayPal + fixture AI)', () => {
     await h.engine.confirmIntake(requestId, { confirmed: true });
     expect((await h.engine.getRequest(requestId))!.request.computed?.amountCents).toBe(6_000);
     const batchesBefore = h.fake.state.batches.size;
-    const dana = await Promise.all([1, 2].map(() => h.engine.approve({ requestIds: [requestId], organizerId: 'org_dana', deviceLabel: 'tap' })));
+    const dana = await Promise.all([1, 2].map(() => h.engine.approve({ requestIds: [requestId], organizerId: 'org_dana', signer: { kind: 'demo_key' } })));
     expect(dana.map((d) => d.count)).toEqual([1, 1]);
     expect(dana.every((d) => !d.executed)).toBe(true);
-    const marcus = await Promise.all([1, 2, 3].map(() => h.engine.approve({ requestIds: [requestId], organizerId: 'org_marcus', deviceLabel: 'tap' })));
+    const marcus = await Promise.all([1, 2, 3].map(() => h.engine.approve({ requestIds: [requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } })));
     expect(new Set(marcus.map((m) => m.batchId)).size).toBe(1);
     expect(marcus.every((m) => m.executed && m.senderBatchId?.startsWith('nl_'))).toBe(true);
-    const again = await h.engine.approve({ requestIds: [requestId], organizerId: 'org_priya', deviceLabel: 'late' });
+    const again = await h.engine.approve({ requestIds: [requestId], organizerId: 'org_priya', signer: { kind: 'demo_key' } });
     expect(again.batchId).toBe(marcus[0]!.batchId);
     expect(h.fake.state.batches.size).toBe(batchesBefore + 1);
     expect(types(requestId).filter((x) => x === 'payout.batch_created')).toHaveLength(1);
@@ -150,7 +150,7 @@ describe('engine (in-memory PGlite + fake PayPal + fixture AI)', () => {
     await waitFor(async () => (await h.engine.getRequest(run.requestId))?.approvals.length === 1, 10_000, 'Dana');
     await new Promise((r) => setTimeout(r, 300));
     expect((await h.engine.getRequest(run.requestId))!.request.status).toBe('awaiting_approval');
-    await h.engine.approve({ requestIds: [run.requestId], organizerId: 'org_marcus', deviceLabel: 'visitor' });
+    await h.engine.approve({ requestIds: [run.requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } });
     await paidThread(run.requestId);
   });
 
@@ -158,8 +158,8 @@ describe('engine (in-memory PGlite + fake PayPal + fixture AI)', () => {
     const { requestId } = await h.engine.startIntake({ groupSlug: 'eastside', channel: 'web_voice' });
     await h.engine.submitAudio(requestId, { sampleId: 'rosa' }); // rosa.m.delgado@… has no PayPal account in the fake
     await h.engine.confirmIntake(requestId, { confirmed: true });
-    await h.engine.approve({ requestIds: [requestId], organizerId: 'org_dana', deviceLabel: 'a' });
-    await h.engine.approve({ requestIds: [requestId], organizerId: 'org_marcus', deviceLabel: 'b' });
+    await h.engine.approve({ requestIds: [requestId], organizerId: 'org_dana', signer: { kind: 'demo_key' } });
+    await h.engine.approve({ requestIds: [requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } });
     await paidThread(requestId, 'UNCLAIMED');
     const p = (await h.engine.getRequest(requestId))!.payout!;
     await expect(h.engine.cancelPayoutItem({ batchId: 'pb_wrong', itemId: p.item.id })).rejects.toMatchObject({ status: 404 });
