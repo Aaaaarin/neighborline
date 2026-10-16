@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+#
+# Neighborline on Render: Blueprint (infrastructure as code). Step-by-step setup: docs/DEPLOY.md.
+#
+#   neighborline            web       Next.js app + API + PayPal webhooks (Starter, $7/mo, always on)
+#   neighborline-db         postgres  Render Postgres 0.1c-256mb ($6/mo; a free DB expires after 30 days)
+#   neighborline-workflows  workflow  Render Workflows tasks: reconcile, unclaimed follow-up, report refresh
+#   neighborline-scheduler  cron      Starts the due workflow runs every 15 min ($1/mo minimum)
+#
+# Validate locally: python3 scripts/validate-render-yaml.py (or `render blueprints validate`).
+# Secrets are never in this file: `sync: false` keys are prompted for when the Blueprint is first
+# applied, and `generateValue` keys are random 256-bit values created by Render.
+
+previews:
+  generation: "off"
+
+envVarGroups:
+  # Shared by the web app and the workflow only. HMAC key for /api/internal/* (see workflows/src/signing.ts).
+  # Deliberately separate from NEIGHBORLINE_APPROVAL_SECRET: background jobs must never be able to move money.
+  - name: neighborline-internal
+    envVars:
+      - key: NEIGHBORLINE_INTERNAL_SECRET
+        generateValue: true
+      - key: PAYPAL_REPORTING_LAG_HOURS
+        value: "3"
+
+  # Web app only. Signs two-person approval tokens for the Payouts MCP tool (packages/paypal).
+  - name: neighborline-secrets
+    envVars:
+      - key: NEIGHBORLINE_APPROVAL_SECRET
+        generateValue: true
+
+databases:
+  - name: neighborline-db
+    databaseName: neighborline
+    user: neighborline
+    region: oregon
+    # Paid on purpose: free Render Postgres expires 30 days after creation (+14-day grace, then deleted),
+    # which would land inside the Dec 1-15 2026 judging window. 0.1c-256mb = legacy "Basic-256mb", $6/mo.
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    # Matches PGlite 0.3 (Postgres 17) used in local dev and tests.
+    postgresMajorVersion: "17"
+    # Private network only; the web service connects over the internal URL.
+    ipAllowList: []
+
+services:
+  - type: web
+    name: neighborline
+    runtime: node
+    region: oregon
+    # 0.5c-512mb = legacy "starter", $7/mo: no spin-down, so judges never hit a ~1 min cold start.
+    # `free` also works (see docs/DEPLOY.md "Budget option") but sleeps after 15 idle minutes and
+    # cannot receive private-network traffic (the workflow would then need NEIGHBORLINE_BASE_URL).
+    plan: 0.5c-512mb
+    buildCommand: bash scripts/render-build.sh
+    startCommand: bash scripts/render-start.sh
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    maxShutdownDelaySeconds: 30
+    buildFilter:
+      paths:
+        - apps/web/**
+        - packages/**
+        - tools/fake-paypal/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - tsconfig.base.json
+        - scripts/render-build.sh
+        - scripts/render-start.sh
+      ignoredPaths:
+        - "**/*.test.ts"
+        - "**/*.md"
+        - apps/web/e2e/**
+        - apps/web/screenshots/**
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Modes: the hosted demo runs against the real PayPal sandbox and live AI, falling back to
+      # fixtures if a model call fails. Set PAYPAL_MODE=fake to run the embedded fake PayPal instead.
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: AI_MODE
+        value: live
+      - key: AI_FALLBACK
+        value: fixture
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: DEMO_MODE
+        value: "true"
+      - key: NEIGHBORLINE_GROUP_SLUG
+        value: eastside
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      # Used only when PAYPAL_MODE=fake (scripts/render-start.sh starts it on loopback).
+      - key: FAKE_PAYPAL_URL
+        value: http://127.0.0.1:4010
+      - key: DATABASE_URL
+        fromDatabase:
+          name: neighborline-db
+          property: connectionString
+      # Prompted once when the Blueprint is applied (values live only in Render).
+      - key: APP_BASE_URL
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_PAYOUTS_CLIENT_ID
+        sync: false
+      - key: PAYPAL_PAYOUTS_CLIENT_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_PAYPAL_CLIENT_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - fromGroup: neighborline-secrets
+      - fromGroup: neighborline-internal
+
+  - type: workflow
+    name: neighborline-workflows
+    runtime: node
+    region: oregon
+    rootDir: workflows
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Private-network address of the web service (plain HTTP inside Render). Needs a paid web plan;
+      # on the free plan add NEIGHBORLINE_BASE_URL=https://<service>.onrender.com instead.
+      - key: NEIGHBORLINE_WEB_HOSTPORT
+        fromService:
+          type: web
+          name: neighborline
+          property: hostport
+      - fromGroup: neighborline-internal
+
+  - type: cron
+    name: neighborline-scheduler
+    runtime: node
+    region: oregon
+    plan: 0.5c-512mb
+    # UTC. Hourly/daily jobs are deduplicated by idempotency key, so extra ticks are harmless.
+    schedule: "*/15 * * * *"
+    rootDir: workflows
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/scheduler.js
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Render API key (Account Settings → API Keys). The scheduler's only secret.
+      - key: RENDER_API_KEY
+        sync: false
+      - key: WORKFLOW_SLUG
+        fromService:
+          type: workflow
+          name: neighborline-workflows
+          property: slug
+      # 10:00 UTC = 03:00 PDT / 02:00 PST, the quietest hour for a US mutual-aid group.
+      - key: RECONCILE_HOUR_UTC
+        value: "10"
+      - key: REPORT_REFRESH_EVERY_N_PAYOUTS
+        value: "5"

@@ -1,0 +1,24 @@
+{
+  "name": "@neighborline/workflows",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Render Workflows tasks for Neighborline (nightly PayPal reconcile, unclaimed-payout follow-up, transparency report refresh) plus the cron dispatcher that schedules them. Standalone package: NOT part of the pnpm workspace, deployed with rootDir=workflows.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "schedule": "node dist/scheduler.js",
+    "test": "npm run build && node --test \"dist/**/*.test.js\"",
+    "dev": "npm run build && render workflows dev -- npm start"
+  },
+  "dependencies": {
+    "@renderinc/sdk": "1.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3"
+  }
+}
