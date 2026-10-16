@@ -47,7 +47,7 @@ jobs:
       - name: Typecheck all packages
         run: pnpm -r --if-present typecheck
 
-      - name: Unit tests (core, db, agents, paypal, fake-paypal)
+      - name: Unit tests (all workspace packages: core, db, agents, passkeys, paypal, approver, web, fake-paypal, dev-db)
         run: pnpm -r --if-present test
 
       - name: Build @neighborline/paypal (tsup → dist)
@@ -96,11 +96,12 @@ jobs:
           retention-days: 7
 
   audit:
-    name: Dependency audit (non-blocking)
+    name: Dependency audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Known transitive advisories are tracked in THREAT_MODEL.md (R5). Flip to blocking once they are resolved.
-    continue-on-error: true
+    # Blocking for high/critical advisories in production dependencies. Two advisories inside
+    # @paypal/agent-toolkit's unused entry points are ignored by GHSA id in package.json
+    # (pnpm.auditConfig.ignoreGhsas); the reasoning for each is in THREAT_MODEL.md R5.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,8 +113,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: pnpm audit (high and critical)
-        run: pnpm audit --audit-level=high
+      - name: pnpm audit, production dependencies (blocking on high and critical)
+        run: pnpm audit --prod --audit-level=high
+
+      - name: pnpm audit, everything incl. dev tooling (report only)
+        run: pnpm audit || true
 
   secret-scan:
     name: Secret scan (gitleaks)
