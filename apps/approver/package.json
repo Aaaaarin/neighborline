@@ -1,0 +1,34 @@
+{
+  "name": "@neighborline/approver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The approval service: the only Neighborline process that holds PayPal Payouts credentials. Executes a payout only for a two-person approval record it re-verifies itself against the database.",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./protocol": "./src/protocol.ts"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@neighborline/core": "workspace:*",
+    "@neighborline/db": "workspace:*",
+    "@neighborline/passkeys": "workspace:*",
+    "@neighborline/paypal": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "tsx": "^4.19.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@neighborline/fake-paypal": "workspace:*",
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
