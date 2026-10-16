@@ -1,6 +1,7 @@
 export * from './schemas.js';
 export * from './money.js';
 export * from './policy.js';
+export * from './policy-draft.js';
 export * from './identity.js';
 export * from './amounts.js';
 export * from './handles.js';
