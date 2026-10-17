@@ -7,7 +7,7 @@
  *   valid signature db.activatePolicy creates the new immutable version and every request still
  *   waiting is re-priced under it by code (its old, now-stale approvals are voided).
  */
-import { canonicalJson, policyDraftHash, type ApproverAssertion, type Policy, type PolicyDraftContent } from '@neighborline/core';
+import { canonicalJson, policyDraftHash, policyTextSansVersion, stampPolicyVersion, type ApproverAssertion, type Policy, type PolicyDraftContent } from '@neighborline/core';
 import { activatePolicy, appendAudit, getActivePolicy, listOrganizers, listRequests, policies, updateRequest, voidOpenApprovalsForRequests } from '@neighborline/db';
 import { asc, eq } from 'drizzle-orm';
 import type { ApprovalChallenge, CompilePolicyOutcome, OrganizerSession, PolicyEditorView, PolicySignInput, PolicySignResult } from '../../types';
@@ -71,9 +71,14 @@ export async function compileDraft(ctx: Ctx, input: { sourceText: string; actor:
   const r = await ctx.agents.policy.compile({ sourceText: text, previous: active, groupName: ctx.gen.group.name });
   const traceView = { status: r.trace.status, summary: r.trace.summary, attempts: r.trace.attempts.length };
   if (!r.ok) return { ok: false, errors: r.errors.map((e) => ({ path: e.path, message: e.message })), trace: traceView };
-  const content: PolicyDraftContent = { groupId: ctx.gen.group.id, basePolicyId: active.id, version: active.version + 1, body: r.draft };
+  // The title's "(vN)" marker follows the version this draft becomes (QA-2 P3), and is ignored when
+  // deciding whether anything changed.
+  const version = active.version + 1;
+  const body = { ...r.draft, sourceText: stampPolicyVersion(r.draft.sourceText, version) };
+  const content: PolicyDraftContent = { groupId: ctx.gen.group.id, basePolicyId: active.id, version, body };
   const { id: _i, groupId: _g, createdAt: _c, approvedBy: _a, version: _v, ...activeBody } = active;
-  if (canonicalJson(activeBody) === canonicalJson(r.draft)) {
+  const sansVersion = <T extends { sourceText: string }>(p: T): T => ({ ...p, sourceText: policyTextSansVersion(p.sourceText) });
+  if (canonicalJson(sansVersion(activeBody)) === canonicalJson(sansVersion(body))) {
     return { ok: false, errors: [{ path: '', message: 'These rules compile to exactly the current policy. Change a rule, then draft again.' }], trace: traceView };
   }
   const hash = policyDraftHash(content);

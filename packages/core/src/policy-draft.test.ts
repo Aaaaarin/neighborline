@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { approvalPayload } from './approvals.js';
 import { demoPolicy } from './policy.js';
-import { policyDraftHash, policyDraftPayload, type PolicyDraftContent } from './policy-draft.js';
+import { policyDraftHash, policyDraftPayload, policyTextSansVersion, stampPolicyVersion, type PolicyDraftContent } from './policy-draft.js';
 
 const { id: _i, groupId, createdAt: _c, approvedBy: _a, version: _v, ...body } = demoPolicy();
 const base: PolicyDraftContent = { groupId, basePolicyId: 'pol_eastside_v1', version: 2, body };
@@ -32,5 +32,24 @@ describe('policyDraftHash', () => {
     const payout = approvalPayload({ policyVersionId: 'pol_eastside_v1', items: [{ requestId: 'req_1', amountCents: 100, destination: { wallet: 'VENMO', type: 'USER_HANDLE', value: '@x' } }] });
     expect(policyDraftPayload(base).domain).toBe('neighborline/policy-draft/v1');
     expect(Object.keys(payout)).not.toContain('domain');
+  });
+});
+
+describe('stampPolicyVersion (QA-2 P3: the title kept "(v1)" after v2 activated)', () => {
+  const v1 = 'Eastside Mutual Aid — rules for quick cash help (v1)\n- Groceries: up to $100 (v1 caps).';
+  it('sets the title marker to the new version and leaves every rule line alone', () => {
+    expect(stampPolicyVersion(v1, 2)).toBe('Eastside Mutual Aid — rules for quick cash help (v2)\n- Groceries: up to $100 (v1 caps).');
+    expect(stampPolicyVersion(stampPolicyVersion(v1, 2), 13).split('\n')[0]).toMatch(/\(v13\)$/);
+    expect(stampPolicyVersion('Rules (v1)  ', 3)).toBe('Rules (v3)  ');
+  });
+  it('adds nothing to a title without a marker; a one-line text is its own title', () => {
+    expect(stampPolicyVersion('Our rules\n- Food: $50', 2)).toBe('Our rules\n- Food: $50');
+    expect(stampPolicyVersion('- Food: $50 (v1)', 2)).toBe('- Food: $50 (v2)');
+    expect(stampPolicyVersion('', 2)).toBe('');
+  });
+  it('compares wording without the marker', () => {
+    expect(policyTextSansVersion(v1)).toBe(policyTextSansVersion(stampPolicyVersion(v1, 2)));
+    expect(policyTextSansVersion(v1).split('\n')[0]).toBe('Eastside Mutual Aid — rules for quick cash help');
+    expect(policyTextSansVersion('Our rules\n- Food')).toBe('Our rules\n- Food');
   });
 });

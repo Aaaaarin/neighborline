@@ -104,6 +104,11 @@ describe('rules editor: AI drafts, two organizers sign, code activates', () => {
     expect(active).toMatchObject({ version: 2, approvedBy: ['org_dana', 'org_marcus'] });
     expect(active.categories.map((c) => c.key)).toContain('baby_supplies');
     expect((await h.engine.getGroup()).policy.version).toBe(2);
+    // The title follows the version (QA-2 P3): the organizers wrote "(v1)", the active rules say "(v2)".
+    expect(V2_TEXT.split('\n')[0]).toMatch(/\(v1\)$/);
+    expect(active.sourceText.split('\n')[0]).toBe('Eastside Mutual Aid — rules for quick cash help (v2)');
+    expect(active.sourceText.split('\n').slice(1)).toEqual(V2_TEXT.split('\n').slice(1));
+    expect((await h.engine.policyEditor()).active.sourceText.split('\n')[0]).toMatch(/\(v2\)$/);
     const ana = (await h.engine.getRequest('req_seed_q_ana'))!;
     expect(ana.request.computed).toMatchObject({ amountCents: 12000 });
     expect(ana.request.computed?.ruleCitation).toContain('Policy v2');
@@ -136,5 +141,9 @@ describe('rules editor: AI drafts, two organizers sign, code activates', () => {
     const editor = await h.engine.policyEditor();
     const r = await h.engine.compilePolicy({ sourceText: editor.active.sourceText, session: null });
     expect(r.ok).toBe(false);
+    // Only the title's version marker differs (an old copy of the text): still nothing to sign.
+    expect(editor.active.sourceText.split('\n')[0]).toMatch(/\(v3\)$/);
+    const old = await h.engine.compilePolicy({ sourceText: editor.active.sourceText.replace('(v3)', '(v1)'), session: null });
+    expect(old.ok).toBe(false);
   });
 });
