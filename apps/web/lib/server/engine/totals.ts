@@ -33,6 +33,7 @@ export interface FundWindow {
 }
 
 const md = (d: Date) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
+const year = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', timeZone: 'America/Los_Angeles' });
 
 export function fundWindow(now: Date = new Date()): FundWindow {
   const from = new Date(now.getTime() - FUND_WINDOW_DAYS * 86_400_000);
@@ -40,7 +41,7 @@ export function fundWindow(now: Date = new Date()): FundWindow {
     from,
     to: now,
     period: { from: from.toISOString(), to: new Date(now.getTime() + 60_000).toISOString() },
-    label: `${md(from)} – ${md(now)}, ${now.getFullYear()}`,
+    label: `${md(from)} – ${md(now)}, ${year(now)}`,
   };
 }
 

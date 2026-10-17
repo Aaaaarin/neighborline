@@ -18,7 +18,11 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`;
 const duration = (s: number): string => (s < 90 ? `${s} seconds` : `${s} seconds (about ${Math.round(s / 6) / 10} minutes)`);
 const human = (key: string): string => key.replace(/_/g, ' ');
 
-export function buildFacts(report: TransparencyReport, opts: { groupName?: string; inflows?: InflowSummary; categoryLabels?: Record<string, string> } = {}): Fact[] {
+/**
+ * `periodLabel`: the window as the page around the narrative labels it (e.g. "September 16 – October 16, 2026", in the
+ * group's time zone). Without it the period is the report's UTC dates, which can disagree with that label by a day.
+ */
+export function buildFacts(report: TransparencyReport, opts: { groupName?: string; inflows?: InflowSummary; categoryLabels?: Record<string, string>; periodLabel?: string } = {}): Fact[] {
   const f: Fact[] = [];
   const add = (key: string, label: string, value: string): void => void f.push({ key, label, value });
   // Masked cells say "fewer than k" with the report's own k (core default 5).
@@ -26,7 +30,8 @@ export function buildFacts(report: TransparencyReport, opts: { groupName?: strin
   const money = (v: Masked<number>): string => (isNum(v) ? formatUsd(v) : `not shown (fewer than ${report.k} people)`);
   const t = report.totals;
   if (opts.groupName) add('group', 'Group', opts.groupName);
-  if (report.period.from || report.period.to) add('period', 'Period', `${report.period.from?.slice(0, 10) ?? 'start'} to ${report.period.to?.slice(0, 10) ?? 'today'}`);
+  if (opts.periodLabel) add('period', 'Period', opts.periodLabel);
+  else if (report.period.from || report.period.to) add('period', 'Period', `${report.period.from?.slice(0, 10) ?? 'start'} to ${report.period.to?.slice(0, 10) ?? 'today'}`);
   add('donated', 'Donated', money(t.inCents));
   add('donations', 'Donations', count(t.donations, 'donations'));
   add('donors', 'Donors', count(t.donors, 'donors'));

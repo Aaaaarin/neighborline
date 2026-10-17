@@ -69,6 +69,16 @@ describe('ReportWriter', () => {
     expect(r.narrative).toContain('$500.50 in 5 transactions');
   });
 
+  it('the period is the page’s own label when given (group time zone), else the report’s UTC dates', async () => {
+    const periodLabel = 'September 16 – October 16, 2026';
+    expect(buildFacts({ ...report, period: { from: '2026-09-17T00:30:00Z', to: '2026-10-17T00:31:00Z' } }, { periodLabel }).find((f) => f.key === 'period')?.value).toBe(periodLabel);
+    expect(buildFacts({ ...report, period: { from: '2026-09-17T00:30:00Z', to: '2026-10-17T00:31:00Z' } }).find((f) => f.key === 'period')?.value).toBe('2026-09-17 to 2026-10-17');
+    const r = await new ReportWriter({ llm: new ScriptedLLM([]) }).write({ report: { ...report, period: { from: '2026-09-17T00:30:00Z', to: '2026-10-17T00:31:00Z' } }, periodLabel });
+    expect(r.narrative).toContain(`From ${periodLabel},`);
+    expect(r.narrative).not.toContain('2026-10-17');
+    expect(ungroundedNumbers(`${r.headline} ${r.narrative}`, allowedNumbers(r.facts))).toEqual([]);
+  });
+
   it('masked (k-anonymous) groups never surface as numbers', () => {
     const facts = buildFacts(report, { categoryLabels: labels });
     const transport = facts.find((f) => f.key === 'category.transport');

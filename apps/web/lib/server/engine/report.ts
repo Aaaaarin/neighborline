@@ -110,9 +110,9 @@ export async function buildReportView(ctx: BaseCtx): Promise<ReportView> {
   const range = { startDate: from.toISOString().replace(/\.\d{3}Z$/, 'Z'), endDate: to.toISOString().replace(/\.\d{3}Z$/, 'Z') };
   let written: WriteReportResult;
   try {
-    written = await ctx.agents.report.write({ report, groupName: g.name, categoryLabels, ...(inflowSource ? { inflowSource, inflowRange: range } : {}) });
+    written = await ctx.agents.report.write({ report, groupName: g.name, categoryLabels, periodLabel: window.label, ...(inflowSource ? { inflowSource, inflowRange: range } : {}) });
   } catch {
-    written = await ctx.agents.report.write({ report, groupName: g.name, categoryLabels });
+    written = await ctx.agents.report.write({ report, groupName: g.name, categoryLabels, periodLabel: window.label });
   }
   const paragraphs = segment(written.narrative, written.numberTrace);
   const figures = paragraphs.flat().filter((s) => typeof s !== 'string').length;

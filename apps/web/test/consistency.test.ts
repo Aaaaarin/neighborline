@@ -28,6 +28,9 @@ function expectAgreement(report: ReportView, ledger: LedgerView) {
   const f = ledger.fund;
   // Same window, same labels.
   expect(report.period.label).toBe(f.window.label);
+  // The narrative's dates are the label's (group time zone), never the UTC dates, which run a day ahead every evening.
+  expect(flat(report)).toContain(f.window.label);
+  expect(flat(report)).not.toMatch(/\d{4}-\d{2}-\d{2}/);
   // "Landed with neighbors" and "Donations in".
   expect(report.totals.paidCents).toBe(f.landedCents);
   expect(report.totals.payouts).toBe(f.landedPayouts);

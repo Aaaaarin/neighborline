@@ -41,6 +41,8 @@ export interface WriteReportInput {
   report: TransparencyReport;
   groupName?: string;
   categoryLabels?: Record<string, string>;
+  /** The reporting window as the page labels it, in the group's time zone (see buildFacts). */
+  periodLabel?: string;
   /** Pre-fetched inflow summary, or a source + range to fetch it (PayPal Agent Toolkit). */
   inflows?: InflowSummary;
   inflowSource?: InflowSource;
@@ -80,6 +82,7 @@ export class ReportWriter {
       ...(input.groupName ? { groupName: input.groupName } : {}),
       ...(inflows ? { inflows } : {}),
       ...(input.categoryLabels ? { categoryLabels: input.categoryLabels } : {}),
+      ...(input.periodLabel ? { periodLabel: input.periodLabel } : {}),
     });
     const outcome = await runStructured({
       llm: this.deps.llm,
