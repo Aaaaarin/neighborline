@@ -1,6 +1,6 @@
 {
-  "$comment": "Single source of truth for the current cut (Draft 3). Times are video timecodes (m:ss.s) from VIDEO_SCRIPT.md. Source points for stage takes are 'P+x' = seconds after the Play click in that take (takes/<id>.markers.json); for the MCP clip, seconds into takes/mcp-demo.mp4. Anchors {take, event, offset} resolve to the video time at which that stage event is on screen. {T} / {T_words} / {BLOCK_T} / {TESTS} are filled from the recorded stopwatch and the real test run. build.mjs validates every VO line against its window at its target wpm and prints the fit.",
-  "output": { "width": 1920, "height": 1080, "fps": 30, "maxSeconds": 170, "file": "neighborline-draft3.mp4" },
+  "$comment": "Single source of truth for the current cut (Draft 4). Times are video timecodes (m:ss.s) from VIDEO_SCRIPT.md. Source points for stage takes are 'P+x' = seconds after the Play click in that take (takes/<id>.markers.json); for the MCP clip, seconds into takes/mcp-demo.mp4. Anchors {take, event, offset} resolve to the video time at which that stage event is on screen. {T} / {T_words} / {BLOCK_T} / {TESTS} are filled from the recorded stopwatch and the real test run. build.mjs validates every VO line against its window at its target wpm and prints the fit.",
+  "output": { "width": 1920, "height": 1080, "fps": 30, "maxSeconds": 170, "file": "neighborline-draft4.mp4" },
   "paypalMode": "fake",
   "corner": {
     "from": "0:00",

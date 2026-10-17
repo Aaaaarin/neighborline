@@ -3,7 +3,7 @@
 //
 //   node docs/submission/video/build.mjs [--record] [--with-vo] [--rebuild-web] [--fresh-tests] [--no-thumbnail]
 //
-// Draft 3 (default): real screen captures + burned-in captions of the VO lines + title cards, no audio.
+// Draft 4 (default): real screen captures + burned-in captions of the VO lines + title cards, no audio.
 // See README.md in this folder for the pipeline, outputs and where the voiceover drops in.
 import { copyFileSync, existsSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
