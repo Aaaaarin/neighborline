@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CHROME_ARGS, DIRS, REPO, playwright, resolveWeb } from './common.mjs';
 
-const fontCss = ['@fontsource-variable/literata/index.css', '@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource-variable/atkinson-hyperlegible-mono/index.css']
+export const fontCss = ['@fontsource-variable/literata/index.css', '@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource-variable/atkinson-hyperlegible-mono/index.css']
   .map((p) => `<link rel="stylesheet" href="${pathToFileURL(resolveWeb(p)).href}">`)
   .join('');
 
@@ -108,13 +108,15 @@ export const CODE_CARDS = [
   },
   {
     id: 'code-2',
-    title: 'The batch ID is a hash of the signed approval, so a double tap can’t pay twice',
+    title: 'The batch ID is derived from the signed approval record, so a double tap can’t pay twice',
     file: 'packages/core/src/approvals.ts',
     excerpts: [
       { from: /The approval-service gate/, count: 8 },
-      { from: /PayPal sender_batch_id: deterministic/, count: 5 },
+      { from: /^const SENDER_BATCH_DOMAIN/, count: 1 },
+      { from: /PayPal sender_batch_id = "nl_"/, count: 4 },
+      { from: /^export function senderBatchIdFor/, count: 4 },
     ],
-    highlight: [/distinctApprovers\(approval\.approvers\) >=/, /return `nl_\$\{approval\.hash\.slice\(0, 24\)\}`/],
+    highlight: [/distinctApprovers\(approval\.approvers\) >=/, /^const SENDER_BATCH_DOMAIN/, /return `nl_\$\{sha256Hex\(`\$\{SENDER_BATCH_DOMAIN\}/],
   },
   {
     id: 'code-3',
@@ -177,7 +179,7 @@ export function testSummary(logPath) {
   let pkg = null;
   let failed = /EXIT [1-9]/.test(raw);
   for (const l of raw.split('\n')) {
-    const m = /^(packages|apps|tools)\/([\w-]+) test/.exec(l.trim());
+    const m = /^(packages|apps|tools|examples)\/([\w-]+) test/.exec(l.trim());
     if (m) pkg = `${m[1]}/${m[2]}`;
     const t = /Tests\s+.*?(\d+) passed/.exec(l);
     const f = /Test Files\s+.*?(\d+) passed/.exec(l);
@@ -200,13 +202,13 @@ export async function renderCodeCards(render, testLog) {
   const n = lineOf(rec, /^export function reconcile\(/, 'reconcile.ts');
   const total = rows.reduce((a, r) => a + Number(/^(\d+)/.exec(r.tests ?? '0')[1]), 0);
   const term = rows
-    .map((r) => `<div class="ln"><span class="code"><span class="ok">✓</span> ${esc(r.pkg.padEnd(22))} ${esc(`${r.tests ?? ''} tests`.padEnd(18))}<span class="c">${esc(r.files)} file${r.files === '1' ? '' : 's'}</span></span></div>`)
+    .map((r) => `<div class="ln"><span class="code"><span class="ok">✓</span> ${esc(r.pkg.padEnd(24))} ${esc(`${r.tests ?? ''} tests`.padEnd(18))}<span class="c">${esc(r.files)} file${r.files === '1' ? '' : 's'}</span></span></div>`)
     .join('');
   const sig = rec[n - 1].replace(/: ReconcileReport \{$/, ': ReconcileReport');
   await render(
     'code-4',
     `<div class="wrap" style="top:80px"><h2>${failed ? 'Tests (some failing!)' : `${total} tests pass`}, and every payout is reconciled against PayPal Transaction Search</h2>
-<div class="card term"><div class="hdr"><span class="mono">$ pnpm -r test</span> · summary per package</div><div class="body">${term}</div></div>
+<div class="card term"><div class="hdr"><span class="mono">$ pnpm test</span> · summary per package</div><div class="body">${term}</div></div>
 <div class="card" style="margin-top:16px"><div class="hdr"><span class="mono">packages/paypal/src/reconcile.ts</span> · line ${n}</div><div class="body"><div class="ln hl" style="white-space:pre-wrap"><span class="no">${n}</span><span class="code">${highlightTs(sig)}</span></div></div></div>
 <p class="foot"><b style="color:var(--ink)">Open source · MIT</b> · @neighborline/paypal + an MCP server that adds Payouts tools to the PayPal Agent Toolkit</p></div>`,
     { css: CODE_CSS },
@@ -231,17 +233,22 @@ ${wordmark(false, 1.1)}
   );
 }
 
-/** Right-hand end card (transparent), composited over composition A's stopwatch area. */
-export async function renderEnd(render, { hostedUrl, repo, event }) {
+/**
+ * Right-hand end card (transparent), composited over composition A's stopwatch area. Until the app is deployed
+ * (HOSTED_URL unset) the first line says the live demo link is in the description, never a placeholder.
+ */
+export async function renderEnd(render, { hostedUrl, repo, event, pendingDemo }) {
+  const live = hostedUrl && !/\{HOSTED_URL\}/.test(hostedUrl);
   for (const lit of [false, true]) {
-    const placeholder = /\{HOSTED_URL\}/.test(hostedUrl);
-    const url = placeholder ? `<span style="background:var(--signal-wash);color:var(--signal);padding:0 8px;border-radius:6px">HOSTED_URL</span>/demo` : esc(hostedUrl);
+    const first = live
+      ? `<span style="color:var(--ink-3);font-size:22px;display:block">Try the hotline, no login</span><span class="mono" style="font-size:32px">${esc(hostedUrl)}</span>`
+      : `<span style="color:var(--ink-3);font-size:22px;display:block">Try the hotline, no login</span><span style="font-size:34px;font-weight:600">${esc(pendingDemo)}</span>`;
     await render(
       lit ? 'end-lit' : 'end',
       `<div style="position:absolute;left:790px;top:110px;width:1060px;height:820px;background:var(--paper);padding:60px 10px 0 30px">
 ${wordmark(lit, 1.6)}
 <div style="margin-top:56px;display:grid;gap:30px;font-size:30px;line-height:1.35">
-<p><span style="color:var(--ink-3);font-size:22px;display:block">Try the hotline, no login</span><span class="mono" style="font-size:32px">${url}</span></p>
+<p>${first}</p>
 <p><span style="color:var(--ink-3);font-size:22px;display:block">Open source (MIT)</span><span class="mono" style="font-size:32px">${esc(repo)}</span></p>
 <p style="font-size:24px;color:var(--ink-2)">${esc(event)}</p>
 </div></div>`,

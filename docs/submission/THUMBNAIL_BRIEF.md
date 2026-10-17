@@ -9,7 +9,8 @@ PayPal-blue buttons.
 **Copy (3 words):** **Voice note → cash**
 
 The only other text on the image is the stopwatch's frozen time, `0:{T}`. `{T}` is the real value from the
-recorded `speed=1` take (about 0:22.5 in fake mode, measured Oct 16, 2026). It must match the video and the gallery image exactly.
+recorded `speed=1` take (about 0:22.5 in fake mode; the Draft 2 take froze at **0:22.4**, Oct 16, 2026, and the
+pipeline's `thumbnail.png` / `thumbnail-1500x1000.png` use it). It must match the video and the gallery image exactly.
 
 **Composition (Devpost 3:2 at 1500×1000; YouTube 16:9 at 1280×720 uses the same layout, re-flowed):**
 

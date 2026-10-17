@@ -23,7 +23,8 @@ export const LAYOUT = {
       { name: 'phones', src: { x: 8, y: 92, w: 1292, h: 988 }, at: { x: 14, y: 78 }, k: 0.95 },
       { name: 'clock', src: { x: 1320, y: 92, w: 576, h: 262 }, at: { x: 1300, y: 96 }, k: 1.0, maskIdle: { y0: 288, y1: 354 } },
     ],
-    lt: { x: 1300, y: 470, w: 580 },
+    // The right column under the small clock: a timed inset (Shot 3's passkey proof) at y 380–575, lower thirds below.
+    lt: { x: 1300, y: 600, w: 590 },
     caption: { style: 'C' },
   },
   C: {
@@ -55,7 +56,8 @@ function composeFilter(layout, dpr, dur, label = 'v', idleUntil = -1) {
   let prev = 'bg';
   layout.parts.forEach((p, i) => {
     const out = i === n - 1 ? `${label}0` : `o${i}`;
-    f.push(`[${prev}][q${i}]overlay=${p.at.x}:${p.at.y}:shortest=1${i === n - 1 ? ',format=yuv420p' : ''}[${out}]`);
+    const en = p.from != null ? `:enable='between(t,${p.from},${p.to})'` : '';
+    f.push(`[${prev}][q${i}]overlay=${p.at.x}:${p.at.y}:shortest=1${en}${i === n - 1 ? ',format=yuv420p' : ''}[${out}]`);
     prev = out;
   });
   return f;
@@ -72,7 +74,9 @@ function pushFilter(inLabel, outLabel, dur, to, { fx, fy }, W = 1920, H = 1080, 
 }
 
 export function takeSegment(shot, take, file) {
-  const layout = LAYOUT[shot.comp];
+  const base = LAYOUT[shot.comp];
+  // Timed insets (shot.insets: [{ src, at, k, from, to }] in CSS px / shot-local seconds) ride on top of the layout.
+  const layout = shot.insets?.length ? { ...base, parts: [...base.parts, ...shot.insets.map((i) => ({ border: true, ...i }))] } : base;
   // Local time at which the stage leaves idle (Play + ~0.3 s for request.created to reach the page).
   const idleUntil = take.playAt + (take.ev.created ?? 0) + 0.3 - shot.srcStart;
   const f = composeFilter(layout, take.dpr, shot.dur, 'v', idleUntil);
@@ -83,6 +87,17 @@ export function takeSegment(shot, take, file) {
     last = 'v1';
   }
   ffmpeg(['-ss', String(shot.srcStart), '-t', String(shot.dur), '-i', join(DIRS.takes, `${take.id}.mp4`), '-filter_complex', f.join(';'), '-map', `[${last}]`, '-t', String(shot.dur), ...ENC, file]);
+}
+
+/**
+ * A full-frame clip from a 1920×1080 take (the MCP terminal), trimmed, optionally sped up (`speed`), with a
+ * slow 2 % push so a terminal hold never reads as a frozen frame.
+ */
+export function clipSegment(shot, take, file) {
+  const k = shot.speed ?? 1;
+  const push = pushFilter('0:v', 'p', shot.dur, 1.02, { fx: 0.3, fy: 0.3 }).replace(/^\[0:v\]/, '').replace(/\[p\]$/, '');
+  const vf = [`setpts=(PTS-STARTPTS)/${k}`, 'fps=30', 'scale=1920:1080:flags=lanczos', push, 'format=yuv420p'].join(',');
+  ffmpeg(['-ss', String(shot.srcStart), '-t', String(shot.dur * k + 0.1), '-i', join(DIRS.takes, `${take.id}.mp4`), '-vf', vf, '-t', String(shot.dur), ...ENC, file]);
 }
 
 /** A full-screen card (title / code) with an optional fade and a 2 % push-in. */

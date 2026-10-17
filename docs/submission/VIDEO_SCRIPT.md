@@ -1,4 +1,4 @@
-# Neighborline: demo video script (target 2:45)
+# Neighborline: demo video script (Draft 2, 2:40.5)
 
 **Audience:** PayPal DevRel, product and engineering judges, plus sponsor judges. They watch at about 1.5× and
 decide within the first 60–90 seconds.
@@ -10,21 +10,32 @@ device for which it was built", "must be uploaded to and made publicly visible o
 party trademarks, or copyrighted music or other material" unless the entrant has permission. Judging criterion (§6):
 "Does the video clearly demonstrate the project working end-to-end?"
 
-**The story in one line:** Mrs. Lan's phone is the main character. The video opens on her phone and stopwatch, and
-closes on her phone after it turns warm.
+**The story in one line:** Mrs. Lan's voice is the first thing you hear and her phone is the main character. The video
+opens on her voice note, cuts to her phone and the stopwatch, and closes on her phone after it turns warm.
+
+**What changed in Draft 2** (JUDGE-PANEL-2 #5): the first 5 s are her voice note (waveform, her Vietnamese words, the
+English underneath) with the hook line on screen at 0.3 s, not an idle phone; approval 2 is a real tap as Marcus, signed
+by a passkey on a virtual WebAuthn authenticator; every take is re-recorded on the current build (story clock 7:42,
+Rosa's 6-second claim beat); the stale code card, test count and `HOSTED_URL` are gone; a 12-second MCP agent beat is
+added; `/report` is trimmed to 9 s. The pipeline and the shot timecodes live in `video/timeline.json`; the resolved
+cut is `video/edl.json`.
 
 **Hard constraints this script meets**
 
 | Constraint | Where it is met |
 |---|---|
-| Hook in the first 10 s with Mrs. Lan and the stopwatch | 0:00–0:10. Her phone and the running stopwatch are on screen together from the first frame |
-| No dashboard in the first 60 s | Until 1:36 we show only phones, the stopwatch and one title card. The PayPal rail panel first fills the frame at 1:46 |
-| Working end to end by 1:30 | Lan goes from voice note to PayPal `SUCCESS` to a message back in Vietnamese by about **0:25** (stage 22.5 s, Play at 0:02) |
-| Rosa's unclaimed rescue | 1:00–1:27 |
-| 5-second impersonator block | 1:27–1:36 (the block itself lands at 1:29) |
-| Under the hood | 1:36–2:12: the trust page, the stage's rail and 4 code cards |
-| Impact and ask | 2:12–2:45 |
-| VO ≤ 380 words | **335 words** (counted below) |
+| Hook in the first 3 s | 0:00–0:05: her voice note plays (waveform, her Vietnamese words lighting up, the English under them). The hook line *"Leave a voice note in any language. Two neighbors approve. Cash lands in PayPal or Venmo."* is on screen from 0:00.3 (fully in by 0:00.7) |
+| No idle phone, no "Press Play" | The first stage frame is P+0.2: the voice bubble is already arriving and the clock already runs |
+| No dashboard in the first 60 s | Until 1:30.5 we show only phones, the stopwatch, the voice-note card and one title card. The PayPal rail first fills the frame at 1:40.5 |
+| Working end to end by 1:30 | Lan goes from voice note to PayPal `SUCCESS` to a message back in Vietnamese at **0:27.3** (stage {T} = 0:22.4, Play at 0:04.8) |
+| A real human signature in the hero | Approval 2 at 0:25.7 is a real click as Marcus and a real WebAuthn ceremony; the card reads "Signed with passkey · Visitor’s device (as Marcus)", and a 1.6× inset holds it on screen |
+| Rosa's unclaimed rescue | 0:57–1:21.5 (unclaimed at 1:09.3, claimed at 1:15.4) |
+| 5-second impersonator block | 1:21.5–1:30.5 (the cut lands on the blocked card at 1:21.6) |
+| Under the hood | 1:30.5–2:05.5: the trust page, the rail and 4 code cards |
+| Best Use of PayPal + AI | 2:05.5–2:17.5: an AI agent through `neighborline-payouts-mcp`, refused without two signatures, paid with them |
+| Impact and ask | 2:17.5–2:40.5 |
+| Total ≤ 2:50 | **2:40.5** |
+| VO ≤ 380 words, every line ≤ ~160 wpm in its slot | **326 words**; the fastest line is V4 at 154 wpm (table in §2) |
 
 ---
 
@@ -36,164 +47,163 @@ closes on her phone after it turns warm.
    - In sandbox mode nobody can claim Rosa's payout, so Shot 7's `SUCCESS` beat exists only in fake mode. A sandbox cut ends Shot 7 on the claim help.
    - Never record a take whose labels say "sandbox" while the ids come from the fake.
 2. **The real stopwatch number.** The stage stopwatch measures wall-clock time from `request.created` to the `SUCCESS` webhook.
-   - At `speed=1` the Lan run freezes at about **0:22.5** (measured Oct 16 on a production build in fake mode: transcript and read-back at 1.6 s, confirmed 8.6 s, approvals 14.7 s and 20.8 s, batch 21.0 s, `SUCCESS` webhook 22.5 s). The system's share on the split stopwatch is about 3 s.
+   - At `speed=1` the Lan run freezes at about **0:22.5** (Draft 2 take, Oct 16, production build, fake mode: read-back 1.6 s, confirmed 8.7 s, Dana 14.8 s, Marcus tapped at 20.5 s and signed at 20.9 s, batch 21.0 s, `SUCCESS` webhook 22.5 s; the stopwatch froze at **0:22.4**, split 0:19.2 neighbors deciding / 0:03.1 system). Runs vary by ±0.2 s.
    - Read the exact value off the take and put it in `{T}` everywhere below and in the thumbnail.
    - **Do not use `speed=3` for the hero shot.** It shows compressed time, and a judge who reads the code will notice.
-3. **The organizers tap on cue.** Say so on screen (the 0:32 lower third). The veteran-judge research is explicit: judges forgive a labelled shortcut but never a hidden one.
+3. **The organizers tap on cue.** Say so on screen (the 0:31.6 lower third, and the approval-2 lower third says *we* tapped as Marcus). The veteran-judge research is explicit: judges forgive a labelled shortcut but never a hidden one.
 4. **"Calls you back."** Phone, SMS and WhatsApp messages are not built (see the `/trust` "Not yet" row). Neighborline messages the neighbor back **in her thread on the web line**. The VO therefore says "messages her" and "a message in Vietnamese", never "calls" or "texts". If a Twilio channel ships, change line V5.
 5. **"Approval service holds the credentials."** Shipped: `apps/approver` is a separate process and the only one with Payouts credentials. V7 uses the separate-service wording.
-6. **Passkeys and demo keys.** Every approval is a WebAuthn signature over the approval hash. In the hero take Dana and Marcus are scripted, so their taps are signed with **labelled demo keys** ("Dana: signed with demo key" on the card). For the 5-second passkey beat, record a take with "I'll approve as Marcus" on, on a laptop with Touch ID: the prompt appears, the card then reads "Signed with passkey · Visitor’s Mac (as Marcus)". Never call a demo-key signature a passkey on screen.
+6. **Passkeys and demo keys.** Every approval is a WebAuthn signature over the approval hash. In the Draft 2 hero take Dana is scripted and signs with her **labelled demo key** ("Dana: signed with demo key"). Marcus is the manual path: `/demo?scenario=lan&mode=manual&speed=1` ("I’ll approve as Marcus" on), and the recorder clicks Approve at P+20.4 on a **virtual WebAuthn authenticator** (Chrome DevTools `WebAuthn.addVirtualAuthenticator`, user verification on). The ceremony is real (the visitor's passkey is enrolled, then signs); only the finger is simulated. The card reads "Signed with passkey · Visitor’s device (as Marcus)": the recorder's user agent is Linux, so the app says "device", and we did not spoof a Mac. The lower third says so ("We tapped as Marcus, on cue · a virtual WebAuthn authenticator in Chrome"). A human re-take on a Mac with Touch ID would read "Visitor’s Mac (as Marcus)" and could drop the word "virtual". Never call a demo-key signature a passkey on screen.
 7. **One speed framing.** The stopwatch is split into "Neighbors deciding" and "System". Quote the system time as the speed claim ("the machine part took about three seconds") and say that the people take as long as they need. Never "90 seconds". Landing copy: "minutes, not days".
 
 ---
 
 ## 1. Shot-by-shot script
 
-Coordinates are CSS pixels on a 1920×1080 viewport. `RECORDING_PLAN.md` gives the crop boxes in source pixels.
-**Persistent corner tag** (top-left, 13.6 px Be Vietnam Pro, `--ink-3` on a `--paper-raised` pill), on from 0:00 to
-2:30: `PayPal sandbox · test money · fictional people · AI voices`. In fake mode it reads
+Coordinates are CSS pixels on a 1920×1080 viewport. `RECORDING_PLAN.md` gives the crop boxes in source pixels. Every
+time below is the Draft 2 cut (`video/edl.json`); P+x is seconds after the Play click in that take.
+**Persistent corner tag** (top-left, Be Vietnam Pro, `--ink-3` on a `--paper-raised` pill), on from 0:00 to 2:26.5 except during the MCP clip (2:05.5–2:17.5, whose own header carries the label):
+`PayPal sandbox · test money · fictional people · AI voices`. In fake mode it reads
 `Simulated PayPal sandbox · fictional people · AI voices`.
 
-### Shot 1. Cold open: her phone, her voice (0:00–0:02)
-- **Visual:** take `LAN`, the frames before Play is pressed. Composition A: Mrs. Lan's phone (crop) on the left half, and the big stopwatch (crop) on the right reading `0:00.0`, with the caption "The clock starts when the voice note arrives." Her phone's idle hint reads "Mrs. Lan's power has been out for two days." Battery 23 %.
-- **URL:** `/demo?scenario=lan&speed=1` (Play is clicked by the recorder at a logged time, so the cold open has clean idle frames). Variant: `&autoplay=1` works, but it leaves no idle frames.
-- **Audio:** Mrs. Lan's voice note, synthetic Vietnamese TTS of the fixture transcript, first sentence only, under −6 dB room tone.
-- **Caption (burned in, her words):** "Hello, this is Lan on Hawthorne Street. My power has been out for two days…"
-- **Lower third:** none yet.
+### Shot 1. Cold open: her voice note (0:00–0:05)
+- **Visual:** a full-frame voice-note card on `--paper`, rendered frame by frame (`video/lib/voicenote.mjs`). No phone, no stopwatch, no "Press Play".
+  - A frost voice-note bubble with a pause glyph; its waveform fills left to right as she speaks (0:00.2–0:04.7). With `--with-vo` the bars and the word timing come from the real voice file.
+  - Above it: `Voice note · Mrs. Lan · Vietnamese · 7:42 AM`.
+  - Under it, her words in Vietnamese light up as she says them: "Xin chào, tôi là bà Lan, ở khu Eastside. Sau trận bão băng, nhà tôi bị mất điện hai ngày nay rồi." (the first two sentences of the intake fixture, `lan_vi.json`).
+  - Under that, in English, each sentence as hers starts: "Hello, I’m Mrs. Lan, from the Eastside. After the ice storm, my house has been without power for two days now."
+- **Hook line (0:00.3, top, Literata):** **"Leave a voice note in any language."** / "Two neighbors approve. Cash lands in PayPal or Venmo."
+- **Audio:** Mrs. Lan's voice note (synthetic Vietnamese TTS, `sage`, phone-speaker EQ) from 0:00.2. No narrator until 0:05.4.
+- **Captions:** none burned (the card is the subtitle); the SRT carries "[Mrs. Lan, in Vietnamese] Hello, I’m Mrs. Lan…".
 
-### Shot 2. The voice note lands and the clock runs (0:02–0:12)
-- **Visual:** same composition. The recorder clicks Play at 0:02, which is stage time 0.
-  - The voice bubble appears, and the transcript and the Vietnamese read-back fill in at about 0:03.6, with the "Nghe lại" (listen again) chip.
-  - The stopwatch runs in ink, not amber.
-- **Lower third (0:02–0:07):** `Eastside, the morning after an ice storm` / `Mrs. Lan · Vietnamese · voice note`
-- **VO V1 (starts 0:03.5):** "That's Mrs. Lan. Power out two days since the ice storm. She doesn't read English. She just left a voice note for her neighborhood hotline. Watch the clock."
-- **Captions:** VO captions at the bottom. Above them, in smaller type, the read-back's English line when it appears: "The group's rules allow up to $150, sent to Venmo @lan-nguyen54. Is that right?"
+### Shot 2. The voice note lands and the clock runs (0:05–0:14)
+- **Visual:** take `LAN` from P+0.2, composition A: her phone (left) and the big stopwatch (right), already running. The read-back in Vietnamese with "Nghe lại" (listen again) and its `EN` line land at 0:06.4; "Đúng rồi" (that's right) at 0:13.5.
+- **Lower third (0:05.2–0:10):** `Eastside, the morning after an ice storm` / `The clock starts when her voice note arrives`
+- **VO V1 (0:05.4–0:13.9):** "Mrs. Lan doesn't read English, and her power's been out two days. She just left a voice note. Watch the clock."
 
-### Shot 3. She says yes, and two phones buzz (0:12–0:18)
-- **Visual:** at about 0:10.6 the "Đúng rồi" (that's right) bubble appears on her phone. Hard cut at 0:12 to composition B: all three phones (Lan · Dana · Marcus) with a small stopwatch top-right.
-  - Both organizer phones buzz in with the card: `$150 · Policy v1 · Utility outage · up to $150 · To Venmo @lan-nguyen54`, and the chips "Handle checked", "Destination not reused", "Within caps".
-- **VO V2 (0:12.5–0:24):** "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers, on two phones."
-- **Lower third (0:13–0:18), next to the organizer cards:** `Amount computed by code from the group's written rules`
+### Shots 3–4. Two phones buzz; approve, approve with a passkey; paid (0:14–0:31)
+- **Visual:** composition B, all three phones (Lan · Dana · Marcus) and a small stopwatch, real time, no cuts.
+  - Both organizer cards: `$150 · Policy v1 · Utility outage · up to $150 per request · To Venmo @lan-nguyen54`, chips "Handle checked", "Destination not reused", "Within caps".
+  - 0:19.6: Dana approves (scripted, "Dana: signed with demo key"). Marcus's phone shows **Your turn** and the stopwatch says "Waiting for you to approve as Marcus".
+  - 0:25.3: a tap ring on Marcus's **Approve $150**; the button spins through the WebAuthn ceremony; 0:25.7 approval 2 of 2.
+  - 0:26.2–0:31: a 1.6× inset (right column) of Marcus's card: `Dana ✓ You ✓ 2 of 2 approvals`, `Dana: signed with demo key`, **`Signed with passkey · Visitor’s device (as Marcus)`**.
+  - 0:27.3: Lan's phone warms from frost to amber, and `$150 · Venmo · Tiền đã đến` (the money has arrived) lands. The stopwatch freezes amber at **{T} = 0:22.4**.
+- **Lower thirds:** 0:14.4–0:19.4 `Amount computed by code from the group’s written rules` / `Policy v1 · Utility outage · up to $150`. 0:25.9–0:30.9 `Approval 2 of 2 · signed with a passkey` / `We tapped as Marcus, on cue · a virtual WebAuthn authenticator in Chrome · Dana: labelled demo key`.
+- **VO V2 (0:14.1–0:25.1):** "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers sign."
+- **VO:** silence from 0:25.1 to 0:31.4, across the tap and the money moment. No SFX.
 
-### Shot 4. Approve, approve, paid (0:16–0:31)
-- **Visual:** composition B continues in real time with no cuts.
-  - Dana's chip turns to a check at about 0:16.7, and Marcus's at about 0:22.8.
-  - At about 0:24.5 Lan's phone warms from frost to amber, and the `$150 · Venmo · Tiền đã đến` (the money has arrived) bubble lands. Hold on it until the cut at 0:31.
-  - The stopwatch freezes and turns amber at **0:{T}**.
-- **VO:** silence from 0:24 to 0:32, across the money moment. No SFX.
-- **Caption (on approval 2, about 0:22.8):** `Approval 2 of 2 · two different organizers, two different keys`
-
-### Shot 5. Push in on her phone (0:31–0:46)
-- **Visual:** back to composition A, with the warm phone and the frozen amber stopwatch. Slow 4 % push-in (zoompan) on the paid bubble.
-- **On-screen translation (under the bubble):** "Sent $150 to your Venmo (@lan-nguyen54). Transaction C1C4EB…3D08. If you don't see it, just reply here."
-- **Lower third (0:33–0:44):** `Voice note → PayPal SUCCESS: 0:{T}` / `Organizers tapped on cue in this demo · PayPal sandbox`
-- **VO V3 (0:32–0:45):** "Paid, into her Venmo, with a message in Vietnamese. {T-words} seconds from voice note to PayPal's SUCCESS webhook. Our organizers tapped on cue; with real volunteers, it's as long as two neighbors take to check their phones."
-  - *Fake-mode alternate:* "…{T-words} seconds from voice note to the SUCCESS webhook, on our PayPal stand-in…"
+### Shot 5. Push in on her phone (0:31–0:44)
+- **Visual:** composition A, warm phone, frozen amber stopwatch, slow 4 % push-in on the paid bubble ("Chào Lan. Đã gửi $150 vào Venmo của bạn…" with its `EN` line "Hi Lan. $150 has been sent to your Venmo. We hope it helps. Take care.").
+- **Lower third (0:31.6–0:43.4):** `Voice note → PayPal SUCCESS: 0:22.4` / `Approvals on cue in this demo · simulated PayPal sandbox`
+- **VO V3 (0:31.4–0:43.6):** "Paid, into her Venmo, with a message in Vietnamese. Twenty-two point four seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer."
+  - *Sandbox alternate:* "…Twenty-two point four seconds to PayPal's SUCCESS webhook. The approvals came on cue; real neighbors take longer."
   - If Venmo had to use PayPal's sandbox mock (`POSPYO003`), add to the lower third: `Venmo item: PayPal's documented sandbox mock`.
 
-### Shot 6. Name, problem, proof (0:46–1:00)
-- **Visual:** HTML title card on `--paper`.
-  - Wordmark (line + lit dot), then in Literata 65 px: **"A hotline, not a dashboard."**
-  - Two plain lines in Be Vietnam Pro 26 px, each with a 13.6 px source:
-    - "300 relief requests overnight, in Instagram comments." (LA Public Press, Jan 2025, Mutual Aid LA Network after the Eaton fire)
-    - "Fake Venmo handles, one letter off the real group's." (Chronicle of Philanthropy, Apr 2026)
-- **VO V4 (0:46–1:00):** "This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most groups still run on spreadsheets and a volunteer's personal Venmo."
+### Shot 6. Name, problem, proof (0:44–0:57)
+- **Visual:** HTML title card on `--paper`: wordmark, **"A hotline, not a dashboard."**, and two sourced lines: "300 relief requests overnight, in Instagram comments." (LA Public Press, Jan 2025, Mutual Aid LA Network after the Eaton fire) and "Fake Venmo handles, one letter off the real group’s." (Chronicle of Philanthropy, Apr 2026).
+- **VO V4 (0:44.3–0:56.8):** "This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most still run on a volunteer's personal Venmo."
 
-### Shot 7. Rosa: unclaimed, then rescued (1:00–1:27)
-- **Visual:** take `ROSA`, `/demo?scenario=rosa&speed=2`, Play clicked at video 1:00. Composition A with Rosa's phone; the stopwatch crop on the right shows the caption "Unclaimed — helping Rosa claim it" while she is unclaimed.
-  - About 1:00.8: the Spanish read-back appears.
-  - About 1:04.3: she confirms.
-  - About 1:07.4 and 1:10.5: the two approvals happen. Show a 2-second cut to composition B here so judges see the same two-phone pattern.
-  - About 1:12.1: **UNCLAIMED**. A Spanish claim-help message appears: "…ese correo todavía no tiene cuenta de PayPal…" ("…that email doesn't have a PayPal account yet…").
-  - About 1:18.2: **SUCCESS** (fake mode: the fake PayPal plays her claim). Her phone warms, and "¡Ya está! Los $100 llegaron a su PayPal" ("Done! The $100 reached your PayPal") appears.
-  - Hold on that until 1:27.
-- **Persistent caption (1:00–1:27):** `Shown at 2× speed`
-- **On-screen translations:** under the claim-help bubble, "We sent $100, but that email has no PayPal account yet. To get it: open paypal.com, sign up with that same email… The money waits for you for 30 days." Under the success bubble, "It worked — the $100 is in your PayPal now."
-- **Lower third (1:14–1:20):** `PayPal webhook: PAYMENT.PAYOUTS-ITEM.UNCLAIMED`, then `…SUCCEEDED`
-- **VO V5:** "Rosa asks for groceries, in Spanish. Same rules, two approvals." (1:01–1:05) … "Her email has no PayPal account yet, so PayPal reports the payout unclaimed." (1:13–1:18) … "Most systems stop there. Neighborline messages her, in Spanish, exactly how to claim it." (1:18–1:23) … "She does. Success." (1:23–1:25)
+### Shot 7. Rosa: unclaimed, then rescued (0:57–1:21.5)
+- **Visual:** take `ROSA` (`speed=2`), composition A 0:57–1:04, composition B 1:04–1:08.4 (both approvals, the same two-phone pattern), then A again.
+  - 1:09.3 **UNCLAIMED**, and the Spanish claim help lands: "Le enviamos $100 por PayPal, pero todavía no lo ha cobrado. Para recibirlo, abra PayPal o regístrese con el mismo correo o número de teléfono que nos dio…" (the app's `EN` line under it: "We sent $100 to PayPal, but it has not been claimed yet. To get it, open PayPal or sign up with the same email or phone number you gave us…"). The stopwatch says "Unclaimed — helping Rosa claim it".
+  - 1:15.4 **SUCCESS** (fake mode: the PayPal stand-in plays her claim ~6 s after the help message; the rail says "Her claim is scripted in this demo"). Her phone warms: "$100 · PayPal · El dinero llegó".
+- **Pill (0:57–1:21.5):** `Shown at 2× speed`
+- **Lower thirds:** 1:09.4 `PayPal webhook` / `PAYMENT.PAYOUTS-ITEM.UNCLAIMED` until 1:15.4, then `…SUCCEEDED · her claim is simulated` for 5.5 s.
+- **VO V5:** "Rosa asks for groceries, in Spanish. Same rules, two approvals." (0:57.5–1:02.5) … "Her email has no PayPal account yet: unclaimed. She gets claim help in Spanish." (anchored to UNCLAIMED + 0.3 s: 1:09.6–1:15.2) … "She claims it. Success. Most payout systems stop at unclaimed; this one follows through." (1:15.6–1:21.3)
 
-### Shot 8. The impersonator, blocked in 5 seconds (1:27–1:36)
-- **Visual:** take `BLOCKED`, `/demo?scenario=blocked&speed=1`, Play at 1:27.5. Composition C: the unknown sender's phone plus Dana's phone, cropped to the left 870 px.
-  - At about 1:28.7 the red "Lookalike handle blocked" chip appears, and "Approve disabled" greys out the button.
-  - A 1.5× zoom on the handle line.
-- **Overlay (1:30–1:35), mono type, stacked:**
-  `@eastside-mutualaid   ← the group`
-  `@eastside-mutuaiaid   ← the text message`
-- **Lower third:** `Blocked before any money moved · 0:{BLOCK_T}` (about 1.2 s; the pipeline fills it from the take)
-- **VO V6 (1:28–1:36):** "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves."
+### Shot 8. The impersonator, blocked in about a second (1:21.5–1:30.5)
+- **Visual:** take `BLOCKED` from P+1.64 (the stage flags the message at P+1.33 and the blocked card is on screen from P+1.64, so the cut lands on it; the empty "Nobody is waiting" frames are gone), composition C: the unknown sender's phone plus Dana's, and a 2× zoom of the blocked card. At 1:21.6 the red "Lookalike handle blocked" chip appears and "Approve disabled" greys out the button.
+- **Overlay (1:22.2–1:30.5):** `@eastside-mutualaid ← the group` / `@eastside-mutuaiaid ← the text message`
+- **Lower third (1:21.9–1:30.5):** `Blocked before any money moved · 0:01.2` / `Lookalike handle · Approve disabled on every phone`
+- **VO V6 (1:21.9–1:30.3):** "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves."
 
-### Shot 9. Under the hood: who can do what (1:36–1:46)
-- **Visual:** `/trust`, scrolled to "Know your agent: who can do what". A slow vertical pan over the diagram.
-  - Left: the dashed "Cannot move money" box (intake, notify, report agents).
-  - Right: the chain down to the dark "Approval service — a separate process, the only one with PayPal Payouts credentials" box (true since `apps/approver` shipped; see decision 5).
-- **VO V7, part 1 (1:36–1:46):** "Under the hood: the agents that talk to neighbors have no PayPal tools at all. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers."
+### Shot 9. Under the hood: who can do what (1:30.5–1:40.5)
+- **Visual:** `/trust`, "Know your agent: who can do what", slow vertical pan: the dashed "Cannot move money" box, then the chain down to "Approval service — a separate process, the only one with PayPal Payouts credentials".
+- **VO V7a (1:30.8–1:45.2, runs into Shot 10):** "Under the hood: the agents that talk to neighbors have no PayPal tools. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers."
 
-### Shot 10. The rail, now full screen (1:46–1:52)
-- **Visual:** the full `/demo` stage at the end of the `LAN` take, the first full-frame view. Slow push toward the PayPal rail column:
-  - `sender_batch_id nl_…`, `payout_batch_id`, `payout_item_id`
-  - "Webhook verified · PAYMENT.PAYOUTS-ITEM.SUCCEEDED · signature checked"
-  - the "Sandbox: simulated" chip, or no chip in sandbox mode
-- **VO V7, part 2 (1:46–1:52):** "Every AI output is checked against a schema, repaired once, or the neighbor is asked again, never guessed."
+### Shot 10. The rail, full screen (1:40.5–1:45.5)
+- **Visual:** the finished Lan stage, framed, pushing toward the PayPal rail: `sender_batch_id nl_…`, `payout_batch_id`, `payout_item_id`, "Webhook verified · PAYMENT.PAYOUTS-ITEM.SUCCEEDED · signature checked", "Approval 2 of 2 · Marcus · Signed with passkey on Visitor’s device (as Marcus)", and the "Sandbox: simulated" chip.
 
-### Shot 11. Code cards (1:52–2:12), 4 cards × 5 s
-Plain, on-brand code cards: Atkinson Hyperlegible Mono 22 px, ink on `--paper-raised`, one highlighted line range in
-`--frost`, and the file path and line range in the header. No syntax-colour rainbow.
+### Shot 11. Code cards (1:45.5–2:05.5), 4 cards × 5 s
+Atkinson Hyperlegible Mono 21 px, ink on `--paper-raised`, highlighted lines in `--frost`, file path and line range in the
+header. The pipeline cuts each excerpt from the committed file by regex and fails loudly if an anchor moves.
 
 | # | Time | File | What is highlighted |
 |---|---|---|---|
-| 1 | 1:52–1:57 | `packages/agents/src/validate.ts` (lines 1–12 header comment plus `summarizeTrace`, ~130–140) | "invalid? → ONE repair call…" and the `Schema repaired 1 field (payout.value)` summary string |
-| 2 | 1:57–2:02 | `packages/core/src/approvals.ts` (`senderBatchIdFor`, ~line 180; `canExecute` above it) | `'nl_'` + 24 hex of SHA-256(domain ‖ approval id ‖ approval hash) |
-| 3 | 2:02–2:07 | `packages/paypal/src/webhooks.ts` (~lines 60–80) | `path: '/v1/notifications/verify-webhook-signature'` and the raw-body splice |
-| 4 | 2:07–2:12 | Terminal card: `pnpm test` summary, then `packages/paypal/src/reconcile.ts` line 43 signature | The pass counts per package, printed from the real run by the pipeline (711 on Oct 16, 2026) |
+| 1 | 1:45.5–1:50.5 | `packages/agents/src/validate.ts` (header comment + `summarizeTrace`) | "invalid? → ONE repair call…" and the `Schema repaired …` summary |
+| 2 | 1:50.5–1:55.5 | `packages/core/src/approvals.ts` lines 144–183 (`canExecute`, `SENDER_BATCH_DOMAIN`, `senderBatchIdFor`) | `distinctApprovers(...) >= requiredApprovers(...)`, `SENDER_BATCH_DOMAIN = 'neighborline/paypal/sender_batch_id/v2'`, and ``return `nl_${sha256Hex(`${SENDER_BATCH_DOMAIN}\n${approval.id}\n${approval.hash}`).slice(0, 24)}` `` (the domain-separated derivation the approver calls) |
+| 3 | 1:55.5–2:00.5 | `packages/paypal/src/webhooks.ts` | `path: '/v1/notifications/verify-webhook-signature'` and the raw-body splice |
+| 4 | 2:00.5–2:05.5 | Terminal card: the real `pnpm test` summary per package, then `packages/paypal/src/reconcile.ts` `reconcile(…)` | **943 tests pass** (Oct 16, 2026, 10 packages; read from the cached run, never typed) |
 
-- **VO V7, part 3 (1:52–2:12):** "The batch ID is derived from that approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search."
-- **Lower third on card 4:** `Open source · MIT · @neighborline/paypal + an MCP server that adds Payouts tools to the PayPal Agent Toolkit`
+- **VO V7b (1:45.6–1:50.4):** "AI output is schema-checked, repaired once, or the neighbor is asked again."
+- **VO V7c (1:50.8–2:05.2):** "The batch ID is derived from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. The test count is from a real run."
+- Card 4's footer: `Open source · MIT · @neighborline/paypal + an MCP server that adds Payouts tools to the PayPal Agent Toolkit`.
 
-### Shot 12. Where the money went (2:12–2:30)
-- **Visual:** `/report`. Hold on the headline "Where the money went" and the green chip "Every number checked against the ledger · 28 figures". Then a slow scroll to "Are approvals fair across languages?".
-- **Lower third (whole shot):** `Seeded demo data · fictional group` (required: the report figures are fixtures).
-- **VO V8 (2:12–2:28):** "Donors give with PayPal or Venmo. The public report is AI-written around numbers that code pulls from the ledger, and it never names a neighbor. Built for the roughly nine hundred volunteer groups that mobilize when the storm hits."
-  - Source for "nine hundred": Mutual Aid Hub mapped about 900 active US groups by 2021 (Spotlight on Poverty). Put it in the video description, not on screen.
+### Shot 12. An AI agent pays, only with two signatures (2:05.5–2:17.5)
+- **Visual:** `takes/mcp-demo.mp4` from 0.9 s, full frame (recorded by `pnpm --filter @neighborline/example-mcp-agent-demo record`: the official MCP client over stdio, the real `neighborline-payouts-mcp` server, fake PayPal; the terminal's own header says "Real MCP over stdio · fake PayPal · scripted agent, no LLM").
+  - 2:07.5 the agent calls `create_payout_batch` with no approval token: **✗ Refused**: "an agent cannot authorize a payout on its own".
+  - 2:10.4 two organizers approve that exact batch; an HMAC token bound to it is minted.
+  - 2:13.5 the agent retries with the token: batch created; 2:14.6 `SUCCESS`; 2:16.2 reconciled against Transaction Search.
+- **Lower third (2:07.8–2:14.4, gone before the step-3 output reaches it):** `neighborline-payouts-mcp · open source, in @neighborline/paypal` / `No approval token: refused · two organizers sign: paid, SUCCESS, reconciled`
+- **VO V10 (2:05.8–2:17.3):** "For agent builders: the same guard ships as an MCP server. An AI agent asking to pay is refused without two humans' signatures. With them, it pays."
+- Known mismatch: the example's organizers are Ana and Ben and the handle is `@lan-nguyen`, not Dana, Marcus and `@lan-nguyen54` (examples lane; see the report).
 
-### Shot 13. Close and ask (2:30–2:45)
-- **Visual:** composition A again, with Mrs. Lan's warm phone and the frozen amber stopwatch. The right side cross-fades (320 ms) from the stopwatch to an end card:
+### Shot 13. Where the money went (2:17.5–2:26.5)
+- **Visual:** `/report`, hold 3 s on "Where the money went" and "Every number checked against the ledger", then pan to "Are approvals fair across languages?".
+- **Lower third:** `Seeded demo data · fictional group` / `The report’s figures are fixtures`.
+- **VO V8 (2:17.8–2:26.3):** "Donors give with PayPal or Venmo. The public report never names a neighbor, and every number comes from the ledger."
+  - The "about nine hundred volunteer groups" line (Mutual Aid Hub, via Spotlight on Poverty) moved to the video description.
+
+### Shot 14. Close and ask (2:26.5–2:40.5)
+- **Visual:** composition A with Mrs. Lan's warm phone; the right side cross-fades (320 ms) from the stopwatch to the end card:
   - **Neighborline**
-  - `Try the hotline, no login: {HOSTED_URL}/demo`
-  - `Open source (MIT): github.com/Aaaaarin/neighborline`
+  - `Try the hotline, no login` / **Live demo link in the description** (until deployed; with `HOSTED_URL` set the card prints `{HOSTED_URL}/demo` instead)
+  - `Open source (MIT)` / `github.com/Aaaaarin/neighborline`
   - `Built for the PayPal AI Hackathon`
-- **VO V9 (2:30–2:41):** "Neighborline is open source. Try the hotline yourself, no login, at the link below. Because the morning after a storm, help should sound like your own language."
-- **2:41–2:45:** silence. The porch-light dot in the wordmark lights up (the amber dot).
+- **VO V9 (2:27–2:38):** "Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language."
+- **2:38.3:** the porch-light dot in the wordmark lights amber; silence to 2:40.5.
 
 ---
 
 ## 2. Voiceover, clean copy (for TTS and the word count)
 
-| Line | Window | Words | Text |
-|---|---|---|---|
-| V1 | 0:03.5–0:12 | 28 | That's Mrs. Lan. Power out two days since the ice storm. She doesn't read English. She just left a voice note for her neighborhood hotline. Watch the clock. |
-| V2 | 0:12.5–0:24 | 30 | She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers, on two phones. |
-| V3 | 0:32–0:45 | 37 | Paid, into her Venmo, with a message in Vietnamese. Twenty-two seconds from voice note to PayPal's SUCCESS webhook. Our organizers tapped on cue; with real volunteers, it's as long as two neighbors take to check their phones. |
-| V4 | 0:46–1:00 | 35 | This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most groups still run on spreadsheets and a volunteer's personal Venmo. |
-| V5 | 1:01–1:25 | 40 | Rosa asks for groceries, in Spanish. Same rules, two approvals. / Her email has no PayPal account yet, so PayPal reports the payout unclaimed. / Most systems stop there. Neighborline messages her, in Spanish, exactly how to claim it. / She does. Success. |
-| V6 | 1:28–1:36 | 21 | Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves. |
-| V7 | 1:36–2:12 | 78 | Under the hood: the agents that talk to neighbors have no PayPal tools at all. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers. / Every AI output is checked against a schema, repaired once, or the neighbor is asked again, never guessed. / The batch ID is derived from that approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. |
-| V8 | 2:12–2:28 | 39 | Donors give with PayPal or Venmo. The public report is AI-written around numbers that code pulls from the ledger, and it never names a neighbor. Built for the roughly nine hundred volunteer groups that mobilize when the storm hits. |
-| V9 | 2:30–2:41 | 27 | Neighborline is open source. Try the hotline yourself, no login, at the link below. Because the morning after a storm, help should sound like your own language. |
-| | | **335** | Re-count after filling `{T}`. Budget is ≤ 380. |
+Fit = words ÷ window. The target is ≤ ~160 wpm in every slot (TTS at `coral`, "unhurried"); the build re-checks it
+and `edl.json → vo[]` keeps the resolved numbers. Mrs. Lan's Vietnamese (Shot 1) is not counted and is never sped up.
+
+| Line | Window | Seconds | Words | wpm needed | Text |
+|---|---|---|---|---|---|
+| V1 | 0:05.4–0:13.9 | 8.5 | 21 | 148 | Mrs. Lan doesn't read English, and her power's been out two days. She just left a voice note. Watch the clock. |
+| V2 | 0:14.1–0:25.1 | 11.0 | 28 | 153 | She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers sign. |
+| V3 | 0:31.4–0:43.6 | 12.2 | 30 | 148 | Paid, into her Venmo, with a message in Vietnamese. Twenty-two point four seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer. |
+| V4 | 0:44.3–0:56.8 | 12.5 | 32 | 154 | This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most still run on a volunteer's personal Venmo. |
+| V5a | 0:57.5–1:02.5 | 5.0 | 10 | 120 | Rosa asks for groceries, in Spanish. Same rules, two approvals. |
+| V5b | 1:09.6–1:15.2 | 5.6 | 14 | 150 | Her email has no PayPal account yet: unclaimed. She gets claim help in Spanish. |
+| V5c | 1:15.6–1:21.3 | 5.7 | 14 | 147 | She claims it. Success. Most payout systems stop at unclaimed; this one follows through. |
+| V6 | 1:21.9–1:30.3 | 8.4 | 21 | 150 | Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves. |
+| V7a | 1:30.8–1:45.2 | 14.4 | 36 | 150 | Under the hood: the agents that talk to neighbors have no PayPal tools. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers. |
+| V7b | 1:45.6–1:50.4 | 4.8 | 12 | 150 | AI output is schema-checked, repaired once, or the neighbor is asked again. |
+| V7c | 1:50.8–2:05.2 | 14.4 | 36 | 150 | The batch ID is derived from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. The test count is from a real run. |
+| V10 | 2:05.8–2:17.3 | 11.5 | 27 | 141 | For agent builders: the same guard ships as an MCP server. An AI agent asking to pay is refused without two humans' signatures. With them, it pays. |
+| V8 | 2:17.8–2:26.3 | 8.5 | 20 | 141 | Donors give with PayPal or Venmo. The public report never names a neighbor, and every number comes from the ledger. |
+| V9 | 2:27–2:38 | 11.0 | 25 | 136 | Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language. |
+| | | | **326** | | Budget ≤ 380. `{T}` is read aloud exactly as the stopwatch shows it. |
+
+Draft 1 → Draft 2 trims (each line was over ~160 wpm in its new slot): V1 28 → 21 words, V3 37 → 30, V4 35 → 32,
+V5 40 → 38 (re-cut around the 6-second claim beat), V7 78 → 84 over a 34-second span (was 36 s), V8 39 → 20 (the
+`/report` shot went from 18 s to 9 s).
 
 **Delivery note for TTS or a human reader:** warm, unhurried, low and close to the mic, like a neighbor explaining
-something at a kitchen table. No announcer energy. Stress the facts ("two different organizers", "never guessed"),
-not adjectives. Target about 150 words per minute. V7 can run at 165.
+something at a kitchen table. No announcer energy. Stress the facts ("two different organizers", "two humans'
+signatures"), not adjectives. Target about 150 words per minute.
 
 ---
 
-## 3. Two alternative opening lines (replace V1)
+## 3. Alternative V1 lines
 
-1. **The stakes line (veteran-judge research):** "She doesn't read English, she doesn't have a bank app, and her power's been out for two days. Watch the clock." (22 words; saves about 3 s)
-2. **The contrast line:** "After the Eaton fire, one mutual-aid group got three hundred requests overnight, in Instagram comments. This is the same morning, with a hotline instead. Her name is Lan." (28 words. If you use it, cut the Eaton sentence from V4 and give V4's time to Shot 5.)
+1. **The stakes line:** "She doesn't read English, she has no bank app, and her power's been out two days. Watch the clock." (19 words, 134 wpm in V1's slot)
+2. **The contrast line:** "After the Eaton fire, one group got three hundred requests overnight, in Instagram comments. This is the same morning, with a hotline." (22 words, 155 wpm; then cut the Eaton sentence from V4)
 
-Keep V1 as the default. It names her, places the storm and gives the instruction ("watch the clock") within 8 seconds,
-while the clock is already visible.
+Keep V1 as the default: by 0:14 a judge has heard her, read the promise, and been told to watch the clock.
 
 ---
 
@@ -201,12 +211,15 @@ while the clock is already visible.
 
 | Label | Where | Why |
 |---|---|---|
-| Corner tag `PayPal sandbox · test money · fictional people · AI voices` | 0:00–2:30, top-left | One persistent, honest disclosure that never blocks the story |
-| `Organizers tapped on cue in this demo` | 0:33–0:44 | The approvals are scripted; the stopwatch is real wall-clock time |
-| `Shown at 2× speed` | 1:00–1:27 | The Rosa take uses `speed=2` |
+| Corner tag `PayPal sandbox · test money · fictional people · AI voices` | 0:00–2:26.5, top-left (off 2:05.5–2:17.5) | One persistent, honest disclosure that never blocks the story |
+| `We tapped as Marcus, on cue · a virtual WebAuthn authenticator in Chrome · Dana: labelled demo key` | 0:25.9–0:30.9 | Approval 2 is a real click and a real passkey ceremony, but the finger is simulated and the timing is ours |
+| `Approvals on cue in this demo` | 0:31.6–0:43.4 | Dana is scripted and we chose when to tap; the stopwatch is real wall-clock time |
+| `Shown at 2× speed` | 0:57–1:21.5 | The Rosa take uses `speed=2` |
+| `…SUCCEEDED · her claim is simulated` | 1:15.4–1:20.9 | In fake mode the PayPal stand-in plays Rosa's claim |
+| Terminal header `Real MCP over stdio · fake PayPal · scripted agent, no LLM` | 2:05.5–2:17.5 | The MCP beat is a scripted agent (no model call) against the fake |
 | `Sandbox: simulated` chip (product UI) | Visible in Shots 10 and 12 in fake mode | Comes from the app itself; do not hide it |
 | `Venmo item: PayPal's documented sandbox mock` | Shot 5, only if the Venmo spike fails | Sandbox Venmo settlement is unverified (docs/PAYPAL.md) |
-| `Seeded demo data · fictional group` | 2:12–2:30 | The report figures are fixtures |
+| `Seeded demo data · fictional group` | 2:17.5–2:26.5 | The report figures are fixtures |
 | YouTube "altered or synthetic content" box | Upload settings | Mrs. Lan's voice is a realistic AI voice of a fictional person. Disclose it: YouTube Studio's "Altered or synthetic content" question at upload |
 
 ---
@@ -248,4 +261,4 @@ while the clock is already visible.
 **YouTube upload**
 - [ ] Title: `Neighborline: a voice note in any language becomes PayPal or Venmo cash, approved by two neighbors`
 - [ ] Visibility: **Public** (the rules require "publicly visible on YouTube"). Upload the SRT as closed captions in addition to the burned-in captions. Use a custom thumbnail (THUMBNAIL_BRIEF.md). Turn off "Made for kids". Check the synthetic-content disclosure box.
-- [ ] Description: tagline, the hosted URL, the repo URL, chapter timestamps (0:00 Mrs. Lan · 1:00 Unclaimed rescue · 1:27 Impersonator · 1:36 Under the hood · 2:12 Impact), the sources for the stats, and the music credit.
+- [ ] Description: tagline, **the live demo link** (the end card and V9 point here), the repo URL, chapter timestamps (0:00 Mrs. Lan · 0:57 Unclaimed rescue · 1:21 Impersonator · 1:30 Under the hood · 2:05 AI agents and MCP · 2:17 Impact), the sources for the stats (incl. Mutual Aid Hub's ~900 groups), and the music credit.

@@ -31,6 +31,7 @@ export function toAss(T, cues) {
   ];
   const events = [];
   for (const c of cues) {
+    if (c.burn === false) continue; // already drawn by the shot itself (the cold open's words); SRT only
     // Split a cue where it crosses a cut into a composition with a different caption position.
     const cuts = T.shots.filter((s) => s.start > c.start && s.start < c.end).map((s) => s.start);
     const bounds = [c.start, ...cuts, c.end];

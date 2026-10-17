@@ -11,11 +11,11 @@ const NARRATOR = {
   instructions:
     'Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.',
 };
+// Her words are the first two sentences of the intake fixture (packages/agents/fixtures/scenarios/lan_vi.json), taken
+// from the cold-open shot in timeline.json, so the voice, the on-screen words and the app agree.
 export const LAN_VOICE = {
   id: 'lan_voice',
-  start: 0.2,
   voice: process.env.VO_LAN_VOICE ?? 'sage',
-  text: 'Alô, tôi là Lan ở đường Hawthorne. Nhà tôi mất điện hai ngày rồi, từ hôm bão băng.',
   instructions:
     'An older Vietnamese woman, tired and cold but polite, speaking natural Northern-accented Vietnamese, slowly, as if leaving a voice message on a phone.',
 };
@@ -35,7 +35,9 @@ export async function generateVo(T) {
   if (!process.env.OPENAI_API_KEY) throw new Error('--with-vo needs OPENAI_API_KEY');
   const files = [];
   const durations = {};
-  const jobs = [...T.vo.map((v) => ({ id: v.id, start: v.start, window: v.window, text: v.text, ...NARRATOR })), LAN_VOICE];
+  const open = T.shots.find((s) => s.kind === 'voicenote');
+  const lan = { ...LAN_VOICE, text: open.voice.vi, start: open.start + open.voice.start, window: +(open.dur - open.voice.start - 0.2).toFixed(2) };
+  const jobs = [...T.vo.map((v) => ({ id: v.id, start: v.start, window: v.window, text: v.text, ...NARRATOR })), lan];
   for (const j of jobs) {
     const key = createHash('sha256').update(JSON.stringify([MODEL, j.voice, j.instructions, j.text])).digest('hex').slice(0, 12);
     const file = join(DIRS.vo, `${j.id}-${key}.wav`);
@@ -50,7 +52,10 @@ export async function generateVo(T) {
   return { durations, files };
 }
 
-/** Mixes the VO onto the captioned video: lines placed by start time, phone-speaker EQ on Lan, loudness −14 LUFS. */
+/**
+ * Mixes the VO onto the captioned video: lines placed by start time, phone-speaker EQ on Lan, loudness −14 LUFS.
+ * Mrs. Lan's line is never sped up; if it runs past the cold open, lengthen shot s00 and shift V1 in timeline.json.
+ */
 export function mixVo(videoIn, files, out) {
   const args = ['-i', videoIn];
   const chains = [];

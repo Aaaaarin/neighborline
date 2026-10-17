@@ -30,16 +30,22 @@ export function clockWords(clock) {
   return w[0].toUpperCase() + w.slice(1);
 }
 
-export function loadTimeline() {
+export function loadTimeline(opts = {}) {
   const tl = readJson(join(HERE, 'timeline.json'));
   const takes = {};
   for (const id of ['lan', 'rosa', 'blocked']) {
     const m = readJson(join(DIRS.takes, `${id}.markers.json`));
+    m.id ??= id;
     const ev = {};
     m.events.forEach((e, i, all) => {
       for (const [name, f] of Object.entries(EVENT_NAMES)) if (ev[name] == null && f(e, i, all)) ev[name] = +(e.t - m.playAt).toFixed(3);
     });
     takes[id] = { ...m, ev };
+  }
+  // The MCP agent demo (examples/mcp-agent-demo, `pnpm … record`): a terminal take whose beats are named markers.
+  if (tl.shots.some((s) => s.take === 'mcp')) {
+    const m = readJson(join(DIRS.takes, 'mcp-demo.markers.json'));
+    takes.mcp = { id: 'mcp-demo', dpr: 1, playAt: 0, duration: m.duration, ev: m.markers, batchId: m.batchId };
   }
   const mode = tl.paypalMode;
   const pick = (v) => (v && typeof v === 'object' && !Array.isArray(v) && (v.fake || v.sandbox) ? v[mode] : v);
@@ -48,8 +54,9 @@ export function loadTimeline() {
     T_words: clockWords(takes.lan.clock),
     BLOCK_T: takes.blocked.clock,
     HOSTED_URL: process.env.HOSTED_URL ?? '{HOSTED_URL}',
+    TESTS: opts.tests != null ? String(opts.tests) : undefined,
   };
-  const fill = (s) => (typeof s === 'string' ? s.replace(/\{(T|T_words|BLOCK_T|HOSTED_URL)\}/g, (_, k) => vars[k]) : s);
+  const fill = (s) => (typeof s === 'string' ? s.replace(/\{(T|T_words|BLOCK_T|HOSTED_URL|TESTS)\}/g, (_, k) => vars[k] ?? `{${k}}`) : s);
 
   const srcSec = (take, expr) => {
     const m = /^P([+-]\d+(?:\.\d+)?)$/.exec(expr);
@@ -70,10 +77,12 @@ export function loadTimeline() {
     const t = takes[a.take];
     const ev = t.ev[a.event];
     if (ev == null) throw new Error(`event ${a.event} missing in take ${a.take}`);
+    // srcStart is in take-file seconds; a sped-up shot (speed > 1) maps file time to video time / speed.
     const fileT = t.playAt + ev;
-    const shot = shots.find((s) => s.take === a.take && s.srcStart != null && fileT >= s.srcStart && fileT < s.srcStart + s.dur);
+    const k = (s) => s.speed ?? 1;
+    const shot = shots.find((s) => s.take === a.take && s.srcStart != null && fileT >= s.srcStart && fileT < s.srcStart + s.dur * k(s));
     if (!shot) throw new Error(`event ${a.take}.${a.event} (P+${ev}) is not inside any shot`);
-    return +(shot.start + (fileT - shot.srcStart) + (a.offset ?? 0)).toFixed(3);
+    return +(shot.start + (fileT - shot.srcStart) / k(shot) + (a.offset ?? 0)).toFixed(3);
   };
   const shotAt = (t) => shots.find((s) => t >= s.start && t < s.end) ?? shots.at(-1);
 
@@ -82,6 +91,7 @@ export function loadTimeline() {
     const text = fill(pick(v.text));
     const start = v.anchor ? anchor(v.anchor) : secs(v.start);
     const end = v.anchor ? Math.max(start + 1, secs(v.end) + (start - secs(v.start))) : secs(v.end);
+    if (v.anchor && Math.abs(start - secs(v.start)) > 0.6) warnings.push(`${v.id}: anchored start ${tc(start)} is ${(start - secs(v.start)).toFixed(1)} s from the timeline's ${v.start}; update timeline.json`);
     const nWords = text.split(/\s+/).filter(Boolean).length;
     const est = +((nWords / v.wpm) * 60).toFixed(2);
     const window = +(end - start).toFixed(2);
@@ -95,7 +105,12 @@ export function loadTimeline() {
     const end = l.until ? anchor(l.until) : l.duration ? start + l.duration : secs(l.end);
     return { ...l, title: fill(l.title), sub: fill(pick(l.sub)), start, end, comp: compOf(shotAt(start)) };
   });
-  const timed = (arr) => (arr ?? []).map((x) => ({ ...x, start: secs(x.start), end: secs(x.end), text: fill(x.text) }));
+  const timed = (arr) =>
+    (arr ?? []).map((x) => {
+      const start = x.anchor ? anchor(x.anchor) : secs(x.start);
+      const end = x.until ? anchor(x.until) : x.duration ? start + x.duration : secs(x.end);
+      return { ...x, start, end, text: fill(x.text) };
+    });
   return {
     tl,
     mode,
@@ -107,7 +122,7 @@ export function loadTimeline() {
     pills: timed(tl.pills),
     overlays: timed(tl.overlays),
     lowerThirds,
-    corner: { start: secs(tl.corner.from), end: secs(tl.corner.to), text: tl.corner.text[mode] },
+    corner: { start: secs(tl.corner.from), end: secs(tl.corner.to), except: (tl.corner.except ?? []).map(([a, b]) => [secs(a), secs(b)]), text: tl.corner.text[mode] },
     endCard: Object.fromEntries(Object.entries(tl.endCard).map(([k, v]) => [k, fill(v)])),
     warnings,
     shotAt,
@@ -181,7 +196,7 @@ export function buildCues(T, voDurations = {}) {
       t = end;
     });
   }
-  for (const q of T.quotes) cues.push({ kind: 'quote', id: q.id, start: q.start, end: q.end, lines: cueTexts(q.text, 40)[0], who: q.who });
+  for (const q of T.quotes) cues.push({ kind: 'quote', id: q.id, start: q.start, end: q.end, lines: cueTexts(q.text, 40).flat(), who: q.who, ...(q.burn === false ? { burn: false } : {}) });
   return cues.sort((a, b) => a.start - b.start);
 }
 
