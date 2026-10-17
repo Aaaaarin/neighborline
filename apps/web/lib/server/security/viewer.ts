@@ -4,7 +4,9 @@
  *   organizer   a live passkey session of a real organizer (not a demo-visitor passkey): everything
  *   owner       the visitor whose tag is in the request id (their /demo run or /call request): full
  *   anyone else redacted view (first name + area, masked handles, no transcript, no phone/address);
- *               in DEMO_MODE another visitor's runs are hidden altogether (judges never see each other)
+ *               in DEMO_MODE another visitor's runs are hidden altogether (judges never see each other).
+ *               Without a public queue (THREAT_MODEL R12: the default when DEMO_MODE is off, or
+ *               PUBLIC_QUEUE=off) anyone else sees nothing at all: the queue is for organizers.
  */
 import { demoModeOn } from '@neighborline/passkeys';
 import type { OrganizerSession } from '../../types';
@@ -17,6 +19,16 @@ export interface Viewer {
   organizer: OrganizerSession | null;
   visitor: Visitor | null;
   demo: boolean;
+  /** May anonymous readers see the redacted queue? Set by viewerOf/viewerFromCookies; undefined = yes. */
+  publicQueue?: boolean;
+}
+
+/** PUBLIC_QUEUE=on|off; unset follows DEMO_MODE (the hosted demo shows judges the queue, a real group does not). */
+export function publicQueueOn(env: Record<string, string | undefined> = process.env): boolean {
+  const v = (env.PUBLIC_QUEUE ?? '').trim().toLowerCase();
+  if (['on', 'true', '1', 'yes'].includes(v)) return true;
+  if (['off', 'false', '0', 'no'].includes(v)) return false;
+  return demoModeOn(env);
 }
 
 export type Access = 'full' | 'redacted' | 'hidden';
@@ -24,14 +36,14 @@ export type Access = 'full' | 'redacted' | 'hidden';
 export async function viewerOf(req: Request, env: Record<string, string | undefined> = process.env): Promise<Viewer> {
   const raw = readSessionFromRequest(req);
   const organizer = raw ? await services().liveSession(raw).catch(() => null) : null;
-  return { organizer, visitor: visitorFromRequest(req), demo: demoModeOn(env) };
+  return { organizer, visitor: visitorFromRequest(req), demo: demoModeOn(env), publicQueue: publicQueueOn(env) };
 }
 
 /** Same, for server components: pass `await cookies()` from next/headers. */
 export async function viewerFromCookies(jar: { get(name: string): { value: string } | undefined }, env: Record<string, string | undefined> = process.env): Promise<Viewer> {
   const raw = decodeSession(jar.get(SESSION_COOKIE)?.value);
   const organizer = raw ? await services().liveSession(raw).catch(() => null) : null;
-  return { organizer, visitor: decodeVisitor(jar.get(VISITOR_COOKIE)?.value), demo: demoModeOn(env) };
+  return { organizer, visitor: decodeVisitor(jar.get(VISITOR_COOKIE)?.value), demo: demoModeOn(env), publicQueue: publicQueueOn(env) };
 }
 
 export function accessTo(viewer: Viewer, requestId: string): Access {
@@ -39,6 +51,7 @@ export function accessTo(viewer: Viewer, requestId: string): Access {
   const owner = ownerTagOf(requestId);
   if (owner && viewer.visitor?.tag === owner) return 'full';
   if (owner && viewer.demo) return 'hidden';
+  if (viewer.publicQueue === false) return 'hidden';
   return 'redacted';
 }
 

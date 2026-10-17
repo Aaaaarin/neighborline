@@ -1,5 +1,5 @@
 import { HttpError } from '@/lib/server/errors';
-import { enforceLimit } from '@/lib/server/security/rate-limit';
+import { clientIp, enforceLimit } from '@/lib/server/security/rate-limit';
 import { streamMessageFor } from '@/lib/server/security/redact';
 import { accessTo, viewerOf } from '@/lib/server/security/viewer';
 import { services } from '@/lib/server/services';
@@ -33,7 +33,8 @@ export async function GET(req: Request) {
     throw err;
   }
   if (requestId && accessTo(viewer, requestId) === 'hidden') return Response.json({ error: 'No such request' }, { status: 404 });
-  const key = viewer.visitor?.tag ?? `anon:${req.headers.get('x-forwarded-for') ?? 'local'}`;
+  // Anonymous streams count per client IP as Render saw it (the raw X-Forwarded-For is client-controlled).
+  const key = viewer.visitor?.tag ?? `anon:${clientIp(req)}`;
   if ((open().get(key) ?? 0) >= MAX_STREAMS_PER_VISITOR) return Response.json({ error: 'Too many open streams from this browser.' }, { status: 429 });
   const svc = services();
   const enc = new TextEncoder();

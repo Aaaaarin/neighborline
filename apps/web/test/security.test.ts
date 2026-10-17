@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { assertJson, crossSiteProblem, readCapped } from '../lib/server/security/guard';
 import { RateLimiter, clientIp, enforceLimit, limiter } from '../lib/server/security/rate-limit';
 import { redactRequestView, redactText, streamMessageFor, viewsFor } from '../lib/server/security/redact';
-import { accessTo, ownsAll, payoutActorOf, type Viewer } from '../lib/server/security/viewer';
+import { accessTo, ownsAll, payoutActorOf, publicQueueOn, type Viewer } from '../lib/server/security/viewer';
 import { demoDisclosure } from '../lib/server/security/demo-disclosure';
 import { wantsScriptedSecond } from '../lib/server/engine/demo-second';
 import { decodeVisitor, demoRunId, encodeVisitor, ownerTagOf, visitorRequestId, visitorTag } from '../lib/server/security/visitor';
@@ -119,6 +119,20 @@ describe('who sees what (viewer.ts)', () => {
     expect(accessTo(org, theirs)).toBe('full');
     expect(ownsAll(anon, [own])).toBe(true);
     expect(ownsAll(anon, [own, 'req_seed_q_ana'])).toBe(false);
+  });
+  it('without a public queue (R12) anonymous readers see only their own requests; organizers still see all', () => {
+    const own = visitorRequestId(me.tag);
+    const closed = viewer({ visitor: me, demo: false, publicQueue: false });
+    expect(accessTo(closed, own)).toBe('full');
+    expect(accessTo(closed, 'req_seed_q_ana')).toBe('hidden');
+    expect(accessTo(closed, visitorRequestId('ffffffffffff'))).toBe('hidden');
+    expect(accessTo({ ...closed, organizer: { organizerId: 'org_dana', name: 'Dana', credentialId: 'c', deviceLabel: 'p', kind: 'passkey' } }, 'req_seed_q_ana')).toBe('full');
+    expect(publicQueueOn({})).toBe(true); // fake PayPal: DEMO_MODE defaults on
+    expect(publicQueueOn({ PAYPAL_MODE: 'sandbox' })).toBe(false);
+    expect(publicQueueOn({ PAYPAL_MODE: 'live', PUBLIC_QUEUE: 'on' })).toBe(true);
+    expect(publicQueueOn({ DEMO_MODE: 'true' })).toBe(true);
+    expect(publicQueueOn({ DEMO_MODE: 'true', PUBLIC_QUEUE: 'off' })).toBe(false);
+    expect(publicQueueOn({ PAYPAL_MODE: 'sandbox', DEMO_MODE: 'false' })).toBe(false);
   });
 });
 
