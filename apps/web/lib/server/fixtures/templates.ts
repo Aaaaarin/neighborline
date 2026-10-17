@@ -67,7 +67,7 @@ export function paid(lang: Lang, s: Slots) {
 export function claimHelp(lang: Lang, s: Slots) {
   const by: Record<L, string> = {
     en: `We sent ${s.amount} to ${s.receiver}, but that email doesn’t have a PayPal account yet. To get it: open paypal.com, sign up with that same email, and confirm it. The money waits for you for 30 days. Want us to call and walk you through it? Reply CALL.`,
-    es: `Le enviamos ${s.amount} a ${s.receiver}, pero ese correo todavía no tiene cuenta de PayPal. Para recibirlo: abra paypal.com, cree una cuenta con ese mismo correo y confírmelo. El dinero la espera 30 días. ¿Quiere que la llamemos para ayudarla? Responda LLAMAR.`,
+    es: `Le enviamos ${s.amount} a ${s.receiver}, pero ese correo todavía no tiene cuenta de PayPal. Para recibirlo: abra paypal.com, cree una cuenta con ese mismo correo y confírmelo. El dinero se guarda para usted durante 30 días. ¿Quiere que le llamemos y le ayudemos paso a paso? Responda LLAMAR.`,
     vi: `Chúng tôi đã gửi ${s.amount} tới ${s.receiver}, nhưng email này chưa có tài khoản PayPal. Để nhận tiền: vào paypal.com, đăng ký bằng đúng email này rồi xác nhận. Tiền sẽ được giữ cho bạn trong 30 ngày. Cần chúng tôi gọi điện hướng dẫn không? Nhắn GỌI.`,
     ht: `Nou voye ${s.amount} bay ${s.receiver}, men imèl sa a poko gen kont PayPal. Pou w resevwa l: louvri paypal.com, kreye yon kont ak menm imèl la epi konfime l. Lajan an ap tann ou 30 jou. Ou vle nou rele w pou ede w? Reponn RELE.`,
     ar: `أرسلنا ${s.amount} إلى \u2066${s.receiver}\u2069، لكن هذا البريد الإلكتروني ليس له حساب PayPal بعد. لاستلام المال: افتح paypal.com، وأنشئ حسابًا بالبريد الإلكتروني نفسه، ثم أكّده. يبقى المال بانتظارك 30 يومًا. هل تريد أن نتصل بك لنساعدك خطوة بخطوة؟ ردّ بكلمة اتصال.`,
@@ -117,7 +117,7 @@ const REASONS: Record<DeclineReasonCode, Record<L, string>> = {
   },
   other: {
     en: 'an organizer left a note below',
-    es: 'una organizadora dejó una nota abajo',
+    es: 'alguien del grupo dejó una nota abajo',
     vi: 'người duyệt có để lại ghi chú bên dưới',
     ht: 'yon òganizatè kite yon nòt anba a',
     ar: 'ترك أحد المنظّمين ملاحظة أدناه',

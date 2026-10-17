@@ -44,14 +44,14 @@ export const CATALOG: Readonly<Record<CatalogLang, Readonly<Record<MessageKey, s
     readback_intro: 'Esto es lo que entendí. Por favor, dígame si está bien:',
     ask_payout: '¿A dónde le enviamos el dinero? Puede darnos un correo de PayPal o un usuario de Venmo.',
     ask_household: '¿Cuántas personas en total viven en su casa (usted también cuenta)?',
-    confirmed_waiting: 'Gracias. Dos voluntarios están revisando su solicitud. Le avisaremos en cuanto decidan.',
+    confirmed_waiting: 'Gracias. Dos personas del grupo están revisando su solicitud. Le avisaremos en cuanto decidan.',
     approved_sending: 'Buenas noticias: su solicitud fue aprobada. Le estamos enviando {amount} a su {wallet}.',
     paid: '[[Hola, {name}. ]]Ya le enviamos {amount} a su {wallet}. Esperamos que le ayude. Cuídese mucho.',
     unclaimed_help:
       'Le enviamos {amount} por {wallet}, pero todavía no lo ha cobrado. Para recibirlo, abra {wallet} o regístrese con el mismo correo o número de teléfono que nos dio. Si necesita ayuda, responda a este mensaje.',
     declined_with_appeal:
-      'Lo sentimos. Con las reglas actuales del grupo no pudimos enviar dinero para esta solicitud. No es un juicio sobre usted. Si quiere que un voluntario la revise de nuevo, responda a este mensaje.',
-    needs_info: '[[Hola, {name}. ]]Un voluntario tiene una pregunta rápida sobre su solicitud. Por favor, responda aquí cuando pueda.',
+      'Lo sentimos. Con las reglas actuales del grupo no pudimos enviar dinero para esta solicitud. No es un juicio sobre usted. Si quiere que otra persona del grupo la revise de nuevo, responda a este mensaje.',
+    needs_info: '[[Hola, {name}. ]]Una persona del grupo tiene una pregunta rápida sobre su solicitud. Por favor, responda aquí cuando pueda.',
     payout_rail_refused: RAIL_REFUSED_NOTICE.es,
   },
   vi: {

@@ -55,7 +55,10 @@ describe('render', () => {
   it('includes the optional greeting when a name is given', () => {
     expect(render('paid', 'en', ALL)).toBe('Hi Lan. $150 has been sent to your Venmo. We hope it helps. Take care.');
     expect(render('paid', 'zh', ALL).startsWith('Lan，您好。')).toBe(true);
-    expect(render('needs_info', 'es', { name: 'Ana' })).toMatch(/^Hola, Ana\. Un voluntario/);
+    expect(render('needs_info', 'es', { name: 'Ana' })).toMatch(/^Hola, Ana\. Una persona del grupo/);
+  });
+  it('Spanish catalog messages assume no gender for the neighbor or the volunteer', () => {
+    for (const k of MESSAGE_KEYS) expect(CATALOG.es[k]).not.toMatch(/\b(un voluntario|una voluntaria|organizadora|ayudarla|la llamemos|la espera)\b/i);
   });
   it('drops the greeting when the name is missing or blank', () => {
     expect(render('needs_info', 'en')).toBe('A volunteer has a quick question about your request. Please reply here when you can.');

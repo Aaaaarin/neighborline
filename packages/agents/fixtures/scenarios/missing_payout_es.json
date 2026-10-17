@@ -23,7 +23,7 @@
     "clarifyingQuestion": "¿A dónde le enviamos el dinero? Puede darnos un correo de PayPal o un usuario de Venmo."
   },
   "notifications": [
-    { "key": "needs_info", "vars": { "name": "Carmen" }, "text": "Hola, Carmen. Un voluntario tiene una pregunta rápida sobre su solicitud. Por favor, responda aquí cuando pueda." }
+    { "key": "needs_info", "vars": { "name": "Carmen" }, "text": "Hola, Carmen. Una persona del grupo tiene una pregunta rápida sobre su solicitud. Por favor, responda aquí cuando pueda." }
   ],
   "demo": { "amountCents": 0, "payoutOutcome": "NONE" }
 }

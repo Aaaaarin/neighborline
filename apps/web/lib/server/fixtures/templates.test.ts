@@ -35,3 +35,27 @@ describe('message templates in Arabic', () => {
     expect(tpl.paid('ar', slots).text).toContain('⁦@samira-haddad⁩');
   });
 });
+
+describe('Spanish requester messages assume no gender', () => {
+  // Usted throughout, and nothing that agrees with a woman (or a man): "la llamemos", "ayudarla",
+  // "la espera", "una organizadora", "bienvenida", "segura" ("Listo:" is the interjection "done").
+  const GENDERED = /\b(la|lo) (llamemos|ayudemos|espera|esperamos)\b|\b(ayudarla|ayudarlo|llamarla|llamarlo)\b|\b(organizadora|organizador|voluntaria|voluntario|bienvenid[ao]|segur[ao]|cansad[ao])\b/i;
+  it('in every status, claim-help and decline template', () => {
+    const texts = [
+      tpl.ack('es').text,
+      tpl.sending('es').text,
+      tpl.needsPayout('es').text,
+      tpl.paid('es', slots).text,
+      tpl.claimHelp('es', slots).text,
+      tpl.claimed('es', slots).text,
+      tpl.blockedReply('es').text,
+      ...(['outside_area', 'household_cap', 'needs_info', 'not_covered', 'other'] as DeclineReasonCode[]).flatMap((c) => [
+        tpl.declined('es', c, 'nota').text,
+        tpl.declined('es', c).text,
+        tpl.declined('es', c, 'nota', { final: true }).text,
+      ]),
+    ];
+    for (const t of texts) expect(t).not.toMatch(GENDERED);
+    expect(tpl.claimHelp('es', slots).text).toContain('¿Quiere que le llamemos');
+  });
+});
