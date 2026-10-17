@@ -423,6 +423,7 @@ Good first issues are listed in [docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSU
 | [docs/AI.md](docs/AI.md) | The structured-output pipeline, grounding, prompt injection |
 | [docs/DEMO.md](docs/DEMO.md) | Running each scenario, recording parameters |
 | [docs/PHONE.md](docs/PHONE.md) | The phone line (Twilio Voice): setup, privacy, limits, costs |
+| [docs/DEPLOY.md](docs/DEPLOY.md) · [docs/GOLIVE.md](docs/GOLIVE.md) | Render deployment; key day: `pnpm golive` (sandbox spike, live AI, deploy, evidence) |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | STRIDE for the money path, residual risks |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, lanes, adding a language or a rail check |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |

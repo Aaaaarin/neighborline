@@ -218,7 +218,8 @@ and the reason for each mismatch (`reconcileDetail`) even after a restart. Again
 
 ## To verify in the real sandbox
 
-Carried over from `PAYPAL_NOTES.md`:
+Automated by `pnpm golive` (step `sandbox-spike`, [GOLIVE.md](GOLIVE.md)), which writes the answers with ids and
+timestamps to `SANDBOX_EVIDENCE.md`. Carried over from `PAYPAL_NOTES.md`:
 
 1. The exact duplicate-`sender_batch_id` error: name, status and where the link sits. Our matcher is loose on purpose.
 2. Whether Venmo payouts reach `SUCCESS` in sandbox, or only through `POSPYO003`.

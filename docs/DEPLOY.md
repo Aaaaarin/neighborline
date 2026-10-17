@@ -4,6 +4,10 @@ The hosted demo has to stay up, free to use and without restrictions for judges 
 period ends on **Dec 15 2026, 8:00 am PT**. Winners are announced around Dec 21. Everything is defined in
 [`render.yaml`](../render.yaml), so one Blueprint creates the whole stack.
 
+> **Key day:** steps 3-6 below are scripted by `pnpm golive` ([GOLIVE.md](GOLIVE.md)): after the one Blueprint click it
+> sets the env vars through Render's API, registers the PayPal webhooks, deploys, runs `scripts/verify-deploy.sh`
+> and a hosted `/demo` run. This page stays the manual reference.
+
 | Resource | Render type | What it does | Plan / cost |
 |---|---|---|---|
 | `neighborline` | Web service (Node 22) | Next.js app, API, PayPal webhooks, SSE stage, **plus the approver (`apps/approver`) as a separate process** — the only process with Payouts credentials | `0.5c-512mb` (Starter) **$7/mo**, never sleeps |
