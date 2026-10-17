@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { REPO } from './lib/context.js';
 import { runGolive } from './lib/orchestrate.js';
 import { spawnRunner } from './lib/proc.js';
-import { deployRender, desiredWebEnv, envDiff } from './steps/deploy-render.js';
+import { demoReceiver, deployRender, desiredWebEnv, envDiff, hostedPaypalMode } from './steps/deploy-render.js';
 import { fakePaypalEnv, tmp } from './test-helpers.js';
 
 const SECRET = 'internal-secret-0123456789-0123456789-abcd';
@@ -139,6 +139,19 @@ describe('desiredWebEnv / envDiff', () => {
     expect(envDiff({ NEXT_PUBLIC_PAYPAL_CLIENT_ID: 'x', APP_BASE_URL: 'https://nl.onrender.com' }, f).map((x) => `${x.action}:${x.key}`)).toContain('remove:NEXT_PUBLIC_PAYPAL_CLIENT_ID');
     expect(desiredWebEnv({}, 'u')).toMatchObject({ PAYPAL_MODE: 'fake', AI_MODE: 'fixture' });
   });
+
+  it('the hosted /demo pays a sandbox stand-in: SANDBOX_DEMO_RECEIVER_EMAIL, else SANDBOX_PERSONAL_EMAIL; no receiver → the labelled fake by default', () => {
+    const keys = fakePaypalEnv('https://api-m.sandbox.paypal.com');
+    expect(desiredWebEnv(keys, 'u')).toMatchObject({ PAYPAL_MODE: 'sandbox', SANDBOX_DEMO_RECEIVER_EMAIL: keys.SANDBOX_PERSONAL_EMAIL });
+    expect(desiredWebEnv({ ...keys, SANDBOX_DEMO_RECEIVER_EMAIL: 'sb-demo@personal.example.com' }, 'u').SANDBOX_DEMO_RECEIVER_EMAIL).toBe('sb-demo@personal.example.com');
+    const { SANDBOX_PERSONAL_EMAIL: _p, ...noReceiver } = keys;
+    expect(hostedPaypalMode(noReceiver)).toBe('fake');
+    expect(desiredWebEnv(noReceiver, 'u')).toMatchObject({ PAYPAL_MODE: 'fake', SANDBOX_DEMO_RECEIVER_EMAIL: null });
+    // Forced sandbox without a receiver: Venmo items as scripted (may not settle), nothing to stand in.
+    expect(desiredWebEnv({ ...noReceiver, GOLIVE_HOSTED_PAYPAL_MODE: 'sandbox' }, 'u')).toMatchObject({ PAYPAL_MODE: 'sandbox', SANDBOX_DEMO_RECEIVER_EMAIL: null });
+    expect(desiredWebEnv({ ...keys, GOLIVE_HOSTED_PAYPAL_MODE: 'fake' }, 'u').SANDBOX_DEMO_RECEIVER_EMAIL).toBeNull();
+    expect(demoReceiver({ SANDBOX_DEMO_RECEIVER_EMAIL: 'nope' })).toBeNull();
+  });
 });
 
 describe('deploy-render against mocks', () => {
@@ -165,18 +178,20 @@ describe('deploy-render against mocks', () => {
     expect(web.PAYPAL_WEBHOOK_ID).toMatch(/^[A-Z0-9]{17}$/);
     expect(web.PAYPAL_PAYOUTS_WEBHOOK_ID).toMatch(/^[A-Z0-9]{17}$/);
     expect(web.NEXT_PUBLIC_PAYPAL_CLIENT_ID).toBe(env.PAYPAL_CLIENT_ID);
+    expect(web.SANDBOX_DEMO_RECEIVER_EMAIL).toBe(env.SANDBOX_PERSONAL_EMAIL);
     expect(m.env['crn-sched']!.RENDER_API_KEY).toBe(env.RENDER_API_KEY);
     expect(m.deploys['srv-web']![0]!.status).toBe('live');
     expect([...fake.state.registeredWebhooks.values()].map((w) => w.url)).toContain(`${app.url}/api/webhooks/paypal`);
     const gen = readFileSync(join(out, 'golive.env'), 'utf8');
     expect(gen).toContain(`HOSTED_URL=${new URL(app.url).host}`);
     const hosted = JSON.parse(readFileSync(join(out, 'deploy/hosted-e2e.json'), 'utf8'));
-    expect(hosted).toMatchObject({ paypalMode: 'sandbox', paypalBatchId: 'SANDBOXBATCH1', itemStatus: 'SUCCESS', webhookVerified: { eventId: 'WH-REAL-1' } });
+    expect(hosted).toMatchObject({ paypalMode: 'sandbox', paypalBatchId: 'SANDBOXBATCH1', itemStatus: 'SUCCESS', webhookVerified: { eventId: 'WH-REAL-1' }, standIn: 'sb-la…@personal.example.com' });
     const verifyLog = readFileSync(join(out, 'deploy/verify-deploy.log'), 'utf8');
     expect(verifyLog).toContain('internal API accepts signed no-op call');
     expect(verifyLog).not.toContain('✗');
     // Logs never carry a secret.
     expect(readFileSync(join(out, 'golive.log'), 'utf8')).not.toContain(env.PAYPAL_PAYOUTS_CLIENT_SECRET);
+    expect(readFileSync(join(out, 'golive.log'), 'utf8')).not.toContain(env.SANDBOX_PERSONAL_EMAIL);
 
     // Third run: nothing changed → no PUT, no new deploy.
     const putsBefore = m.calls.filter((c) => c.startsWith('PUT')).length;

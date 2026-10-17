@@ -348,8 +348,9 @@ What is real and what is simulated today:
 | Human beats on `/demo` | Scripted: the neighbor listening to the read-back (7 s) and each organizer reading the card (6 s), signed with labelled demo keys. Everything between them is real engine work |
 | `@neighborline/paypal` against PayPal's API shapes | Tested against `tools/fake-paypal`, which mirrors the documented request and response shapes, error bodies and webhook headers. The fake signs webhooks with HMAC where PayPal uses RSA |
 | Real PayPal sandbox | Supported by `PAYPAL_MODE=sandbox` but **not run yet** (waiting on sandbox credentials). The spike list is in [docs/PAYPAL.md](docs/PAYPAL.md#to-verify-in-the-real-sandbox) |
-| Rosa's claim | Played by the fake PayPal. In sandbox nobody can claim for her, so the item stays `UNCLAIMED` and an organizer can cancel it |
+| Rosa's claim | Played by the fake PayPal. In sandbox nobody claims for her: her payout (with stand-ins on, to a fresh unregistered address per run) stays `UNCLAIMED`, and the stage offers **Cancel unclaimed payout** (no faked claim) |
 | Venmo payouts in sandbox | **Unverified.** PayPal documents only a mock (`POSPYO003`). Sandbox also rejects `recipient_type: PHONE` |
+| Scripted `/demo` payouts in sandbox | With `PAYPAL_MODE=sandbox` and `SANDBOX_DEMO_RECEIVER_EMAIL` (a sandbox Personal account), Lan's, Jean's and Walter's payouts go to that account's PayPal wallet, standing in for their Venmo or email, so they really settle; Rosa's goes to a fresh unregistered address per run, so it really goes `UNCLAIMED`. Rail checks run on the scripted destination first; the stage, both phones, the organizer card and `/trust` say so. `pnpm golive` turns it on for the hosted sandbox; **not run yet** |
 | Webhook simulator events | Cannot be verified by PayPal's postback API (documented). Real deliveries can |
 | Transaction Search | Lags up to 3 hours. Reconcile reports young items as `pendingLag` |
 | Speech, translation, read-back | Fixture mode replays prepared transcripts. `AI_MODE=live` calls Claude or OpenAI; the providers are tested against fake clients, and a take with real models is still to record |

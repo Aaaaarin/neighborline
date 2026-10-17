@@ -45,7 +45,7 @@ const spike = (target: 'sandbox' | 'fake'): SpikeData => ({
 function seed(out: string, target: 'sandbox' | 'fake') {
   const st = new StateStore(join(out, 'state.json'));
   st.patch('sandbox-spike', spike(target) as unknown as Record<string, unknown>);
-  st.patch('deploy-render', { url: 'https://nl-test.onrender.com', hosted: { url: 'https://nl-test.onrender.com', scenario: 'lan', paypalMode: 'sandbox', paypalBatchId: 'HB1', itemStatus: 'SUCCESS' } });
+  st.patch('deploy-render', { url: 'https://nl-test.onrender.com', hosted: { url: 'https://nl-test.onrender.com', scenario: 'lan', paypalMode: 'sandbox', paypalBatchId: 'HB1', itemStatus: 'SUCCESS', standIn: 'sb-de…@personal.example.com' } });
 }
 
 const ok200 = (async (u: string | URL | Request) => (String(u) === 'https://nl-test.onrender.com/demo' ? new Response('<html>', { status: 200 }) : new Response('no', { status: 599 }))) as typeof fetch;
@@ -62,6 +62,7 @@ describe('finalize-docs', () => {
     const readme = readFileSync(join(repo, 'README.md'), 'utf8');
     expect(readme).toContain('**Hosted:** <https://nl-test.onrender.com/demo>');
     expect(readme).toMatch(/\| Real PayPal sandbox \| \*\*Run on 2026-11-10\*\*.*SBATCH0000001.*WH-REAL-9/);
+    expect(readme).toMatch(/\| Scripted `\/demo` payouts in sandbox \| \*\*Run on the hosted app\*\*.*`HB1`/);
     const fields = readFileSync(join(repo, 'docs/submission/DEVPOST_FIELDS.md'), 'utf8');
     expect(fields).toContain('https://nl-test.onrender.com/demo');
     expect(fields).toContain('https://youtu.be/abcdefghijk');

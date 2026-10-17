@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { rel, writeOut, type Ctx, type Step, type StepResult } from '../lib/context.js';
 import { has, hostedParts, mask, paypalTarget, type Env } from '../lib/env.js';
-import type { HostedEvidence, SpikeData } from '../lib/evidence.js';
+import { maskReceiver, type HostedEvidence, type SpikeData } from '../lib/evidence.js';
 import { hostedE2E } from '../lib/hosted.js';
 import { credentials, errorShape, paypalFor } from '../lib/paypal-admin.js';
 import { DEPLOY_BAD, DEPLOY_OK, RenderApi, type RenderService } from '../lib/render-api.js';
@@ -23,10 +23,27 @@ export const WEB_SERVICE = 'neighborline';
 export const SCHEDULER = 'neighborline-scheduler';
 export const REPO_URL = 'https://github.com/Aaaaarin/neighborline';
 
+/**
+ * The sandbox Personal account the hosted /demo pays instead of the scripted Venmo handles and emails
+ * (the app's SANDBOX_DEMO_RECEIVER_EMAIL, apps/web/lib/server/engine/sandbox-standin.ts): SANDBOX_DEMO_RECEIVER_EMAIL,
+ * else SANDBOX_PERSONAL_EMAIL. Sandbox Venmo payouts don't settle (PayPal documents only a mock), so without it the
+ * hosted hero could not reach SUCCESS in sandbox mode.
+ */
+export function demoReceiver(env: Env): string | null {
+  const v = (env.SANDBOX_DEMO_RECEIVER_EMAIL || env.SANDBOX_PERSONAL_EMAIL || '').trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null;
+}
+
+/** GOLIVE_HOSTED_PAYPAL_MODE wins; by default sandbox when both PayPal apps' keys and a demo receiver exist, else the labelled fake. */
+export function hostedPaypalMode(env: Env): 'fake' | 'sandbox' {
+  if (env.GOLIVE_HOSTED_PAYPAL_MODE === 'fake' || env.GOLIVE_HOSTED_PAYPAL_MODE === 'sandbox') return env.GOLIVE_HOSTED_PAYPAL_MODE;
+  const paypalKeys = has(env, 'PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_PAYOUTS_CLIENT_ID', 'PAYPAL_PAYOUTS_CLIENT_SECRET');
+  return paypalKeys && demoReceiver(env) ? 'sandbox' : 'fake';
+}
+
 /** Pure: the env the hosted web service should have, from local keys and generated ids. `null` = remove the key. */
 export function desiredWebEnv(env: Env, url: string): Record<string, string | null> {
-  const paypalKeys = has(env, 'PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_PAYOUTS_CLIENT_ID', 'PAYPAL_PAYOUTS_CLIENT_SECRET');
-  const mode = env.GOLIVE_HOSTED_PAYPAL_MODE === 'fake' || env.GOLIVE_HOSTED_PAYPAL_MODE === 'sandbox' ? env.GOLIVE_HOSTED_PAYPAL_MODE : paypalKeys ? 'sandbox' : 'fake';
+  const mode = hostedPaypalMode(env);
   const ai = has(env, 'ANTHROPIC_API_KEY') || has(env, 'OPENAI_API_KEY');
   const out: Record<string, string | null> = { APP_BASE_URL: url, PAYPAL_MODE: mode, AI_MODE: ai ? 'live' : 'fixture' };
   if (ai) out.LLM_PROVIDER = has(env, 'ANTHROPIC_API_KEY') ? 'anthropic' : 'openai';
@@ -34,6 +51,8 @@ export function desiredWebEnv(env: Env, url: string): Record<string, string | nu
   for (const k of copy) if (env[k]) out[k] = env[k]!;
   // The browser SDK must talk to the same PayPal as the server: real buttons only in sandbox mode.
   out.NEXT_PUBLIC_PAYPAL_CLIENT_ID = mode === 'sandbox' && env.PAYPAL_CLIENT_ID ? env.PAYPAL_CLIENT_ID : null;
+  // /demo payouts settle for real in sandbox: Lan/Jean/Walter → this sandbox account, Rosa → a fresh unregistered address.
+  out.SANDBOX_DEMO_RECEIVER_EMAIL = mode === 'sandbox' ? demoReceiver(env) : null;
   return out;
 }
 
@@ -121,7 +140,7 @@ export const deployRender: Step = {
     for (const d of diff) {
       if (d.action === 'set') await api.putEnvVar(web.id, d.key, desired[d.key]!);
       else await api.deleteEnvVar(web.id, d.key);
-      ctx.log(`  env ${d.action} ${d.key}${d.action === 'set' ? ` = ${/SECRET|KEY/.test(d.key) ? mask(desired[d.key]!) : desired[d.key]}` : ''}`);
+      ctx.log(`  env ${d.action} ${d.key}${d.action === 'set' ? ` = ${/SECRET|KEY/.test(d.key) ? mask(desired[d.key]!) : /EMAIL/.test(d.key) ? maskReceiver(desired[d.key]!) : desired[d.key]}` : ''}`);
     }
     const [sched] = await api.servicesByName(SCHEDULER).catch(() => [] as RenderService[]);
     let schedChanged = false;
@@ -176,13 +195,15 @@ export const deployRender: Step = {
         hosted.confirmedAtPayPal = { error: errorShape(err).name };
       }
     }
+    const receiver = desired.PAYPAL_MODE === 'sandbox' ? desired.SANDBOX_DEMO_RECEIVER_EMAIL : null;
+    if (receiver && hosted.paypalMode === 'sandbox') hosted.standIn = maskReceiver(receiver);
     const { events: _events, ...hostedEvidence } = hosted;
     save({ hosted: hostedEvidence });
     // The spike's evidence report gets the hosted result too.
     const spike = ctx.state.get<SpikeData>('sandbox-spike');
     if (spike.runId) ctx.state.patch('sandbox-spike', { hosted: hostedEvidence });
     const file = writeOut(ctx, 'deploy/hosted-e2e.json', hosted);
-    ctx.log(`  hosted ${hosted.scenario}: PAYPAL_MODE=${hosted.paypalMode} batch ${hosted.paypalBatchId ?? '-'} item ${hosted.itemStatus ?? '-'} webhook ${hosted.webhookVerified?.eventId ?? '-'} (${hosted.seconds} s)`);
+    ctx.log(`  hosted ${hosted.scenario}: PAYPAL_MODE=${hosted.paypalMode} batch ${hosted.paypalBatchId ?? '-'} item ${hosted.itemStatus ?? '-'}${hosted.standIn ? ` (stand-in ${hosted.standIn})` : ''} webhook ${hosted.webhookVerified?.eventId ?? '-'} (${hosted.seconds} s)`);
     const target = (() => {
       try {
         return paypalTarget(ctx.env);
@@ -191,7 +212,8 @@ export const deployRender: Step = {
       }
     })();
     const summary = `${url} live; verify-deploy ok; /demo ${hosted.scenario}: ${hosted.itemStatus ?? hosted.error ?? '?'}${hosted.webhookVerified ? ', webhook verified' : ''}`;
-    if (hosted.error || !hosted.itemStatus) return { status: 'warn', summary, next: `Hosted /demo run: ${hosted.error ?? 'no payout status'}. If sandbox Venmo does not settle, see docs/GOLIVE.md "Fallbacks" (PayPal wallet for the hero, or GOLIVE_HOSTED_PAYPAL_MODE=fake).`, outputs: [rel(ctx, file)] };
+    if (hosted.error || !hosted.itemStatus) return { status: 'warn', summary, next: `Hosted /demo run: ${hosted.error ?? 'no payout status'}. See docs/GOLIVE.md "Fallbacks" (check SANDBOX_DEMO_RECEIVER_EMAIL / SANDBOX_PERSONAL_EMAIL is a sandbox Personal account, or GOLIVE_HOSTED_PAYPAL_MODE=fake).`, outputs: [rel(ctx, file)] };
+    if (hosted.paypalMode === 'sandbox' && hosted.itemStatus !== 'SUCCESS' && hosted.scenario !== 'rosa') return { status: 'warn', summary, next: `The hosted ${hosted.scenario} payout ended ${hosted.itemStatus}, not SUCCESS: check the stand-in ${hosted.standIn ?? '(none: set SANDBOX_DEMO_RECEIVER_EMAIL)'} is a sandbox PERSONAL account, or use GOLIVE_HOSTED_PAYPAL_MODE=fake (docs/GOLIVE.md "Fallbacks").`, outputs: [rel(ctx, file)] };
     if (hosted.paypalMode === 'sandbox' && target === 'sandbox' && !hosted.webhookVerified) return { status: 'warn', summary, next: 'No verified payout webhook reached the app within the wait: check the Payouts app\'s webhook delivery log at developer.paypal.com and PAYPAL_PAYOUTS_WEBHOOK_ID on Render.', outputs: [rel(ctx, file)] };
     return { status: 'ok', summary, outputs: [rel(ctx, file)] };
   },

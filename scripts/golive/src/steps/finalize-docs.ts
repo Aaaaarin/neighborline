@@ -70,7 +70,7 @@ export const finalizeDocs: Step = {
     if (f.sandbox) {
       for (const name of ['DEVPOST.md', 'DEVPOST_FIELDS.md'] as const) {
         const file = `docs/submission/${name}`;
-        const r = devpostSandboxEdits(name, read(file), f.sandbox);
+        const r = devpostSandboxEdits(name, read(file), f.sandbox, f.hosted);
         changed.set(file, r.text);
         report.push({ file, rule: '(sandbox) sentence', applied: r.applied });
       }

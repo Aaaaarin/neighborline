@@ -224,8 +224,12 @@ PayPal Payouts API (batch create with PayPal and Venmo items, get batch/item, ca
 ```
 
 *(sandbox) After the spike:* replace the last sentence with "Verified against PayPal's sandbox on {DATE}: batch
-`{PAYOUT_BATCH_ID}`, webhook `{EVENT_ID}` verified by PayPal's postback API; Rosa's claim is still simulated, because
-nobody can claim a sandbox payout for her."
+`{PAYOUT_BATCH_ID}`, webhook `{EVENT_ID}` verified by PayPal's postback API. Rosa's claim is still simulated, because
+nobody can claim a sandbox payout for her." When the hosted `/demo` ran in sandbox with a stand-in
+(`SANDBOX_DEMO_RECEIVER_EMAIL`), the second sentence becomes "On the hosted /demo, Mrs. Lan's payout (batch
+`{HOSTED_BATCH_ID}`) settles in a PayPal sandbox account standing in for her Venmo, and Rosa's goes to a fresh
+unregistered address and really stays unclaimed until an organizer cancels it; the screens say so."
+(`pnpm golive --only finalize-docs` writes either.)
 
 ### 9d. Testing instructions for judges
 

@@ -64,6 +64,9 @@ export interface Facts {
   liveAi?: { date: string; intakesOk: number; intakes: number; evalProviders: string[] };
 }
 
+/** First cell of the README "Sandbox reality" row about the /demo sandbox stand-ins (apps/web .../sandbox-standin.ts). */
+export const STAND_IN_ROW = 'Scripted `/demo` payouts in sandbox';
+
 export function readmeEdits(text: string, f: Facts): { text: string; edits: Array<{ rule: string; applied: boolean }> } {
   const edits: Array<{ rule: string; applied: boolean }> = [];
   let t = text;
@@ -95,6 +98,16 @@ export function readmeEdits(text: string, f: Facts): { text: string; edits: Arra
     t = r2.text;
     edits.push({ rule: 'README Sandbox reality: Venmo row', applied: r2.applied });
   }
+  const h = f.hosted;
+  if (f.sandbox && h?.paypalMode === 'sandbox' && h.standIn && h.paypalBatchId) {
+    const r = replaceRow(
+      t,
+      STAND_IN_ROW,
+      `| ${STAND_IN_ROW} | **Run on the hosted app** (${f.sandbox.date}): ${h.scenario === 'lan' ? 'Mrs. Lan' : h.scenario}'s payout, batch \`${h.paypalBatchId}\`, reached **${h.itemStatus ?? '?'}** in a PayPal sandbox account standing in for her Venmo (\`${h.standIn}\`)${h.webhookVerified ? `, settled by webhook \`${h.webhookVerified.eventId}\`` : ''}. Rail checks run on the scripted handle first and every screen of the run says so; Rosa's goes to a fresh unregistered address and really stays \`UNCLAIMED\` until an organizer cancels it ([evidence](docs/SANDBOX_EVIDENCE.md)) |`,
+    );
+    t = r.text;
+    edits.push({ rule: 'README Sandbox reality: Scripted /demo payouts row', applied: r.applied });
+  }
   if (f.liveAi && f.liveAi.intakes) {
     const r = replaceRow(t, 'Speech, translation, read-back', `| Speech, translation, read-back | Fixture mode replays prepared transcripts. \`AI_MODE=live\` ran on ${f.liveAi.date}: ${f.liveAi.intakesOk}/${f.liveAi.intakes} voice notes (vi, es, ht) through real speech-to-text and the live model matched the expected extraction; live eval columns in [docs/EVAL.md](docs/EVAL.md) |`);
     t = r.text;
@@ -104,8 +117,12 @@ export function readmeEdits(text: string, f: Facts): { text: string; edits: Arra
 }
 
 /** DEVPOST.md / DEVPOST_FIELDS.md "(sandbox)" sentences, with the wording DEVPOST_FIELDS.md prescribes. */
-export function devpostSandboxEdits(file: 'DEVPOST.md' | 'DEVPOST_FIELDS.md', text: string, s: NonNullable<Facts['sandbox']>): { text: string; applied: boolean } {
-  const verified = `Verified against PayPal's sandbox on ${s.date}: batch \`${s.batchId ?? '?'}\`${s.verifiedEventId ? `, webhook \`${s.verifiedEventId}\` verified by PayPal's postback API` : ''}; Rosa's claim is still simulated, because nobody can claim a sandbox payout for her.`;
+export function devpostSandboxEdits(file: 'DEVPOST.md' | 'DEVPOST_FIELDS.md', text: string, s: NonNullable<Facts['sandbox']>, hosted?: HostedEvidence): { text: string; applied: boolean } {
+  const standIn = hosted?.paypalMode === 'sandbox' && hosted.standIn && hosted.paypalBatchId;
+  const rosa = standIn
+    ? ` On the hosted /demo, Mrs. Lan's payout (batch \`${hosted.paypalBatchId}\`) settles in a PayPal sandbox account standing in for her Venmo, and Rosa's goes to a fresh unregistered address and really stays unclaimed until an organizer cancels it; the screens say so.`
+    : " Rosa's claim is still simulated, because nobody can claim a sandbox payout for her.";
+  const verified = `Verified against PayPal's sandbox on ${s.date}: batch \`${s.batchId ?? '?'}\`${s.verifiedEventId ? `, webhook \`${s.verifiedEventId}\` verified by PayPal's postback API` : ''}.${rosa}`;
   if (file === 'DEVPOST_FIELDS.md') {
     const re = phrase("(sandbox) Every call is exercised end to end against tools/fake-paypal, our look-alike of PayPal's documented shapes; the run against PayPal's real sandbox is waiting on sandbox credentials, and the demo labels simulated PayPal ids \"Sandbox: simulated\".");
     if (text.includes(verified)) return { text, applied: true };

@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { checkKeys, hostedParts, loadEnv, mask, parseDotenv, paypalTarget, redactSecrets } from './lib/env.js';
-import { devpostSandboxEdits, paypalDocEdit, readmeEdits, replaceRow, replaceToken } from './lib/docs.js';
+import { STAND_IN_ROW, devpostSandboxEdits, paypalDocEdit, readmeEdits, replaceRow, replaceToken } from './lib/docs.js';
 import { anchorsOf, checkLinks, slugify } from './lib/links.js';
 import { selectSteps } from './lib/orchestrate.js';
 import { observedBlock, spliceObserved } from './lib/spike/observed.js';
@@ -116,6 +116,12 @@ describe('doc edits', () => {
     expect(all.text).toContain('3/3 voice notes');
     expect(readmeEdits(all.text, { host: 'nl.onrender.com', sandbox, liveAi: { date: '2026-11-10', intakesOk: 3, intakes: 3, evalProviders: [] } }).text).toBe(all.text);
     expect(replaceRow('| A | b |', 'Z', '| Z | c |').applied).toBe(false);
+    // Hosted sandbox run with a stand-in → the /demo stand-in row says what happened; without one it stays.
+    const hostedRun = { url: 'https://nl.onrender.com', scenario: 'lan', paypalMode: 'sandbox', paypalBatchId: 'HB9', itemStatus: 'SUCCESS', standIn: 'sb-de…@personal.example.com', webhookVerified: { eventType: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED', eventId: 'WH-9', at: 'x' } };
+    const withRow = `${all.text}\n| ${STAND_IN_ROW} | to be run |`;
+    const si = readmeEdits(withRow, { sandbox, hosted: hostedRun });
+    expect(si.text).toMatch(/\| Scripted `\/demo` payouts in sandbox \| \*\*Run on the hosted app\*\* \(2026-11-10\): Mrs\. Lan's payout, batch `HB9`, reached \*\*SUCCESS\*\*.*`WH-9`/);
+    expect(readmeEdits(withRow, { sandbox, hosted: { ...hostedRun, standIn: undefined } }).text).toContain('| to be run |');
   });
 
   it('DEVPOST (sandbox) sentences, re-wrapped across lines, and PAYPAL.md', () => {
@@ -124,6 +130,12 @@ describe('doc edits', () => {
     expect(f.applied).toBe(true);
     expect(f.text).toContain("Verified against PayPal's sandbox on 2026-11-10: batch `BATCH1`, webhook `WH-1` verified by PayPal's postback API");
     expect(devpostSandboxEdits('DEVPOST_FIELDS.md', f.text, sandbox)).toEqual({ text: f.text, applied: true });
+    expect(f.text).toContain("Rosa's claim is still simulated");
+    // The hosted /demo paid a sandbox stand-in: say what really happened instead.
+    const hosted = { url: 'https://nl.onrender.com', scenario: 'lan', paypalMode: 'sandbox', paypalBatchId: 'HB9', itemStatus: 'SUCCESS', standIn: 'sb-de…@personal.example.com' };
+    const h = devpostSandboxEdits('DEVPOST_FIELDS.md', fields, sandbox, hosted);
+    expect(h.text).toContain("Mrs. Lan's payout (batch `HB9`) settles in a PayPal sandbox account standing in for her Venmo");
+    expect(h.text).not.toContain('still simulated');
     const long = "documented shapes; the run against PayPal's real\nsandbox is waiting on sandbox credentials *(sandbox)*. The demo's";
     expect(devpostSandboxEdits('DEVPOST.md', long, sandbox).text).toContain('recorded in [SANDBOX_EVIDENCE.md](../SANDBOX_EVIDENCE.md)');
     expect(devpostSandboxEdits('DEVPOST.md', 'reworded', sandbox).applied).toBe(false);

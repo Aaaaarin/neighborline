@@ -1,14 +1,15 @@
 # NOTES-golive: requests from the release lane (scripts/golive, docs/GOLIVE.md)
 
-## Web/agents lane: route the scripted scenarios to a sandbox account when PAYPAL_MODE=sandbox (fallback for Venmo)
+## Done: route the scripted scenarios to a sandbox account when PAYPAL_MODE=sandbox (fallback for Venmo)
 
-PayPal documents no way to make a sandbox **Venmo** payout settle (only the `POSPYO003` mock). If key day's
-`sandbox-spike` shows the Venmo items `FAILED`/`UNCLAIMED`, the hosted `/demo` hero (Mrs. Lan → `@lan-nguyen54`
-on Venmo) cannot reach `SUCCESS` in sandbox mode, and today the only fallback is `PAYPAL_MODE=fake` for the stage.
-
-Request: an optional env `DEMO_SANDBOX_RECEIVER` (e.g. `sb-…@personal.example.com`). When it is set and
-`PAYPAL_MODE=sandbox`, the `/demo` scenarios (only demo runs, `req_demo_*`) pay that sandbox personal account by
-`EMAIL` on the `PAYPAL` wallet instead of the scripted handle, and the stage says so ("Sandbox: paid to a PayPal
-sandbox test account instead of Lan's Venmo"). Rail checks still run on the scripted destination first. golive's
-`deploy-render` would then set it from `SANDBOX_PERSONAL_EMAIL` when the spike's Venmo items did not succeed.
-Until then GOLIVE.md documents the fake-mode fallback.
+Shipped as `SANDBOX_DEMO_RECEIVER_EMAIL` (the request called it `DEMO_SANDBOX_RECEIVER`):
+[`apps/web/lib/server/engine/sandbox-standin.ts`](apps/web/lib/server/engine/sandbox-standin.ts). With
+`PAYPAL_MODE=sandbox`, `DEMO_MODE` on and the variable set, `/demo` runs (`req_demo_*` only) pay Lan, Jean and Walter
+to that sandbox Personal account's PayPal wallet by `EMAIL`, after the rail checks on the scripted destination; Rosa's
+run pays a fresh unregistered address so it genuinely goes `UNCLAIMED` (cancel on the stage, no faked claim). The
+stage, both phones, the organizer card and `/trust` say so; the swap is audited (`demo.sandbox_stand_in`). golive's
+`deploy-render` sets it from `SANDBOX_DEMO_RECEIVER_EMAIL`, else `SANDBOX_PERSONAL_EMAIL`, and defaults the hosted
+`PAYPAL_MODE` to sandbox when a receiver exists; `finalize-docs` writes the README row and DEVPOST sentence from the
+hosted run. Tests: `apps/web/test/sandbox-standin.test.ts` (engine in sandbox mode against tools/fake-paypal),
+`scripts/golive/src/deploy-render.test.ts`, `units.test.ts`, `finalize.test.ts`. Docs: [docs/GOLIVE.md](docs/GOLIVE.md),
+[docs/DEMO.md](docs/DEMO.md#in-the-real-paypal-sandbox).

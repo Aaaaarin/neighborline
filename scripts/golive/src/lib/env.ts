@@ -93,6 +93,7 @@ export const KEY_SPECS: KeySpec[] = [
     check: (v) => (/^https:\/\/api-m\.paypal\.com/i.test(v) || /^https:\/\/api\.paypal\.com/i.test(v) ? 'this is LIVE PayPal: golive only ever runs against the sandbox (or the local fake)' : /^https?:\/\//.test(v) ? null : 'expected a URL'),
   },
   { key: 'SANDBOX_PERSONAL_EMAIL', secret: false, hint: 'a sandbox PERSONAL test account email (developer.paypal.com → Testing tools → Sandbox accounts); receives the PayPal-wallet test payout', check: email, warn: sandboxEmail },
+  { key: 'SANDBOX_DEMO_RECEIVER_EMAIL', secret: false, hint: 'optional: the sandbox Personal account the hosted /demo pays instead of Lan\'s and Jean\'s Venmo and Walter\'s email (default: SANDBOX_PERSONAL_EMAIL)', check: email, warn: sandboxEmail },
   { key: 'SANDBOX_VENMO_HANDLE', secret: false, hint: 'optional: a Venmo username for the Venmo test payout (default: neighborline-sandbox-test)', check: re(/^@?[A-Za-z0-9_-]{2,30}$/, 'expected a Venmo username like @lan-nguyen54') },
   { key: 'SANDBOX_BUYER_EMAIL', secret: false, hint: 'optional: sandbox PERSONAL account that approves the Orders test checkout (Playwright logs in as it)', check: email, warn: sandboxEmail },
   { key: 'SANDBOX_BUYER_PASSWORD', secret: true, hint: 'that sandbox account\'s password (sandbox only, never a real one)' },
