@@ -54,6 +54,12 @@ export interface NotifyInput {
 export interface NotifyResult {
   key: NotifyKey;
   text: string;
+  /**
+   * The same message (same key, same slots) in vetted English: the "EN" line organizers read under the
+   * neighbor's bubble. Always from the catalog, never from a different template, so the two lines say
+   * the same thing.
+   */
+  textEn: string;
   /** Language of `text` (may be 'en' if a translation failed its check). */
   lang: string;
   requestedLang: string;
@@ -73,12 +79,12 @@ export class NotifyAgent {
       ...(input.wallet ? { wallet: walletName(input.wallet) } : {}),
       ...(input.name ? { name: input.name } : {}),
     };
-    const base = { key: input.key, requestedLang: input.lang };
+    const english = render(input.key, 'en', vars);
+    const base = { key: input.key, requestedLang: input.lang, textEn: english };
     let result: NotifyResult;
     if (isCatalogLang(input.lang)) {
       result = { ...base, text: render(input.key, input.lang, vars), lang: input.lang, source: 'catalog', traces: [] };
     } else {
-      const english = render(input.key, 'en', vars);
       const facts = [vars.amount, vars.wallet].filter((x): x is string => !!x);
       const t = await translateWithCheck(this.deps.llm, { text: english, targetLang: input.lang, facts, ...(input.tone ? { tone: input.tone } : {}) });
       result = {

@@ -39,6 +39,10 @@ describe('engine (in-memory PGlite + fake PayPal + fixture AI)', () => {
     const paid = [...t.messages].reverse().find((m) => m.kind === 'paid')!;
     expect(paid.lang).toBe('vi');
     expect(paid.text).toContain('Đã gửi $150 vào Venmo của bạn');
+    // The organizers' English line translates the very message she got (same key, same slots).
+    const sending = t.messages.find((m) => m.kind === 'status' && m.text.includes('$150'))!;
+    expect(sending.textEn).toBe('Good news: your request was approved. We are sending $150 to your Venmo now.');
+    expect(paid.textEn).toContain('$150 has been sent to your Venmo. We hope it helps. Take care.');
     expect(types(run.requestId)).toEqual([
       'request.created',
       'request.transcribed',

@@ -12,7 +12,7 @@
  */
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { formatUsd, redactDeep, redactPII, render, walletName, type PayoutItemStatus } from '@neighborline/core';
+import { redactDeep, redactPII, type PayoutItemStatus } from '@neighborline/core';
 import { appendAudit, auditLog, donations, getRequest, listItems, payoutItems, recordNotification, type Db } from '@neighborline/db';
 import { reconcile as reconcileItems } from '@neighborline/paypal';
 import { notifyKeyFor } from '@neighborline/agents';
@@ -190,10 +190,9 @@ export async function renotifyUnclaimed(ctx: BaseCtx, req: RenotifyRequest): Pro
   });
   if (!created) return { sent: false, skippedReason: 'duplicate', lang: r.lang, channel };
   const rec = await recordNotification(ctx.db, { requestId: r.id, channel, lang: r.lang, messageKey: key, text: n.text, status: 'sent' });
-  ctx.meta.message(r.id, { from: 'line', kind: 'claim_help', lang: r.lang, text: n.text, meta: { channel, amountCents: row.amountCents, wallet: row.wallet as 'PAYPAL' | 'VENMO' } });
+  ctx.meta.message(r.id, { from: 'line', kind: 'claim_help', lang: r.lang, text: n.text, textEn: n.textEn, meta: { channel, amountCents: row.amountCents, wallet: row.wallet as 'PAYPAL' | 'VENMO' } });
   if (ctx.outbound && r.contact?.phone) {
-    const textEn = render(key, 'en', { amount: formatUsd(row.amountCents), wallet: walletName(row.wallet as 'PAYPAL' | 'VENMO') });
-    await ctx.outbound.notify({ id: rec.id, requestId: r.id, key, lang: r.lang, text: n.text, textEn, phone: r.contact.phone }).catch(() => undefined);
+    await ctx.outbound.notify({ id: rec.id, requestId: r.id, key, lang: r.lang, text: n.text, textEn: n.textEn, phone: r.contact.phone }).catch(() => undefined);
   }
   ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: r.id, lang: r.lang, text: n.text, channel }, [r.id]);
   return { sent: true, lang: r.lang, channel, notificationId: rec.id };

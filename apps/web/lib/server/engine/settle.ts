@@ -3,9 +3,8 @@
  * state machine (db.upsertItemFromEvent → core.applyItemEvent: idempotent, never regresses), then
  * tell the neighbor in their language (agents.notify, vetted templates, code-filled amounts).
  */
-import { render, walletName, type Channel, type PayoutItemStatus } from '@neighborline/core';
+import type { Channel, PayoutItemStatus } from '@neighborline/core';
 import { notifyKeyFor } from '@neighborline/agents';
-import { formatUsd } from '@neighborline/core';
 import { getRequest, recordNotification, upsertItemFromEvent, type ItemEventOutcome } from '@neighborline/db';
 import type { BaseCtx } from './context';
 import { nowIso } from './events';
@@ -43,7 +42,7 @@ export async function applyItemStatus(
   const name = meta.displayName && meta.displayName !== 'Neighbor' ? meta.displayName : undefined;
   const n = await ctx.agents.notify.render({ key, lang: req.lang, amountCents: item.amountCents, wallet: item.wallet, ...(name ? { name } : {}) });
   const channel: Channel = req.channel === 'sms' ? 'sms' : req.channel === 'phone' ? 'phone' : 'whatsapp';
-  const textEn = render(key, 'en', { amount: formatUsd(item.amountCents), wallet: walletName(item.wallet), ...(name ? { name } : {}) });
+  const textEn = n.textEn;
   ctx.meta.message(req.id, {
     from: 'line',
     kind: key === 'paid' ? 'paid' : 'claim_help',

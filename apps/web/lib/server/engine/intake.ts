@@ -405,7 +405,7 @@ export async function confirmIntake(
   const blocked = hasBlockingFlag(rail.flags);
   const note = await ctx.agents.notify.render({ key: blocked ? 'needs_info' : 'confirmed_waiting', lang });
   const kind: ThreadMessage['kind'] = blocked ? 'status' : 'ack';
-  ctx.meta.message(requestId, { from: 'line', kind, lang, text: note.text, textEn: render(note.key, 'en') });
+  ctx.meta.message(requestId, { from: 'line', kind, lang, text: note.text, textEn: note.textEn });
   await recordNotification(ctx.db, { requestId, channel: req.channel, lang, messageKey: note.key, text: note.text, status: 'sent' });
   ctx.bus.emit({ type: 'request.confirmed', at: nowIso(), requestId }, [requestId]);
   if (rail.flags.length) ctx.bus.emit({ type: 'request.flagged', at: nowIso(), requestId, flags: rail.flags }, [requestId]);

@@ -3,7 +3,8 @@ import { createFixtureLLM } from '../fixtures/responders.js';
 import { SCENARIOS } from '../fixtures/scenarios.js';
 import { ScriptedLLM } from '../providers/fixture-llm.js';
 import { FixtureTTS } from '../providers/fixture-audio.js';
-import { NotifyAgent, notifyKeyFor, type NotifyKey } from './notify-agent.js';
+import { render } from '@neighborline/core';
+import { NOTIFY_KEYS, NotifyAgent, notifyKeyFor, type NotifyKey } from './notify-agent.js';
 
 const notify = new NotifyAgent({ llm: createFixtureLLM(), tts: new FixtureTTS() });
 const cents = (amount?: string): number | undefined => (amount ? Number(amount.replace(/[$,]/g, '')) * 100 : undefined);
@@ -23,6 +24,17 @@ describe('NotifyAgent: vetted catalog messages for every scenario', () => {
     });
     expect(r).toMatchObject({ text: n.text, lang, source: 'catalog' });
     expect(r.traces).toEqual([]); // no model call for catalog languages
+  });
+
+  it('the English line under every message is the same key with the same slots', async () => {
+    for (const key of NOTIFY_KEYS) {
+      for (const lang of ['en', 'es', 'vi', 'ht', 'zh', 'ar', 'fr', 'tl', 'ko', 'ru', 'pt']) {
+        const r = await notify.render({ key, lang, amountCents: 15000, wallet: 'VENMO', name: 'Lan' });
+        expect(r.textEn).toBe(render(key, 'en', { amount: '$150', wallet: 'Venmo', name: 'Lan' }));
+      }
+    }
+    const sending = await notify.render({ key: 'approved_sending', lang: 'vi', amountCents: 15000, wallet: 'VENMO' });
+    expect(sending.textEn).toBe('Good news: your request was approved. We are sending $150 to your Venmo now.');
   });
 
   it('hero beat: "Đã gửi $150 vào Venmo của bạn"', async () => {

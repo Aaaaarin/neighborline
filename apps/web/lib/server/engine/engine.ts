@@ -301,13 +301,16 @@ export class Engine implements Services {
     return policyEditor.signDraft(await this.base(), { ...input, origin: input.origin ?? null });
   }
 
-  /** "Two neighbors said yes — sending now" to each requester; in sandbox, poll as a webhook safety net. */
+  /**
+   * "Your request was approved, we are sending $150 to your Venmo" to each requester; in sandbox, poll as a
+   * webhook safety net. The organizers' English line is the same catalog message with the same slots.
+   */
   private async afterSent(ctx: Ctx, sent: SentBatch) {
     for (const r of sent.requests) {
       const item = sent.items.find((i) => i.requestId === r.id);
       if (!item) continue;
       const n = await ctx.agents.notify.render({ key: 'approved_sending', lang: r.lang, amountCents: item.amountCents, wallet: item.wallet });
-      ctx.meta.message(r.id, { from: 'line', kind: 'status', lang: r.lang, text: n.text, textEn: tpl.sending('en').textEn });
+      ctx.meta.message(r.id, { from: 'line', kind: 'status', lang: r.lang, text: n.text, textEn: n.textEn });
       await recordNotification(ctx.db, { requestId: r.id, channel: r.channel, lang: r.lang, messageKey: 'approved_sending', text: n.text, status: 'sent' });
     }
     if (ctx.cfg.paypalMode === 'sandbox' && sent.batch.paypalBatchId) this.pollBatch(ctx, sent.batch.id);
