@@ -165,6 +165,9 @@ describe('/trust "In this demo" disclosure', () => {
     expect(on.relaxed).toHaveLength(3);
     expect(on.text).toContain('no real money moves');
     expect(on.text).toContain('Either one signs only the runs you started yourself');
+    // The rules editor accepts Marcus's demo key next to a real passkey (policy/sign route): say so (QA-2).
+    expect(on.text).toContain('second signature on a rules draft a real organizer has already signed with a passkey');
+    expect(on.text).not.toContain('a rules change or a sign-in');
     expect(on.text).toContain('invite code');
     const off = demoDisclosure({ PAYPAL_MODE: 'sandbox' }, 'sandbox');
     expect(off).toMatchObject({ on: false, relaxed: [] });

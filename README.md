@@ -285,8 +285,9 @@ The full STRIDE model is in [THREAT_MODEL.md](THREAT_MODEL.md); these are the co
 - **Demo mode fails closed and is narrow.** `DEMO_MODE` is on only when explicitly set or when PayPal is the local
   fake, and the approval service refuses to start with `DEMO_MODE=true` and live PayPal. In the demo, Dana's taps are
   scripted with a labelled server-held demo key; you play Marcus with his demo key or your own passkey, which this
-  server ties to your browser, and either one signs only runs you started yourself. Real organizer seats always need
-  an invite code. `/trust` prints exactly what is relaxed, generated from the running config.
+  server ties to your browser, and either one signs only runs you started yourself (Dana's scripted key then signs
+  second, on /demo and on a request you sent from /call). Marcus's demo key can also co-sign a rules draft that a real
+  organizer has signed with a passkey, never alone. Real organizer seats always need an invite code. `/trust` prints exactly what is relaxed, generated from the running config.
 - **Payout idempotency.** `sender_batch_id` = 24 hex of SHA-256(domain ‖ approval id ‖ approval hash). Double taps and
   retries share one id; a timeout leaves the batch `UNKNOWN` (never `FAILED`) and it is resolved by re-sending the same
   id after a fresh policy re-check.
