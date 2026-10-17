@@ -59,7 +59,7 @@ the sponsor's PayPal Business account, never in a volunteer's personal account.
 **The neighbor (any language, no app, no English):**
 1. Leaves a voice note, types, or records on a phone. Our demo story is Mrs. Lan, in Vietnamese: her power has been out for two days since the ice storm.
 2. Hears the request **read back in their own language** ("Đúng không ạ?", "Is that right?"). Nothing is filed until they say yes. If something is missing or unclear, they get **one** clarifying question in their language instead of a guess.
-3. Gets a message in their language when the money lands: "Đã gửi $150 vào Venmo của bạn" ("Sent $150 to your Venmo").
+3. Gets a message in their language when the money lands: "Chúng cháu đã gửi $150 vào Venmo của bà" ("We sent $150 to your Venmo"; she called herself bà, so the line answers her as an elder).
 
 **Two organizers (on their phones):**
 4. Each sees the request in English with the original attached. The card shows the **amount computed by code** from the group's written rules, the rule it came from (`Policy v1 · Utility outage · up to $150`), and the rail checks that passed.

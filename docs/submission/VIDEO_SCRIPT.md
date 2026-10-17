@@ -93,7 +93,7 @@ time below is the Draft 2 cut (`video/edl.json`); P+x is seconds after the Play 
 - **VO:** silence from 0:25.1 to 0:31.4, across the tap and the money moment. No SFX.
 
 ### Shot 5. Push in on her phone (0:31–0:44)
-- **Visual:** composition A, warm phone, frozen amber stopwatch, slow 4 % push-in on the paid bubble ("Chào Lan. Đã gửi $150 vào Venmo của bạn…" with its `EN` line "Hi Lan. $150 has been sent to your Venmo. We hope it helps. Take care.").
+- **Visual:** composition A, warm phone, frozen amber stopwatch, slow 4 % push-in on the paid bubble ("Chào bà Lan ạ. Chúng cháu đã gửi $150 vào Venmo của bà…" with its `EN` line "Hi Lan. $150 has been sent to your Venmo. We hope it helps. Take care.").
 - **Lower third (0:31.6–0:43.4):** `Voice note → PayPal SUCCESS: 0:22.4` / `Approvals on cue in this demo · simulated PayPal sandbox`
 - **VO V3 (0:31.4–0:43.6):** "Paid, into her Venmo, with a message in Vietnamese. Twenty-two point four seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer."
   - *Sandbox alternate:* "…Twenty-two point four seconds to PayPal's SUCCESS webhook. The approvals came on cue; real neighbors take longer."

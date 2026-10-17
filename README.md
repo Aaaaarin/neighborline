@@ -113,7 +113,7 @@ sequenceDiagram
     W->>P: POST /v1/notifications/verify-webhook-signature (raw body)
     W->>W: Dedupe on event id (applied at least once), monotonic item state machine
     W->>T: Item SUCCESS
-    T-->>N: "Đã gửi $150 vào Venmo của bạn" (vetted template, amount filled by code)
+    T-->>N: "Chúng cháu đã gửi $150 vào Venmo của bà" (vetted template in her register, amount filled by code)
 ```
 
 The [architecture doc](docs/ARCHITECTURE.md) has the state machines and the idempotency design.

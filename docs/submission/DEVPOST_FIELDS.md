@@ -71,7 +71,7 @@ Neighborline is a mutual-aid hotline for a neighborhood group whose money sits w
 **The neighbor** (any of 10 languages, no app, no English):
 1. Leaves a voice note or types on the web line (a Twilio phone line is built and switches on with a number). Our story: Mrs. Lan, in Vietnamese, power out for two days after an ice storm.
 2. Hears it **read back in her language** ("Đúng không ạ?"). Nothing is filed until she says yes. If something is missing, she gets **one** question in her language, with tap-to-answer choices.
-3. Gets a message in her language when the money lands: "Đã gửi $150 vào Venmo của bạn."
+3. Gets a message in her language when the money lands: "Chúng cháu đã gửi $150 vào Venmo của bà." (She called herself bà, so the line answers her as an elder.)
 
 **Two organizers** see the request in English with the original attached, the **amount computed by code** from the group's written rules ("Policy v1 · Utility outage · up to $150"), and the rail checks that passed. Each taps **Approve $150** and signs with a **passkey** (Face ID, fingerprint, screen lock) over the exact approval: requests, amounts, destinations, policy version. Two different people are required; one person tapping twice counts once.
 

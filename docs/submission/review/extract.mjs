@@ -11,9 +11,15 @@
 //   A. key → language:  { en: '…', vi: '…', es: '…' }                 (templates.ts, rail-notice.ts, labels)
 //   B. language → key:  { en: { paid: '…' }, vi: { paid: '…' } }      (core CATALOG, web STRINGS, phone PHRASES)
 // Template literals keep their slots as {name} (`${s.amount}` → {amount}, `${w(s.wallet)}` → {wallet}).
+// Vietnamese register variants sit beside a language's text under the keys `viElder` / `viPeer` (core address.ts);
+// they become Vietnamese rows whose ID ends in "› elder" / "› peer", with {you} / {You} for the address form.
 // Scenario fixtures (JSON) add the transcripts, read-backs and messages that the demo and the video show.
 //
+// The "Status" column says "machine-assisted, pending native review" for every row whose text was not in the first
+// packet (baseline.json: frozen hashes of the texts reviewers were first sent). Empty means it was in that packet.
+//
 // Reviewers fill the last two columns ("OK?" and "Suggested fix"); see REVIEWER_GUIDE.md.
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -25,6 +31,8 @@ const require = createRequire(join(REPO, 'package.json'));
 const ts = require('typescript');
 
 const LANGS = ['en', 'es', 'vi', 'ht', 'zh', 'ar', 'fr', 'tl', 'ko', 'ru'];
+/** Vietnamese register variants (core address.ts): key → [language, label appended to the row's key]. */
+const VARIANTS = { viElder: ['vi', 'elder (bà, ông, cô, chú, bác: “chúng cháu”, “ạ”)'], viPeer: ['vi', 'peer (anh, chị, em)'] };
 const REVIEW_LANGS = ['vi', 'es', 'ht', 'zh', 'ar', 'ko', 'ru', 'fr', 'tl'];
 const LANG_NAME = { es: 'Spanish', vi: 'Vietnamese', ht: 'Haitian Creole', zh: 'Chinese (Simplified)', ar: 'Arabic (MSA)', fr: 'French', tl: 'Tagalog', ko: 'Korean', ru: 'Russian' };
 const SHOTS = 'apps/web/screenshots/';
@@ -35,22 +43,24 @@ const SHOTS = 'apps/web/screenshots/';
  */
 const SOURCES = [
   { file: 'apps/web/lib/i18n.ts', exclude: ['speechTag()'], surface: 'Web line UI (/call and the stage phone)', where: 'Buttons, labels, placeholders and status steps on the neighbor’s phone', shot: `${SHOTS}call-390.png, ${SHOTS}call-390-readback.png, ${SHOTS}call-390-question.png`, video: { lineSub: { vi: '0:05–0:44', es: '0:57–1:21' }, listen: { vi: '0:06–0:14' }, translated: { vi: '0:05–0:44', es: '0:57–1:21' }, arrived: { vi: '0:27–0:44', es: '1:15–1:21' }, composer: { vi: '0:05–0:44', es: '0:57–1:21' }, yes: { vi: '0:13', es: '1:00' }, claim: { es: '1:09–1:15' } } },
-  { file: 'packages/core/src/i18n.ts', surface: 'Message catalog (thread messages)', where: 'Messages the line sends into the neighbor’s thread; code fills {amount} {wallet} {name}', shot: `${SHOTS}demo-1920-lan-done.png (left phone), ${SHOTS}demo-1920-rosa-done.png`, video: { readback_intro: { vi: '0:06–0:14', es: '0:58–1:04' }, confirmed_waiting: { vi: '0:14–0:44', es: '1:00–1:08' }, approved_sending: { vi: '0:25–0:44', es: '1:04–1:09' }, paid: { vi: '0:27–0:57', es: '1:15–1:21' }, unclaimed_help: { es: '1:09–1:21' } } },
-  { file: 'packages/agents/src/intake/phrases.ts', surface: 'Read-back framing and clarifying questions', where: 'Wraps the AI summary in the read-back; the one clarifying question', shot: `${SHOTS}call-390-readback.png, ${SHOTS}call-390-question.png`, video: { payout_line: { vi: '0:06–0:14', es: '0:58–1:04' } } },
+  { file: 'packages/core/src/i18n.ts', surface: 'Message catalog (thread messages)', where: 'Messages the line sends into the neighbor’s thread; code fills {amount} {wallet} {name}', shot: `${SHOTS}demo-1920-lan-done.png (left phone), ${SHOTS}demo-1920-rosa-done.png`, video: { readback_intro: { vi: '0:06–0:14', es: '0:58–1:04' }, confirmed_waiting: { vi: '0:14–0:44', es: '1:00–1:08' }, approved_sending: { vi: '0:25–0:44', es: '1:04–1:09' }, paid: { vi: '0:27–0:57', es: '1:15–1:21' }, unclaimed_help: { es: '1:09–1:21' } }, videoVariant: 'viElder' },
+  { file: 'packages/agents/src/intake/phrases.ts', surface: 'Read-back framing and clarifying questions', where: 'Wraps the AI summary in the read-back; the one clarifying question', shot: `${SHOTS}call-390-readback.png, ${SHOTS}call-390-question.png`, video: { payout_line: { vi: '0:06–0:14', es: '0:58–1:04' } }, videoVariant: 'viElder' },
   { file: 'apps/web/lib/server/engine/conversation.ts', surface: 'Quick answers', where: 'Tappable answers under a clarifying question (household size, category)', shot: `${SHOTS}call-390-household.png, ${SHOTS}call-390-question.png` },
   { file: 'packages/core/src/policy.ts', noGaps: true, surface: 'Category labels', where: 'Category names the neighbor taps as a quick answer or sees in the read-back (demo group policy v1; fr/tl/ko/ru come from the Quick answers rows)', shot: `${SHOTS}call-390-question.png` },
-  { file: 'apps/web/lib/server/fixtures/templates.ts', exclude: ['LANG_EN'], surface: 'Web line status messages', where: 'Acknowledgement, sending, paid with transaction id, claim help, decline and appeal texts in the neighbor’s thread', shot: `${SHOTS}call-390-appeal.png, ${SHOTS}demo-1920-rosa-done.png` },
+  { file: 'packages/core/src/i18n-vi.ts', enFrom: 'packages/core/src/i18n.ts', surface: 'Message catalog (thread messages)', where: 'The same messages for a Vietnamese neighbor who is addressed as an elder or a peer ({you} = bà, ông, chị…, from how they spoke)', shot: `${SHOTS}demo-1920-lan-done.png (left phone)`, video: { confirmed_waiting: { vi: '0:14–0:44' }, approved_sending: { vi: '0:25–0:44' }, paid: { vi: '0:27–0:57' }, readback_intro: { vi: '0:06–0:14' } }, videoVariant: 'viElder' },
+  { file: 'apps/web/lib/server/fixtures/copy-status.ts', surface: 'Web line status messages', where: 'Acknowledgement, sending, paid with transaction id, claim help, quick answers, generic read-back and blocked reply in the neighbor’s thread', shot: `${SHOTS}call-390-readback.png, ${SHOTS}demo-1920-rosa-done.png` },
+  { file: 'apps/web/lib/server/fixtures/copy-decline.ts', surface: 'Web line status messages', where: 'Decline reasons, the decline with its appeal, the final decline, and the lines around an organizer’s note', shot: `${SHOTS}call-390-appeal.png` },
   { file: 'packages/core/src/payout-copy.ts', surface: 'PayPal / Venmo payout text', where: 'The subject of PayPal’s payout email and the note shown in PayPal or Venmo; {group} is the group’s name', shot: '(inside PayPal or Venmo; not in our UI)' },
   { file: 'packages/core/src/rail-notice.ts', surface: 'Rail refused notice', where: 'Sent when PayPal refuses a payout at the account level (no money moved)', shot: `${SHOTS}organizer-390-rail-refused.png (organizer side)` },
   { file: 'apps/web/lib/server/voice/phrases.ts', surface: 'Phone line prompts', where: 'Spoken by the phone line (text-to-speech) around the read-back; heard, never read', shot: '(audio only; docs/PHONE.md)' },
 ];
 
 const FIXTURES = 'packages/agents/fixtures/scenarios';
-const FIXTURE_VIDEO = { lan_vi: { transcript: '0:00–0:05 (first two sentences, on screen and spoken); full text 0:05–0:14', readBack: '0:06–0:14', 'notification › confirmed_waiting': '0:14–0:44', 'notification › paid': '0:27–0:57' }, rosa_es: { transcript: '0:57–1:04', readBack: '0:58–1:04' } };
+const FIXTURE_VIDEO = { lan_vi: { transcript: '0:00–0:05 (first two sentences, on screen and spoken); full text 0:05–0:14', readBack: '0:06–0:14', 'notification › confirmed_waiting': '0:14–0:44', 'notification › approved_sending': '0:25–0:44', 'notification › paid': '0:27–0:57' }, rosa_es: { transcript: '0:57–1:04', readBack: '0:58–1:04' } };
 
 // ---------------------------------------------------------------------------------------------------------
 // TypeScript AST helpers
-const isLangKey = (n) => typeof n === 'string' && LANGS.includes(n);
+const isLangKey = (n) => typeof n === 'string' && (LANGS.includes(n) || n in VARIANTS);
 const propName = (p) => (p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? p.name.text : null);
 
 /** A readable rendering of a string-ish expression: slots become {name}, branches become "a | b". */
@@ -133,8 +143,12 @@ function extractFile(src) {
   const sf = ts.createSourceFile(abs, readFileSync(abs, 'utf8'), ts.ScriptTarget.Latest, true, src.file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const rows = [];
   const seen = new Set();
-  const add = (key, lang, text, en, node) => {
+  const add = (key, langKey, text, en, node) => {
     if (text === null || text === undefined) return;
+    const variant = VARIANTS[langKey];
+    const lang = variant ? variant[0] : langKey;
+    const baseKey = key;
+    if (variant) key = `${key} › ${variant[1]}`;
     if (/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(text)) return; // BCP-47 tags, not copy
     if (src.exclude?.some((x) => key === x || key.startsWith(`${x} › `))) return;
     // Two literals with the same path (e.g. one label per policy category): tell them apart by line.
@@ -142,7 +156,10 @@ function extractFile(src) {
     const id = `${src.file}#${key}@${lang}`;
     if (seen.has(id)) return;
     seen.add(id);
-    rows.push({ id: `${src.file.split('/').pop().replace(/\.tsx?$/, '')}:${key}`, key, lang, text, en, surface: src.surface, where: text === '' ? `${src.where}. NOT WRITTEN IN THIS LANGUAGE: the neighbor gets the English (or, for catalog messages, a back-translation-checked machine translation). Please write one.` : src.where, ref: `${src.file}:${lineOf(node, sf)}`, shot: src.shot, video: src.video?.[key.split(' › ').pop()]?.[lang] ?? '' });
+    const leaf = baseKey.split(' › ').pop();
+    // The video shows Mrs. Lan's register (videoVariant): neutral Vietnamese rows of that source are not on screen.
+    const video = lang === 'vi' && src.videoVariant && src.videoVariant !== langKey ? '' : (src.video?.[leaf]?.[lang] ?? '');
+    rows.push({ id: `${src.file.split('/').pop().replace(/\.tsx?$/, '')}:${key}`, key, lang, text, en, enLookup: en === null ? { file: src.enFrom ?? src.file, leaf } : null, surface: src.surface, where: text === '' ? `${src.where}. NOT WRITTEN IN THIS LANGUAGE: the neighbor gets the English (or, for catalog messages, a back-translation-checked machine translation). Please write one.` : src.where, ref: `${src.file}:${lineOf(node, sf)}`, shot: src.shot, video });
   };
   const visit = (node) => {
     if (ts.isObjectLiteralExpression(node)) {
@@ -195,6 +212,7 @@ function extractFile(src) {
           }
         }
         if (any && en !== null && !src.noGaps) for (const lang of (src.gapLangs ?? REVIEW_LANGS).filter((l) => !langs.has(l))) add(key, lang, '', en, node);
+        // A register variant that is missing simply uses the neutral Vietnamese text: not a gap.
         if (any) return;
       }
     }
@@ -248,10 +266,34 @@ const csvCell = (s) => {
   const v = String(s ?? '');
   return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 };
-const COLS = ['#', 'ID', 'Surface', 'Where it appears', 'Source (file:line)', 'Screenshot', 'In video', 'English source', 'Translation under review', 'OK? (Y / N / ?)', 'Suggested fix'];
+const COLS = ['#', 'ID', 'Surface', 'Where it appears', 'Source (file:line)', 'Screenshot', 'In video', 'English source', 'Translation under review', 'Status', 'OK? (Y / N / ?)', 'Suggested fix'];
+
+/** Slots removed, NFC, whitespace collapsed: the same text with a renamed slot is still the same text. */
+function normalizedHash(t) {
+  let x = t.normalize('NFC');
+  let prev;
+  do {
+    prev = x;
+    x = x.replace(/\{[^{}]*\}/g, '');
+  } while (x !== prev);
+  return createHash('sha256').update(x.replace(/\s+/g, ' ').trim()).digest('hex').slice(0, 12);
+}
+const BASELINE = JSON.parse(readFileSync(join(HERE, 'baseline.json'), 'utf8')).langs;
+const NEW_TEXT = 'machine-assisted, pending native review';
+const statusOf = (r) => (!r.text || r.text.startsWith('(same text as') ? '' : BASELINE[r.lang]?.includes(normalizedHash(r.text)) ? '' : NEW_TEXT);
+
+/** English for variant-only tables (core i18n-vi.ts, the phone's VI_REGISTERS): the neutral row with the same leaf key. */
+function fillEnglish(rows) {
+  for (const r of rows) {
+    if (!r.enLookup) continue;
+    const twin = rows.find((x) => x.ref.startsWith(`${r.enLookup.file}:`) && x.en && x.key.split(' › ').pop() === r.enLookup.leaf);
+    if (twin) r.en = twin.en;
+  }
+}
 
 function build() {
   const rows = SOURCES.flatMap(extractFile);
+  fillEnglish(rows);
   rows.push(...extractFixtures(catalogEn(rows)));
   const byLang = {};
   for (const l of REVIEW_LANGS) byLang[l] = rows.filter((r) => r.lang === l);
@@ -259,13 +301,13 @@ function build() {
   for (const l of REVIEW_LANGS) {
     const lines = [COLS.join(',')];
     byLang[l].forEach((r, i) =>
-      lines.push([i + 1, r.id, r.surface, r.where, r.ref, r.shot, r.video, r.en ?? '(no English in source: see the key)', r.text, '', ''].map(csvCell).join(',')),
+      lines.push([i + 1, r.id, r.surface, r.where, r.ref, r.shot, r.video, r.en ?? '(no English in source: see the key)', r.text, statusOf(r), '', ''].map(csvCell).join(',')),
     );
     // BOM so Excel opens UTF-8 (Vietnamese diacritics, Arabic) correctly.
     files[`${l}.csv`] = '﻿' + lines.join('\r\n') + '\r\n';
   }
-  const summary = Object.fromEntries(REVIEW_LANGS.map((l) => [l, byLang[l].length]));
-  files['strings.json'] = JSON.stringify({ generatedBy: 'docs/submission/review/extract.mjs', counts: summary, rows: rows.map(({ id, key, lang, text, en, surface, ref }) => ({ id, key, lang, surface, ref, en, text })) }, null, 2) + '\n';
+  const summary = Object.fromEntries(REVIEW_LANGS.map((l) => [l, { rows: byLang[l].length, inVideo: byLang[l].filter((r) => r.video).length, gaps: byLang[l].filter((r) => !r.text).length, machineAssisted: byLang[l].filter((r) => statusOf(r)).length }]));
+  files['strings.json'] = JSON.stringify({ generatedBy: 'docs/submission/review/extract.mjs', counts: summary, rows: rows.map((r) => ({ id: r.id, key: r.key, lang: r.lang, surface: r.surface, ref: r.ref, en: r.en, text: r.text, ...(statusOf(r) ? { status: statusOf(r) } : {}) })) }, null, 2) + '\n';
   return { files, summary };
 }
 
