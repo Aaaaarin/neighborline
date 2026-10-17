@@ -258,6 +258,10 @@ async function rulesFlow(tag, vp) {
     console.log('saved', name);
   };
   try {
+    // The demo key signs as Marcus only; the first signature is Dana's passkey on this device.
+    await withPasskeyDevice(p);
+    await p.goto(`${base}/organizer`, { waitUntil: 'load' });
+    await enroll(p, 'Dana', 'org_dana');
     await p.goto(`${base}/organizer/rules`, { waitUntil: 'load' });
     await p.evaluate(() => document.fonts.ready);
     await shot(`rules-${tag}`, false);
@@ -267,18 +271,24 @@ async function rulesFlow(tag, vp) {
     await p.getByRole('heading', { name: /Review draft v\d+/ }).waitFor({ timeout: 20_000 });
     await p.getByRole('button', { name: 'Show line 7 of the rules' }).first().hover();
     await shot(`rules-${tag}-draft`);
-    const pick = async (name) => {
-      await p.getByRole('combobox').selectOption({ label: `${name}’s demo key` });
-      await p.getByRole('button', { name: `Sign as ${name}` }).click();
-    };
-    await pick('Dana');
+    // An earlier interrupted run may have left this same draft with Dana's signature on it.
+    if (!(await p.getByText('Dana signed').isVisible())) await p.getByRole('button', { name: /^Sign Policy v\d+ as Dana$/ }).click();
     await p.getByText('Dana signed').waitFor({ timeout: 15_000 });
     await p.getByText('Dana signed').scrollIntoViewIfNeeded();
     await shot(`rules-${tag}-one-signature`, false);
-    await pick('Marcus');
-    await p.getByText(/Policy v\d+ is now active/).waitFor({ timeout: 20_000 });
-    await p.evaluate(() => window.scrollTo(0, 0));
-    await shot(`rules-${tag}-activated`, false);
+    // Marcus signs with his demo key on another device (a browser with no organizer session).
+    const other = await browser.newContext({ viewport: vp, deviceScaleFactor: vp.width < 500 ? 2 : 1 });
+    const m = await other.newPage();
+    await m.goto(`${base}/organizer/rules`, { waitUntil: 'load' });
+    await m.getByRole('combobox').selectOption({ label: 'Marcus’s demo key' });
+    await m.getByRole('button', { name: 'Sign as Marcus' }).click();
+    await m.getByText(/Policy v\d+ is now active/).waitFor({ timeout: 20_000 });
+    await m.evaluate(() => window.scrollTo(0, 0));
+    await m.evaluate(() => document.fonts.ready);
+    await m.waitForTimeout(500);
+    await m.screenshot({ path: `${out}rules-${tag}-activated.png` });
+    console.log('saved', `rules-${tag}-activated`);
+    await other.close();
   } catch (err) {
     console.error('FAILED', `rules-${tag}`, err instanceof Error ? err.message.split('\n')[0] : err);
     process.exitCode = 1;
