@@ -38,7 +38,7 @@ test.describe('/demo when PayPal refuses the payout (FAILED_RAIL)', () => {
     // The neighbor gets a neutral note in her language; nobody tells her money is on the way.
     const lan = page.getByRole('region', { name: 'Mrs. Lan’s phone' });
     await expect(lan.getByText(/hiện giờ PayPal chưa gửi được tiền/)).toBeVisible();
-    await expect(lan.getByText(/Đã gửi \$150/)).toHaveCount(0);
+    await expect(lan.getByText(/đã gửi \$150/i)).toHaveCount(0);
 
     // Both organizer phones show the refusal instead of "Sending … through PayPal".
     for (const name of ['Dana’s phone, organizer', 'Marcus’s phone, organizer']) {

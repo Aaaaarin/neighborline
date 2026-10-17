@@ -33,6 +33,16 @@ test('plain English → draft → two organizers sign → Policy v2 is active', 
   await expect(page.getByText('Added Baby supplies: up to $80 per request, $160 per household in 30 days')).toBeVisible();
   await expect(page.getByText('Baby supplies (diapers, formula, wipes): up to $80 per request, $160 per household in 30 days.', { exact: true }).last()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Requests waiting now' })).toBeVisible();
+  // Right after drafting nothing has been edited, although the draft's title now says (v2) (QA: false warning).
+  const editedWarning = page.getByText('You’ve edited the rules since this draft', { exact: false });
+  await expect(editedWarning).toHaveCount(0);
+  await expect(box).toHaveValue(/\(v2\)/);
+  // A real edit does raise it; undoing the edit clears it.
+  const drafted = await box.inputValue();
+  await box.fill(`${drafted}\n- Bus passes: up to $20.`);
+  await expect(editedWarning).toBeVisible();
+  await box.fill(drafted);
+  await expect(editedWarning).toHaveCount(0);
 
   // Dana signs with her passkey: one signature is not enough.
   await page.getByRole('button', { name: 'Sign Policy v2 as Dana' }).click();

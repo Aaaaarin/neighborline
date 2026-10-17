@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { cx, shortDate } from '@/lib/format';
+import { rulesEditedSince } from '@/lib/rules-text';
 import type { Organizer, OrganizerSession, PolicyDraftView, PolicyEditorView, PolicySignResult } from '@/lib/types';
 import { DraftReview, QueuePreview } from './DraftReview';
 import { RulesSheet, lineOf } from './RulesSheet';
@@ -39,7 +40,7 @@ export function RulesEditor({ initial, session, organizers }: { initial: PolicyE
   const [point, setPoint] = useState<number | null>(null);
 
   const draft: PolicyDraftView | null = view.draft && (view.draft.status === 'open' || activated) ? view.draft : null;
-  const edited = !!draft && draft.status === 'open' && text.trim() !== draft.sourceText.trim();
+  const edited = !!draft && draft.status === 'open' && rulesEditedSince(text, draft.sourceText);
   const cited = useMemo(() => {
     const s = new Set<number>();
     if (!draft || edited) return s;
@@ -60,7 +61,11 @@ export function RulesEditor({ initial, session, organizers }: { initial: PolicyE
     setActivated(null);
     try {
       const r = await api.draftPolicy(text);
-      if (r.ok) setView((v) => ({ ...v, draft: r.draft }));
+      if (r.ok) {
+        setView((v) => ({ ...v, draft: r.draft }));
+        // Show exactly what will be signed (the title now says the version it becomes, e.g. "(v2)").
+        setText(r.draft.sourceText);
+      }
       else setProblems(r.errors.map((e) => (e.path ? `${e.path}: ${e.message}` : e.message)));
     } catch (err) {
       setProblems([err instanceof ApiError ? err.message : 'Couldn’t draft the rules. Try again.']);

@@ -25,7 +25,9 @@ test.describe('/demo stage (real engine, fake PayPal)', () => {
     await expect(rail.getByText(/^nl_[0-9a-f]{7}…/).first()).toBeVisible();
     await expect(rail.getByText('Item SUCCESS · money landed')).toBeVisible();
 
-    await expect(lan.getByText(/Đã gửi \$150 vào Venmo của bạn/)).toBeVisible();
+    await expect(lan.getByText(/Chúng cháu đã gửi \$150 vào Venmo của bà/)).toBeVisible();
+    // The English line under the "approved, sending" bubble translates that same message.
+    await expect(lan.getByText('Good news: your request was approved. We are sending $150 to your Venmo now.')).toBeVisible();
     await expect(page.getByText('Stopped at the verified SUCCESS webhook · Venmo')).toBeVisible();
     // Honest speed: people's decision time and system time, shown separately.
     await expect(page.getByText('Neighbors deciding')).toBeVisible();
