@@ -31,6 +31,8 @@ const COUNTS: readonly RegExp[] = [
   new RegExp(`${B}(?:household of|family of|we are|we're|there are|somos|nha co|nou se|nous sommes|kami ay)\\s+${N}${E}${NOT_PEOPLE}`, 'u'),
   // Tagalog links a number to its noun with "na" / "-ng": "4 na tao", "Apat po kami", "Limang katao kami".
   new RegExp(`${B}${N}\\s*(?:na\\s+)?(?:people|persons?|of us|personas|nguoi|moun|personnes|katao|tao|(?:lang\\s+)?(?:po\\s+)?kami)${E}`, 'u'),
+  // Haitian Creole states the count after "nou" and before where: "Nou 3 nan kay la", "nou kat lakay".
+  new RegExp(`${B}nou\\s+${N}\\s+(?:nan kay|lakay|ladan kay|nan fanmi)${E}`, 'u'),
   new RegExp(`${CJK_NUM}\\s*(?:口人|个人|人)`, 'u'),
   new RegExp(`${CJK_NUM}\\s*(?:명|식구|사람)`, 'u'),
   /(\d{1,2})\s*(?:اشخاص|افراد|انفار|شخص)/u,

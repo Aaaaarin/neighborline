@@ -109,6 +109,8 @@ describe('EVAL finding 7 (offline extractor): need over who is mentioned, hunger
     ['It is me and my wife.', 2], ['Just the two of us.', 2], ['Vivo con mi abuela.', 2], ['Mon mari et moi.', 2],
     ['It is me and my 3 kids.', 4], ['Vivo con mis 2 hijas.', 3], ['Je vis avec mes deux enfants.', 3], ['Se mwen ak twa pitit mwen.', 4],
     ['Dalawa lang po kami.', 2], ['Nous sommes quatre.', 4], ['Somos cinco.', 5],
+    // QA-2: Kreyòl typed on /call was asked its household after saying it.
+    ['Nou 3 nan kay la.', 3], ['Nou kat lakay.', 4],
   ] as const)('%s → %s', (text, n) => {
     expect(householdFrom(text)).toBe(n);
   });
