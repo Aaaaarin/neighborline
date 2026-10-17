@@ -1,10 +1,12 @@
 /**
  * One real intake through the app's own API, as the /call page does it: start a request, upload the voice note
- * (multipart, no language hint: speech-to-text has to detect it), read the thread. The trace keeps timings, the
+ * (multipart, no language hint: speech-to-text has to detect it), read the thread. With AI_MODE=live the upload needs
+ * the human-check pass first (lib/human.ts). The trace keeps timings, the
  * app's answer and a comparison with the scenario's expected extraction.
  */
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { CookieJar, passHumanCheck } from './human.js';
 
 export interface IntakeScenario {
   id: string;
@@ -21,7 +23,8 @@ export interface IntakeTrace {
   lang: string;
   audio: string;
   requestId?: string;
-  ms: { start: number; audio: number; thread: number; total: number };
+  ms: { start: number; humanCheck: number; audio: number; thread: number; total: number };
+  humanCheck?: string;
   result?: Record<string, unknown>;
   thread?: unknown;
   checks: Array<{ name: string; want: unknown; got: unknown; ok: boolean }>;
@@ -40,27 +43,32 @@ const pick = (o: unknown, ...paths: string[]): unknown => {
 
 export async function runIntake(f: typeof fetch, base: string, s: IntakeScenario): Promise<IntakeTrace> {
   const t0 = Date.now();
-  const trace: IntakeTrace = { scenario: s.id, lang: s.lang, audio: basename(s.audioPath), ms: { start: 0, audio: 0, thread: 0, total: 0 }, checks: [], ok: false };
+  const trace: IntakeTrace = { scenario: s.id, lang: s.lang, audio: basename(s.audioPath), ms: { start: 0, humanCheck: 0, audio: 0, thread: 0, total: 0 }, checks: [], ok: false };
   try {
+    const jar = new CookieJar();
     const start = await f(`${base}/api/intake/start`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ groupSlug: 'eastside', channel: 'web_voice' }) });
+    jar.take(start);
     if (!start.ok) throw new Error(`POST /api/intake/start → ${start.status} ${(await start.text()).slice(0, 200)}`);
     const { requestId } = (await start.json()) as { requestId: string };
     trace.requestId = requestId;
-    const cookie = (start.headers.getSetCookie?.() ?? [start.headers.get('set-cookie') ?? '']).map((c) => c.split(';')[0]).filter(Boolean).join('; ');
     trace.ms.start = Date.now() - t0;
+    // Live AI: earn the human-check pass (proof of work) with the same visitor cookie, like the /call page does.
+    const th0 = Date.now();
+    trace.humanCheck = await passHumanCheck(f, base, jar);
+    trace.ms.humanCheck = Date.now() - th0;
 
     const bytes = readFileSync(s.audioPath);
     const form = new FormData();
     form.set('audio', new Blob([bytes], { type: 'audio/mpeg' }), basename(s.audioPath));
     const t1 = Date.now();
-    const up = await f(`${base}/api/intake/${encodeURIComponent(requestId)}/audio`, { method: 'POST', headers: cookie ? { cookie } : {}, body: form });
+    const up = await f(`${base}/api/intake/${encodeURIComponent(requestId)}/audio`, { method: 'POST', headers: jar.header(), body: form });
     trace.ms.audio = Date.now() - t1;
     const text = await up.text();
     if (!up.ok) throw new Error(`POST /api/intake/${requestId}/audio → ${up.status} ${text.slice(0, 300)}`);
     trace.result = JSON.parse(text) as Record<string, unknown>;
 
     const t2 = Date.now();
-    const th = await f(`${base}/api/intake/${encodeURIComponent(requestId)}/thread`, { headers: cookie ? { cookie } : {} });
+    const th = await f(`${base}/api/intake/${encodeURIComponent(requestId)}/thread`, { headers: jar.header() });
     trace.ms.thread = Date.now() - t2;
     trace.thread = th.ok ? await th.json() : { status: th.status };
 

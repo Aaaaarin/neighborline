@@ -44,6 +44,8 @@ export async function startLiveStack(repo: string, out: string, env: Env, opts: 
       ...(env.ANTHROPIC_MODEL ? { ANTHROPIC_MODEL: env.ANTHROPIC_MODEL } : {}),
       DEMO_MODE: 'true',
       RATE_LIMITS: 'off',
+      // The live-AI human check stays on (the intakes earn it like a browser), as proof of work: never Turnstile here.
+      HUMAN_CHECK: 'pow',
       DATABASE_URL,
       DEV_DB_CONTROL_URL: `http://127.0.0.1:${ports.db + 1}`,
       APPROVER_URL: `http://127.0.0.1:${ports.approver}`,
