@@ -3,6 +3,7 @@
  * about money. Slots: {amount} {wallet} {name}. A segment wrapped in [[ ]] is dropped when any
  * slot inside it is missing (used for the optional greeting "Hi {name}.").
  */
+import { RAIL_REFUSED_NOTICE } from './rail-notice.js';
 import type { Lang } from './schemas.js';
 
 export const MESSAGE_KEYS = [
@@ -15,6 +16,7 @@ export const MESSAGE_KEYS = [
   'unclaimed_help',
   'declined_with_appeal',
   'needs_info',
+  'payout_rail_refused',
 ] as const;
 export type MessageKey = (typeof MESSAGE_KEYS)[number];
 
@@ -36,6 +38,7 @@ export const CATALOG: Readonly<Record<CatalogLang, Readonly<Record<MessageKey, s
     declined_with_appeal:
       'We are sorry. Under the group’s current rules we could not send money for this request. This is not a judgment about you. Reply here if you would like a volunteer to look at it again.',
     needs_info: '[[Hi {name}. ]]A volunteer has a quick question about your request. Please reply here when you can.',
+    payout_rail_refused: RAIL_REFUSED_NOTICE.en,
   },
   es: {
     readback_intro: 'Esto es lo que entendí. Por favor, dígame si está bien:',
@@ -49,6 +52,7 @@ export const CATALOG: Readonly<Record<CatalogLang, Readonly<Record<MessageKey, s
     declined_with_appeal:
       'Lo sentimos. Con las reglas actuales del grupo no pudimos enviar dinero para esta solicitud. No es un juicio sobre usted. Si quiere que un voluntario la revise de nuevo, responda a este mensaje.',
     needs_info: '[[Hola, {name}. ]]Un voluntario tiene una pregunta rápida sobre su solicitud. Por favor, responda aquí cuando pueda.',
+    payout_rail_refused: RAIL_REFUSED_NOTICE.es,
   },
   vi: {
     readback_intro: 'Đây là những gì chúng tôi hiểu. Xin bạn kiểm tra xem có đúng không:',
@@ -62,6 +66,7 @@ export const CATALOG: Readonly<Record<CatalogLang, Readonly<Record<MessageKey, s
     declined_with_appeal:
       'Rất tiếc, theo quy định hiện tại của nhóm, chúng tôi chưa thể gửi tiền cho yêu cầu này. Đây không phải là đánh giá về bạn. Nếu bạn muốn một tình nguyện viên xem lại, xin trả lời tin nhắn này.',
     needs_info: '[[Chào {name}. ]]Một tình nguyện viên có một câu hỏi ngắn về yêu cầu của bạn. Bạn vui lòng trả lời ở đây khi tiện nhé.',
+    payout_rail_refused: RAIL_REFUSED_NOTICE.vi,
   },
   ht: {
     readback_intro: 'Men sa nou konprann. Tanpri di nou si se sa:',
@@ -75,6 +80,7 @@ export const CATALOG: Readonly<Record<CatalogLang, Readonly<Record<MessageKey, s
     declined_with_appeal:
       'Nou regrèt. Avèk règ gwoup la kounye a, nou pa t ka voye lajan pou demann sa a. Sa pa yon jijman sou ou. Si w vle yon volontè gade l ankò, reponn mesaj sa a.',
     needs_info: '[[Bonjou {name}. ]]Yon volontè gen yon ti kesyon sou demann ou an. Tanpri reponn isit la lè w kapab.',
+    payout_rail_refused: RAIL_REFUSED_NOTICE.ht,
   },
   zh: {
     readback_intro: '以下是我们理解的内容，请确认是否正确：',
@@ -88,6 +94,7 @@ export const CATALOG: Readonly<Record<CatalogLang, Readonly<Record<MessageKey, s
     declined_with_appeal:
       '很抱歉，按照小组目前的规则，我们无法为这项申请汇款。这并不是对您的评判。如果您希望志愿者重新查看，请回复这条消息。',
     needs_info: '[[{name}，您好。]]一位志愿者对您的申请有个简单的问题，方便时请在这里回复。',
+    payout_rail_refused: RAIL_REFUSED_NOTICE.zh,
   },
   ar: {
     readback_intro: 'هذا ما فهمناه. من فضلك أخبرنا إن كان صحيحًا:',
@@ -101,6 +108,7 @@ export const CATALOG: Readonly<Record<CatalogLang, Readonly<Record<MessageKey, s
     declined_with_appeal:
       'نأسف، لم نتمكن من إرسال مال لهذا الطلب حسب قواعد المجموعة الحالية. هذا ليس حكمًا عليك. إذا أردت أن يراجعه أحد المتطوعين مرة أخرى، رُدّ على هذه الرسالة.',
     needs_info: '[[مرحبًا {name}. ]]لدى أحد المتطوعين سؤال قصير عن طلبك. من فضلك رُدّ هنا عندما تستطيع.',
+    payout_rail_refused: RAIL_REFUSED_NOTICE.ar,
   },
 };
 

@@ -10,6 +10,7 @@ import {
   textDirection,
   walletName,
 } from './i18n.js';
+import { RAIL_REFUSED_NOTICE } from './rail-notice.js';
 
 const ALL = { amount: '$150', wallet: 'Venmo', name: 'Lan' };
 
@@ -81,6 +82,15 @@ describe('render', () => {
   it('never leaves placeholders in any rendered message', () => {
     for (const lang of [...CATALOG_LANGS, 'fr', 'tl']) {
       for (const k of MESSAGE_KEYS) expect(render(k, lang, ALL)).not.toMatch(/[{}[\]]/);
+    }
+  });
+});
+
+describe('payout_rail_refused', () => {
+  it('is the same vetted notice the engine sends (rail-notice.ts), with no slots', () => {
+    for (const lang of CATALOG_LANGS) {
+      expect(render('payout_rail_refused', lang)).toBe(RAIL_REFUSED_NOTICE[lang]);
+      expect(requiredSlots(CATALOG[lang].payout_rail_refused)).toEqual([]);
     }
   });
 });
