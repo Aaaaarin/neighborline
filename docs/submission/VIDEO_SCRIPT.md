@@ -146,7 +146,7 @@ header. The pipeline cuts each excerpt from the committed file by regex and fail
   - 2:13.5 the agent retries with the token: batch created; 2:14.6 `SUCCESS`; 2:16.2 reconciled against Transaction Search.
 - **Lower third (2:07.8–2:14.4, gone before the step-3 output reaches it):** `neighborline-payouts-mcp · open source, in @neighborline/paypal` / `No approval token: refused · two organizers sign: paid, SUCCESS, reconciled`
 - **VO V10 (2:05.8–2:17.3):** "For agent builders: the same guard ships as an MCP server. An AI agent asking to pay is refused without two humans' signatures. With them, it pays."
-- Known mismatch: the example's organizers are Ana and Ben and the handle is `@lan-nguyen`, not Dana, Marcus and `@lan-nguyen54` (examples lane; see the report).
+- The example now uses the main story's cast: Dana and Marcus approve Mrs. Lan's `@lan-nguyen54` (fixed Oct 17; take re-recorded, 14.6 s, markers: refused 2.95, approval 2 6.29, success 10.01, reconciled 11.65). Re-render to pick it up.
 
 ### Shot 13. Where the money went (2:17.5–2:26.5)
 - **Visual:** `/report`, hold 3 s on "Where the money went" and "Every number checked against the ledger", then pan to "Are approvals fair across languages?".

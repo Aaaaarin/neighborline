@@ -4,10 +4,10 @@
  * mints an approval token for one batch once you name two distinct approvers.
  *
  *   NEIGHBORLINE_APPROVAL_SECRET=<same secret as the server> \
- *   pnpm --filter @neighborline/example-mcp-agent-demo sign -- --approver org_ana --approver org_ben < batch.json
+ *   pnpm --filter @neighborline/example-mcp-agent-demo sign -- --approver org_dana --approver org_marcus < batch.json
  *
  * batch.json is the batch exactly as the agent sent it to create_payout_batch:
- *   { "sender_batch_id": "...", "items": [{ "sender_item_id": "...", "amount_cents": 15000, "receiver": "@lan-nguyen",
+ *   { "sender_batch_id": "...", "items": [{ "sender_item_id": "...", "amount_cents": 15000, "receiver": "@lan-nguyen54",
  *     "recipient_type": "USER_HANDLE", "wallet": "VENMO", "note": "..." }] }
  *
  * In production this is your approval service, after it has checked its own records of who approved what. Never
@@ -29,7 +29,7 @@ if (!secret || secret.length < 32) {
 }
 const approvers = [...new Set((values.approver ?? []).map((a) => a.trim().toLowerCase()).filter(Boolean))];
 if (approvers.length < 2) {
-  console.error('Name at least two distinct approvers: --approver org_ana --approver org_ben');
+  console.error('Name at least two distinct approvers: --approver org_dana --approver org_marcus');
   process.exit(1);
 }
 const raw = readFileSync(values.batch ?? 0, 'utf8');

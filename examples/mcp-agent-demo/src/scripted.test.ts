@@ -21,8 +21,13 @@ describe('scripted MCP agent demo', () => {
     const t = quiet();
     const out = await runScripted(stack, new DemoApprovalService(secret), t, { senderBatchId: 'nl_demo_test_1' });
     expect(out.refusedWithoutToken).toMatch(/^Refused: no approval_token/);
-    expect(out).toMatchObject({ finalStatus: 'SUCCESS', itemStatus: 'SUCCESS', reconcileOk: true, approvers: ['org_ana', 'org_ben'] });
+    expect(out).toMatchObject({ finalStatus: 'SUCCESS', itemStatus: 'SUCCESS', reconcileOk: true, approvers: ['org_dana', 'org_marcus'] });
     expect(stack.fake!.state.batches.size).toBe(1);
+    // Same cast and handle as the main story (/demo, the video): Dana and Marcus approve Mrs. Lan's @lan-nguyen54.
+    const humans = t.events.flatMap((e) => (e.kind === 'human' ? [e.who] : []));
+    expect(humans).toEqual(['Dana (organizer)', 'Marcus (organizer)']);
+    expect(lanBatch('x').items.map((i) => i.receiver)).toEqual(['@lan-nguyen54']);
+    expect(t.events.some((e) => e.kind === 'user' && e.text.includes('@lan-nguyen54'))).toBe(true);
     const kinds = t.events.map((e) => (e.kind === 'call' || e.kind === 'result' ? `${e.kind}:${e.tool}` : e.kind));
     expect(kinds).toEqual([
       'step', 'user', 'call:create_payout_batch', 'result:create_payout_batch', 'agent',
@@ -52,9 +57,9 @@ describe('DemoApprovalService', () => {
   it('needs two different organizers before it mints a token', () => {
     const svc = new DemoApprovalService(secret);
     const req = svc.request(toBatchInput(lanBatch('nl_x')));
-    expect(svc.approve(req.approvalId, 'org_ana')).toMatchObject({ token: null, approvals: 1 });
-    expect(svc.approve(req.approvalId, ' ORG_ANA ')).toMatchObject({ token: null, approvals: 1 });
-    const done = svc.approve(req.approvalId, 'org_ben');
-    expect(DemoApprovalService.describe(done.token!)).toMatchObject({ approvalId: req.approvalId, senderBatchId: 'nl_x', approvers: ['org_ana', 'org_ben'] });
+    expect(svc.approve(req.approvalId, 'org_dana')).toMatchObject({ token: null, approvals: 1 });
+    expect(svc.approve(req.approvalId, ' ORG_DANA ')).toMatchObject({ token: null, approvals: 1 });
+    const done = svc.approve(req.approvalId, 'org_marcus');
+    expect(DemoApprovalService.describe(done.token!)).toMatchObject({ approvalId: req.approvalId, senderBatchId: 'nl_x', approvers: ['org_dana', 'org_marcus'] });
   });
 });

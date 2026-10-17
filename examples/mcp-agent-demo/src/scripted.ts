@@ -43,10 +43,10 @@ export async function runScripted(stack: Stack, approvals: DemoApprovalService, 
   // 2. Two organizers approve the exact batch; only then does the approval service mint a token.
   await t.emit({ kind: 'step', n: 2, title: 'Two organizers sign' });
   const req = approvals.request(toBatchInput(batch));
-  const first = approvals.approve(req.approvalId, 'org_ana');
-  await t.emit({ kind: 'human', who: 'Ana (organizer)', text: `approved ${what} · ${first.approvals} of ${first.needed}` });
-  const second = approvals.approve(req.approvalId, 'org_ben');
-  await t.emit({ kind: 'human', who: 'Ben (organizer)', text: `approved ${what} · ${second.approvals} of ${second.needed}` });
+  const first = approvals.approve(req.approvalId, 'org_dana');
+  await t.emit({ kind: 'human', who: 'Dana (organizer)', text: `approved ${what} · ${first.approvals} of ${first.needed}` });
+  const second = approvals.approve(req.approvalId, 'org_marcus');
+  await t.emit({ kind: 'human', who: 'Marcus (organizer)', text: `approved ${what} · ${second.approvals} of ${second.needed}` });
   const token = second.token;
   if (!token) throw new Error('approval service did not mint a token after two approvals');
   const payload = DemoApprovalService.describe(token)!;

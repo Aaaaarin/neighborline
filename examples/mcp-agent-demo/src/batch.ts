@@ -19,7 +19,7 @@ export interface McpBatchArgs {
   items: McpPayoutItem[];
 }
 
-export const USER_REQUEST = 'Pay Mrs. Lan $150 on Venmo (@lan-nguyen) for her heating bill.';
+export const USER_REQUEST = 'Pay Mrs. Lan $150 on Venmo (@lan-nguyen54) for her heating bill.';
 
 export function lanBatch(senderBatchId: string): McpBatchArgs {
   return {
@@ -30,7 +30,7 @@ export function lanBatch(senderBatchId: string): McpBatchArgs {
         sender_item_id: 'req_lan_heat',
         amount_cents: 15000,
         currency: 'USD',
-        receiver: '@lan-nguyen',
+        receiver: '@lan-nguyen54',
         recipient_type: 'USER_HANDLE',
         wallet: 'VENMO',
         note: 'Đã gửi $150 từ hàng xóm',
@@ -62,7 +62,7 @@ export function usd(cents: number): string {
   return `$${dollars.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${fraction}`;
 }
 
-/** "$150.00 → @lan-nguyen (Venmo)" for one item, "3 items, $420.00" for more. */
+/** "$150.00 → @lan-nguyen54 (Venmo)" for one item, "3 items, $420.00" for more. */
 export function describeBatch(a: Pick<McpBatchArgs, 'items'>): string {
   if (a.items.length === 1) {
     const i = a.items[0]!;

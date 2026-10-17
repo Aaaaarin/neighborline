@@ -75,5 +75,5 @@ the tap and the money moment).
   read "Visitor’s Mac (as Marcus)".
 - Everything still runs against the PayPal stand-in (`PAYPAL_MODE=fake`), labelled in the corner tag and the lower
   thirds. A real-sandbox beat (JUDGE-PANEL-2 #5c) needs credentials.
-- The MCP example's organizers are Ana and Ben and its handle is `@lan-nguyen`, not Dana, Marcus and `@lan-nguyen54`
-  (examples lane).
+- Fixed Oct 17: the MCP example's organizers are Dana and Marcus and its handle is `@lan-nguyen54`, like the main
+  story. The terminal take (`takes/mcp-demo.mp4`, 14.6 s) and `mcp-demo.png` were re-recorded; re-render the cut.

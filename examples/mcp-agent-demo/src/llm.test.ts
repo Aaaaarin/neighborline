@@ -39,7 +39,7 @@ function plan(turn: number, lastToolText: string): { text?: string; tool?: { nam
       return { tool: { name: 'get_payout_batch', input: { payout_batch_id: batchId } } };
     }
     default:
-      return { text: 'Paid $150.00 to @lan-nguyen on Venmo after two organizers approved.' };
+      return { text: 'Paid $150.00 to @lan-nguyen54 on Venmo after two organizers approved.' };
   }
 }
 

@@ -20,7 +20,7 @@ export interface LlmOptions {
   provider: Provider;
   model?: string;
   senderBatchId: string;
-  /** `auto`: Ana and Ben approve automatically. `prompt`: ask on the terminal for each organizer. */
+  /** `auto`: Dana and Marcus approve automatically. `prompt`: ask on the terminal for each organizer. */
   approve: 'auto' | 'prompt';
   maxTurns?: number;
   /** Inject a client (tests). Default: a real SDK client built from ANTHROPIC_API_KEY / OPENAI_API_KEY. */
@@ -100,7 +100,7 @@ async function requestApproval(approvals: DemoApprovalService, t: Transcript, ar
   await t.emit({ kind: 'call', tool: 'request_human_approval', summary: `${what}${args.reason ? ` · "${args.reason}"` : ''}`, args });
   const req = approvals.request(toBatchInput(args));
   let token: string | null = null;
-  for (const [id, who] of [['org_ana', 'Ana (organizer)'], ['org_ben', 'Ben (organizer)']] as const) {
+  for (const [id, who] of [['org_dana', 'Dana (organizer)'], ['org_marcus', 'Marcus (organizer)']] as const) {
     let ok = true;
     if (mode === 'prompt') {
       const rl = createInterface({ input: process.stdin, output: process.stdout });

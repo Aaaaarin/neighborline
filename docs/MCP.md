@@ -31,8 +31,8 @@ Amounts are integer cents. A repeated `sender_batch_id` returns the original bat
 ```
 agent ──create_payout_batch(B)────────────────────────────────▶ server: "Refused: no approval_token; an agent
                                                                          cannot authorize a payout on its own."
-agent ──"please approve B"──▶ your approval service ──▶ Ana ✓, Ben ✓ (two different humans, the exact batch B)
-                              signApprovalToken(secret, { batch: B, approvers: [ana, ben], ttlSec: 600 })
+agent ──"please approve B"──▶ your approval service ──▶ Dana ✓, Marcus ✓ (two different humans, the exact batch B)
+                              signApprovalToken(secret, { batch: B, approvers: [dana, marcus], ttlSec: 600 })
 agent ◀──────────────────────── token  (HMAC over sender_batch_id + digest of every receiver/amount/currency/wallet)
 agent ──create_payout_batch(B, token)─────────────────────────▶ server verifies: signature · expiry · same
                                                                  sender_batch_id · same digest · ≥ 2 approvers
@@ -116,14 +116,14 @@ Settings → Developer → Edit Config opens `claude_desktop_config.json` (macOS
 
 Then try:
 
-1. Ask: *"Pay Mrs. Lan $150 on Venmo, handle @lan-nguyen, note 'from your neighbors', sender_batch_id
+1. Ask: *"Pay Mrs. Lan $150 on Venmo, handle @lan-nguyen54, note 'from your neighbors', sender_batch_id
    nl_desktop_1."* Claude calls `create_payout_batch` and is refused: *no approval_token*.
 2. Ask Claude for the batch as JSON (the `create_payout_batch` arguments), save it as `batch.json`, and play the
    approval service with two approvers:
 
    ```bash
    NEIGHBORLINE_APPROVAL_SECRET=<same value> \
-   pnpm --filter @neighborline/example-mcp-agent-demo sign --approver org_ana --approver org_ben < batch.json
+   pnpm --filter @neighborline/example-mcp-agent-demo sign --approver org_dana --approver org_marcus < batch.json
    ```
 
 3. Paste the token: *"Approved, token: nlap1…"*. Claude retries with the same batch, and the batch is created.

@@ -6,7 +6,7 @@ Mrs. Lan $150 on Venmo.
 
 1. It calls `create_payout_batch` without an approval token. **Refused**, with a reason it can tell its user.
 2. Two organizers approve the exact batch. The approval service signs an HMAC token bound to it
-   (`signApprovalToken` from `@neighborline/paypal/approval`, approvers `org_ana` + `org_ben`).
+   (`signApprovalToken` from `@neighborline/paypal/approval`, approvers `org_dana` + `org_marcus`).
 3. The agent retries with the token. The batch is created in (fake) PayPal, and `get_payout_batch` shows `SUCCESS`.
 4. `reconcile_payouts` matches the payout against PayPal Transaction Search.
 
@@ -31,28 +31,28 @@ MCP client → neighborline-payouts v0.2.0 (stdio) · fake PayPal · scripted ag
 6 tools: get_payout_batch, get_payout_item, cancel_unclaimed_payout_item, search_transactions, reconcile_payouts, create_payout_batch
 
 ── 1. The agent tries to pay on its own ────────────────────────────────
-user   Pay Mrs. Lan $150 on Venmo (@lan-nguyen) for her heating bill.
-agent  → create_payout_batch $150.00 → @lan-nguyen (Venmo) · no approval_token
+user   Pay Mrs. Lan $150 on Venmo (@lan-nguyen54) for her heating bill.
+agent  → create_payout_batch $150.00 → @lan-nguyen54 (Venmo) · no approval_token
 mcp    ✗ Refused: no approval_token; an agent cannot authorize a payout on its own. Payouts need two human approvals in the Neighborline organizer app.
 agent  I can't send money on my own. Asking two organizers to approve this exact payout.
 
 ── 2. Two organizers sign ──────────────────────────────────────────────
-human  Ana (organizer) approved $150.00 → @lan-nguyen (Venmo) · 1 of 2
-human  Ben (organizer) approved $150.00 → @lan-nguyen (Venmo) · 2 of 2
-token  HMAC-signed for this batch only (digest 7a3760e3f3…) · org_ana + org_ben · expires in 10 min
-         nlap1.eyJ2IjoxLCJh…DydQ7XNE
+human  Dana (organizer) approved $150.00 → @lan-nguyen54 (Venmo) · 1 of 2
+human  Marcus (organizer) approved $150.00 → @lan-nguyen54 (Venmo) · 2 of 2
+token  HMAC-signed for this batch only (digest 63163a5265…) · org_dana + org_marcus · expires in 10 min
+         nlap1.eyJ2IjoxLCJh…NKn0K3jk
 
 ── 3. The agent retries with the token ─────────────────────────────────
-agent  → create_payout_batch $150.00 → @lan-nguyen (Venmo) · approval_token ✓
-mcp    ✓ batch W8XUD56CWMAFE · PENDING · approval appr_001
-agent  → get_payout_batch W8XUD56CWMAFE
-mcp    ✓ batch SUCCESS · @lan-nguyen $150.00 VENMO: SUCCESS · txn 3IM2RJPBHP169736T
+agent  → create_payout_batch $150.00 → @lan-nguyen54 (Venmo) · approval_token ✓
+mcp    ✓ batch OVCTVW2125BEH · PENDING · approval appr_001
+agent  → get_payout_batch OVCTVW2125BEH
+mcp    ✓ batch SUCCESS · @lan-nguyen54 $150.00 VENMO: SUCCESS · txn 0G1A61CJPU863480T
 
 ── 4. Reconcile against PayPal ─────────────────────────────────────────
 agent  → reconcile_payouts 1 ledger item vs Transaction Search
 mcp    ✓ ok · 1 matched · 0 mismatched · 0 missing · 0 within PayPal's reporting lag
 
-$150.00 → @lan-nguyen (Venmo) paid with two humans' signatures. 1 refusal, 1 payout, reconciled.
+$150.00 → @lan-nguyen54 (Venmo) paid with two humans' signatures. 1 refusal, 1 payout, reconciled.
 ```
 
 ## Flags
