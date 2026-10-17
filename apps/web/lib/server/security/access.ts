@@ -2,6 +2,7 @@
 import { HttpError } from '../errors';
 import { DEMO_SEAT, demoModeOn } from '../passkeys/demo-signer';
 import { services } from '../services';
+import { humanCheck, requireHuman, type HumanCheck } from './human-check';
 import { enforceLimit, type LimitClass } from './rate-limit';
 import { accessTo, ownsAll, viewerOf, type Viewer } from './viewer';
 import { ownerTagOf } from './visitor';
@@ -18,11 +19,20 @@ export async function requireRequester(req: Request, requestId: string): Promise
   return viewer;
 }
 
-/** Rate limits for an intake call; live AI calls also spend from the "ai" buckets. */
+/** This server's human check (Turnstile, proof of work or none: lib/human-check-mode.ts). */
+export const siteHumanCheck = (): HumanCheck => humanCheck(services().modes.aiMode);
+
+/**
+ * Rate limits for an intake call. A call that uses a model (`ai` not false: typed text, a real
+ * recording, a correction) also needs a human pass when a check is on, and with AI_MODE=live spends
+ * from the "ai" buckets. Starting a request, a bundled sample and a plain "yes" use no model.
+ */
 export async function limitIntake(req: Request, viewer: Viewer | null, opts: { ai?: boolean } = {}): Promise<void> {
   const tag = viewer?.visitor?.tag ?? null;
   await enforceLimit(req, 'intake', { visitorTag: tag });
-  if (opts.ai ?? services().modes.aiMode === 'live') await enforceLimit(req, 'ai', { visitorTag: tag });
+  if (opts.ai === false) return;
+  requireHuman(req, viewer, siteHumanCheck());
+  if (services().modes.aiMode === 'live') await enforceLimit(req, 'ai', { visitorTag: tag });
 }
 
 export async function limit(req: Request, cls: LimitClass, viewer: Viewer | null): Promise<void> {

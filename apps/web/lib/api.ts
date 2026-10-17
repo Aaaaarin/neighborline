@@ -34,17 +34,19 @@ import type {
   SubscriptionPlan,
   ThreadView,
 } from './types';
+import { ensureHuman, HumanCheckError } from './human-check-client';
 
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message);
   }
 }
 
-async function call<T>(path: string, init?: RequestInit & { json?: unknown }): Promise<T> {
+async function call<T>(path: string, init?: RequestInit & { json?: unknown }, retried = false): Promise<T> {
   const { json, ...rest } = init ?? {};
   const res = await fetch(path, {
     ...rest,
@@ -52,8 +54,17 @@ async function call<T>(path: string, init?: RequestInit & { json?: unknown }): P
     body: json !== undefined ? JSON.stringify(json) : rest.body,
     cache: 'no-store',
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new ApiError(res.status, data.error ?? `Request failed (${res.status})`);
+  const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+  if (res.status === 403 && data.code === 'human_check_required' && !retried) {
+    // Live-AI intake needs a human pass (Turnstile or a background proof of work): get one, retry once.
+    try {
+      await ensureHuman();
+    } catch (e) {
+      throw new ApiError(e instanceof HumanCheckError ? e.status : 0, e instanceof Error ? e.message : 'The browser check failed', 'human_check_failed');
+    }
+    return call<T>(path, init, true);
+  }
+  if (!res.ok) throw new ApiError(res.status, data.error ?? `Request failed (${res.status})`, data.code);
   return data as T;
 }
 

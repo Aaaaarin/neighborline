@@ -6,20 +6,27 @@
  * SDK, which DonateForm injects) inherit trust. The PayPal/Venmo host list is kept for browsers
  * without strict-dynamic and for frames, images, fonts and XHR the SDK makes. No inline event
  * handlers, no eval in production.
+ *
+ * Cloudflare Turnstile (the human check, lib/human-check-mode.ts) adds challenges.cloudflare.com to
+ * script-src and frame-src, and only when Turnstile is the active check; otherwise the CSP does not
+ * mention it.
  */
+import { TURNSTILE_ORIGIN } from './human-check-mode';
+
 export const PAYPAL_HOSTS = ['https://www.paypal.com', 'https://*.paypal.com', 'https://*.paypalobjects.com', 'https://*.venmo.com'];
 
-export function contentSecurityPolicy(nonce: string, opts: { dev: boolean }): string {
+export function contentSecurityPolicy(nonce: string, opts: { dev: boolean; turnstile?: boolean }): string {
   const pp = PAYPAL_HOSTS.join(' ');
+  const ts = opts.turnstile ? ` ${TURNSTILE_ORIGIN}` : '';
   const d: Record<string, string> = {
     'default-src': "'self'",
-    'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' ${pp}${opts.dev ? " 'unsafe-eval'" : ''}`,
+    'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' ${pp}${ts}${opts.dev ? " 'unsafe-eval'" : ''}`,
     // React style attributes and the PayPal SDK's injected styles need inline styles; no inline script.
     'style-src': `'self' 'unsafe-inline' ${pp}`,
     'img-src': `'self' data: blob: ${pp}`,
     'font-src': `'self' data: ${pp}`,
     'connect-src': `'self' ${pp}${opts.dev ? ' ws: wss:' : ''}`,
-    'frame-src': pp,
+    'frame-src': `${pp}${ts}`,
     'media-src': "'self' blob: data:",
     'worker-src': "'self' blob:",
     'manifest-src': "'self'",

@@ -4,6 +4,7 @@ import type { Lang } from '@neighborline/core';
 import { Camera, Keyboard, LoaderCircle, Mic, RotateCcw, SendHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, openStream } from '@/lib/api';
+import { ensureHuman } from '@/lib/human-check-client';
 import { dirOf, fill, ui } from '@/lib/i18n';
 import { LANGUAGE_NAMES, cx } from '@/lib/format';
 import type { SampleVoiceNote, ScenarioId, ThreadView } from '@/lib/types';
@@ -53,6 +54,12 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
       }
       return null;
     }
+  }, []);
+
+  // With live AI the server wants a human pass before the first model call: earn it in the background
+  // now (no-op otherwise), so sending never waits on it. lib/api.ts also retries once if it is missing.
+  useEffect(() => {
+    void ensureHuman().catch(() => {});
   }, []);
 
   // Survive a refresh mid-conversation: the thread comes back from the server.

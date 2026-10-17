@@ -35,6 +35,8 @@ export const LIMITS = {
   passkey: { ip: { capacity: 20, refillSeconds: 15 }, visitor: { capacity: 15, refillSeconds: 20 } },
   reconcile: { ip: { capacity: 4, refillSeconds: 60 } },
   donate: { ip: { capacity: 20, refillSeconds: 15 } },
+  /** Human-check challenges and proofs (cheap to issue; a proof costs the server 32 hashes). */
+  human: { ip: { capacity: 30, refillSeconds: 10 }, visitor: { capacity: 12, refillSeconds: 20 } },
 } satisfies Record<string, { ip?: BucketSpec; visitor?: BucketSpec; global?: BucketSpec }>;
 
 export type LimitClass = keyof typeof LIMITS;

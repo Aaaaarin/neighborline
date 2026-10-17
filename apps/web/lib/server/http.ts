@@ -18,8 +18,8 @@ export function route<A extends unknown[]>(fn: (...args: A) => Promise<Response 
       return out instanceof Response ? out : NextResponse.json(out);
     } catch (err) {
       if (isHttpError(err)) {
-        const headers = (err as { headers?: Record<string, string> }).headers;
-        return NextResponse.json({ error: err.message }, { status: err.status, ...(headers ? { headers } : {}) });
+        const { headers, code } = err as { headers?: Record<string, string>; code?: string };
+        return NextResponse.json({ error: err.message, ...(code ? { code } : {}) }, { status: err.status, ...(headers ? { headers } : {}) });
       }
       log.error('api.unhandled', { error: errorText(err) });
       return NextResponse.json({ error: 'Something went wrong on our side. Try again in a moment.' }, { status: 500 });

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { humanCheckMode } from './lib/human-check-mode';
 import { contentSecurityPolicy, securityHeaders } from './lib/security-headers';
 
 /**
@@ -11,7 +12,7 @@ export function middleware(req: NextRequest) {
   crypto.getRandomValues(bytes);
   const nonce = btoa(String.fromCharCode(...bytes));
   const dev = process.env.NODE_ENV !== 'production';
-  const csp = contentSecurityPolicy(nonce, { dev });
+  const csp = contentSecurityPolicy(nonce, { dev, turnstile: humanCheckMode(process.env) === 'turnstile' });
   const reqHeaders = new Headers(req.headers);
   reqHeaders.set('x-nonce', nonce);
   reqHeaders.set('content-security-policy', csp);
