@@ -2,7 +2,7 @@
 
 Ordered by impact on judging. ✅ done · 🔄 in progress · ⏳ blocked on human · ☐ todo
 
-Status as of Oct 17, 2026: 953 unit tests (`pnpm test`), 18 workflows node tests and 32 Playwright tests pass on
+Status as of Oct 17, 2026: 972 unit tests (`pnpm test`), 18 workflows node tests and 34 Playwright tests pass on
 `main`.
 
 ## Blocked on human
@@ -63,10 +63,10 @@ Status as of Oct 17, 2026: 953 unit tests (`pnpm test`), 18 workflows node tests
 - ☐ Re-record the video takes with the current build (Lan now freezes at about 0:22.5) and re-cut Draft 1; then VO
   once the OpenAI key arrives
 - ☐ Shared rate-limit store and bot protection before any real deployment (R9)
-- ☐ Video lane: re-render Draft 2 with the re-recorded MCP take (Dana, Marcus, `@lan-nguyen54`; 14.6 s) and the
-  953-test code card (re-cache the test run in `edl.json`)
-- ☐ Refresh the test counts in README, DEVPOST, INTEGRATION and VIDEO_SCRIPT: `pnpm test` now gives **972**,
-  `playwright test --list` **34** (after the QA-2 P2-3/P3 fixes)
+- ✅ Video lane: Draft 3 rendered with the re-recorded MCP take (Dana, Marcus, `@lan-nguyen54`; 14.6 s) and the
+  972-test code card (test run re-cached in `edl.json`) → `$VIDEO_OUT/neighborline-draft3.mp4`
+- ✅ Test counts refreshed in README (badges + Testing), DEVPOST, INTEGRATION, VIDEO_SCRIPT and STATUS: `pnpm test`
+  **972** (core 356, web 168), `playwright test --list` **34** (after the QA-2 P2-3/P3 fixes)
 - ☐ QA-2 P3 (deliberate, left as is): reconcile rate limit is per IP (4 a minute)
 
 ## QA report 2: last P2 and the P3s ✅ ([QA-REPORT-2](docs/qa/QA-REPORT-2.md))

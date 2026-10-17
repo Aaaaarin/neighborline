@@ -3,7 +3,7 @@
 Repo: github.com/Aaaaarin/neighborline (private until you approve making it public)
 
 ## Built and green
-- 953 unit tests + 32 Playwright end-to-end tests pass; CI green on GitHub (typecheck, tests, build, e2e, audit, secret scan, AI eval gate)
+- 972 unit tests + 34 Playwright end-to-end tests pass; CI green on GitHub (typecheck, tests, build, e2e, audit, secret scan, AI eval gate)
 - Voice/text intake in 10 languages, read-back, one clarifying question, appeal flow
 - Rules-as-code: plain-English rules -> AI draft with a quoted source per cap -> two signatures activate a new version
 - Two-person approval signed with passkeys; separate approval service is the only process with PayPal Payouts credentials
