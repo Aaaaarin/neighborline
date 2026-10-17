@@ -89,6 +89,9 @@ export default defineConfig({
             NEIGHBORLINE_SESSION_SECRET: SESSION_SECRET,
             // Every test shares one IP (localhost); the limiter itself is unit-tested.
             RATE_LIMITS: 'off',
+            // The human check runs in fixture mode too, so every typed /call message goes through the
+            // browser's proof of work (e2e/human-check.spec.ts checks the refusals).
+            HUMAN_CHECK: 'pow',
             // Own build directory, so an e2e build never clobbers a running `next dev`.
             NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? '.next-e2e',
           },

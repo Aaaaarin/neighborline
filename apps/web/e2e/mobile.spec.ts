@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { passHumanCheck } from './helpers';
 
 test('a neighbor without a microphone can send a sample voice note and confirm it', async ({ page }) => {
   await page.goto('/call');
@@ -65,6 +66,7 @@ test('more than 2,000 characters: a translated error, nothing lost, and the neig
 test('decline is idempotent, and REVIEW sends it back to a different organizer with the first reason', async ({ page }) => {
   // File a request as this visitor, then decline it twice (a double tap and a second organizer).
   const { requestId } = await (await page.request.post('/api/intake/start', { data: { groupSlug: 'eastside', channel: 'web_text' } })).json();
+  await passHumanCheck(page.request);
   await page.request.post(`/api/intake/${requestId}/text`, { data: { text: 'Power is out since the storm, I need a heater. We are 2 people. My Venmo is @appeal-e2e1' } });
   await page.request.post(`/api/intake/${requestId}/confirm`, { data: { confirmed: true } });
   const decline = (organizerId: string, reasonCode: string) => page.request.post(`/api/requests/${requestId}/decline`, { data: { organizerId, reasonCode } });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { inviteCode } from './helpers';
+import { inviteCode, passHumanCheck } from './helpers';
 
 /** Give the browser a platform passkey (Chromium virtual authenticator with user verification). */
 async function passkeyDevice(page: Page) {
@@ -120,6 +120,7 @@ test('approvals are idempotent, need two different organizers, and a visitor onl
 
 test('a request a visitor sends from /call is paid once they approve it as Marcus (Dana’s scripted key signs second)', async ({ request }) => {
   const { requestId } = await (await request.post('/api/intake/start', { data: { groupSlug: 'eastside', channel: 'web_text' } })).json();
+  await passHumanCheck(request);
   await request.post(`/api/intake/${requestId}/text`, { data: { text: 'Power is out since the storm, I need a space heater. We are 2 people. My Venmo is @e2e-second2' } });
   expect((await request.post(`/api/intake/${requestId}/confirm`, { data: { confirmed: true } })).status()).toBe(200);
   const tap = await request.post('/api/approvals', { data: { requestIds: [requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } } });
