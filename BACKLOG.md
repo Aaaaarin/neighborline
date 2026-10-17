@@ -2,20 +2,52 @@
 
 Ordered by impact on judging. ✅ done · 🔄 in progress · ⏳ blocked on human · ☐ todo
 
-Status as of Oct 17, 2026: 972 unit tests (`pnpm test`), 18 workflows node tests and 34 Playwright tests pass on
-`main`.
+Status as of Oct 17, 2026: 1103 unit tests (`pnpm test`, 11 packages), 18 workflows node tests and 38 Playwright
+tests pass on `main`; typecheck and the production web build are green.
 
 ## Blocked on human
-- ⏳ PayPal sandbox client id/secret for the main app **and** a separate Payouts app (Payouts enabled) → real sandbox
-  spike, webhook registration on both apps
-- ⏳ OpenAI API key (STT/TTS/LLM, and the video voiceover) → live AI take; Anthropic key optional
-- ⏳ Render account (payment method or hackathon credit) → hosting (`render.yaml` ready)
-- ⏳ Decide the hosted PayPal mode: `render.yaml` says `PAYPAL_MODE=sandbox`, but Rosa's claim only plays in fake
-  mode and the sandbox spike hasn't run. Fake mode, honestly labelled, matches every screenshot and the video
-- ⏳ Permission to make the repo public; Devpost submission; public YouTube upload
-- ⏳ A native speaker to review the vi / es / ht copy and the video's Vietnamese voice and translations
-  (ko / ru / zh / ar UI strings too, if possible)
-- ⏳ Optional: Twilio account (voice line / WhatsApp sandbox) for the "hotline" channel
+- ⏳ **Key day: one checklist, [docs/GOLIVE.md](docs/GOLIVE.md).** About 10 minutes of clicks (two PayPal sandbox
+  apps, the sandbox Personal account that also stands in on the hosted `/demo`, an OpenAI key, a Render account,
+  API key and the Blueprint click), then `pnpm golive` runs the sandbox spike, live AI, the Render deploy with a
+  hosted `/demo` run, the voiceover and the doc finalization. Everything in Wave 4 below waits on it
+- ⏳ Permission to make the repo public; Devpost submission; public YouTube upload (GOLIVE.md "Then")
+- ⏳ Optional: a native speaker to review the vi / es / ht copy and the video's Vietnamese (review packet in
+  `docs/submission/review/`); npm org + token for `@neighborline/paypal`; a Twilio number for the hotline
+
+## Sandbox `/demo` stand-ins and key-day automation ✅
+- ✅ `SANDBOX_DEMO_RECEIVER_EMAIL` (sandbox + `DEMO_MODE` only, `req_demo_*` only): Lan/Jean/Walter's payouts go to a
+  PayPal sandbox account standing in for their Venmo/email after the rail checks on the scripted destination, so they
+  really settle; Rosa's run uses a fresh unregistered address and genuinely goes `UNCLAIMED` (stage offers cancel, no
+  faked claim); audited (`demo.sandbox_stand_in`); stage, both phones, organizer card, rail steps and `/trust` say
+  so; demo runs stay exempt from caps, budget and duplicate-destination checks. Tests run the engine in
+  `PAYPAL_MODE=sandbox` against the fake (`apps/web/test/sandbox-standin.test.ts`). NOTES-golive request done
+- ✅ `pnpm golive`: preflight → sandbox-setup → sandbox-spike → live-ai → deploy-render → video-vo → finalize-docs,
+  idempotent and resumable, tested against the fake PayPal, a mock Render API and a mock hosted app; `deploy-render`
+  sets the stand-in (default `SANDBOX_PERSONAL_EMAIL`) and defaults the hosted mode to sandbox when a receiver exists;
+  `finalize-docs` writes the README rows and DEVPOST sentences only from a real sandbox run; `pnpm check-links`
+- ✅ fake-paypal: webhook subscriptions (CRUD, event types, event list, resend); duplicate `sender_batch_id` error
+  bodies pinned as fixtures the client must resolve
+
+## Public-deployment hardening ✅
+- ✅ R9: rate limits and the phone line's per-caller limits in shared Postgres buckets (atomic token-bucket UPSERT)
+- ✅ Pluggable human check on model-using intake (Turnstile when configured, else a background proof of work bound to
+  the visitor, single use; `/demo` never asks); e2e with `HUMAN_CHECK=pow`
+- ✅ R12: the organizer queue is organizers-only unless `DEMO_MODE` or `PUBLIC_QUEUE=on`; anonymous stream caps key on
+  the client IP
+
+## Language and copy ✅
+- ✅ Vietnamese address forms (bà, ông, chị… → chúng cháu / chúng tôi) and fr/tl/ko/ru catalogs; status, decline,
+  appeal and phone copy in all ten languages with the Vietnamese register; the English line under a thread message is
+  the same catalog key and slots; Spanish requester copy assumes no gender
+- ✅ Review packet regenerated with a Status column (machine-assisted, pending native review)
+
+## Video and submission ✅
+- ✅ Draft 4 (2:40.5) cut from re-recorded takes (Lan in the bà register, matching EN lines, stopwatch 0:22.5, the
+  1093-test code card; a fresh run now reads 1103, so the card stays as recorded unless the video is re-cut);
+  thumbnail stopwatch fits the 3:2 card; stage, home, call and rules screenshots re-taken
+- ✅ Paste-ready Devpost packet, gallery, hero GIF (`docs/submission/`); test counts refreshed everywhere (README badges
+  and Testing, STATUS, DEVPOST, DEVPOST_FIELDS, CHECKLIST, INTEGRATION, VIDEO_SCRIPT)
+- ✅ Rules editor: no false "You've edited the rules since this draft" right after Draft policy
 
 ## Wave 3: close honesty gaps ✅
 - ✅ Approval service as a **separate process** (`apps/approver`): the only process with Payouts credentials; the web
@@ -60,9 +92,8 @@ Status as of Oct 17, 2026: 972 unit tests (`pnpm test`), 18 workflows node tests
 - ✅ CI: `ci.yml` was invalid YAML since 14:05 (unquoted `: ` in a step name), so no job ran; fixed
 
 ## Still open (no human needed)
-- ☐ Re-record the video takes with the current build (Lan now freezes at about 0:22.5) and re-cut Draft 1; then VO
-  once the OpenAI key arrives
-- ☐ Shared rate-limit store and bot protection before any real deployment (R9)
+- ✅ Re-record the video takes with the current build and re-cut (Draft 4); VO renders with `pnpm golive` (video-vo)
+- ✅ Shared rate-limit store and bot protection before any real deployment (R9)
 - ✅ Video lane: Draft 3 rendered with the re-recorded MCP take (Dana, Marcus, `@lan-nguyen54`; 14.6 s) and the
   972-test code card (test run re-cached in `edl.json`) → `$VIDEO_OUT/neighborline-draft3.mp4`
 - ✅ Test counts refreshed in README (badges + Testing), DEVPOST, INTEGRATION, VIDEO_SCRIPT and STATUS: `pnpm test`
@@ -120,16 +151,16 @@ Status as of Oct 17, 2026: 972 unit tests (`pnpm test`), 18 workflows node tests
   `typescript.tsconfigPath`; `next-env.d.ts` git-ignored, `next-types.d.ts` tracked)
 - ✅ P2 offline extractor reads a Kreyòl household ("Nou 3 nan kay la")
 
-## Wave 4: real world
+## Wave 4: real world (scripted by `pnpm golive`; ⏳ the keys in [GOLIVE.md](docs/GOLIVE.md))
 - ☐ Real sandbox spike: Payouts PayPal + Venmo, webhooks, Transaction Search, Orders/Subscriptions buttons
-  ([checklist](docs/PAYPAL.md#to-verify-in-the-real-sandbox)) ⏳ credentials
-- ☐ Live AI: demo audio with TTS, real STT on a recorded voice note, latency budget ⏳ OpenAI key
-- ☐ Deploy to Render with the Blueprint (web + approver, Postgres, Workflows, scheduler); smoke test
-  (`scripts/verify-deploy.sh`); keep warm ⏳ Render account
+  ([checklist](docs/PAYPAL.md#to-verify-in-the-real-sandbox)) → `sandbox-setup`, `sandbox-spike`
+- ☐ Live AI: eval live columns, demo audio with TTS, three real intakes → `live-ai`
+- ☐ Deploy to Render with the Blueprint (web + approver, Postgres, Workflows, scheduler); `verify-deploy.sh`; a hosted
+  `/demo` run that settles in the sandbox through the stand-in → `deploy-render`
 - ☐ Optional phone/WhatsApp channel via Twilio ⏳ account
 
 ## Wave 5: win the room
 - ☐ Red-team QA pass (bugs, UX, copy) on the hosted build
-- ☐ Video: re-record → cut → captions → voiceover → native-speaker check → public YouTube upload
-- ☐ Devpost: fill `{HOSTED_URL}`, `{VIDEO_ID}`, sandbox buyer; thumbnail and gallery (THUMBNAIL_BRIEF.md)
+- ☐ Video: voiceover (`video-vo`) → native-speaker check → public YouTube upload
+- ☐ Devpost: `finalize-docs` fills `{HOSTED_URL}`, `{VIDEO_ID}`, sandbox buyer; thumbnail and gallery are ready
 - ☐ Sponsor prize: APIMatic Context Plugin (Payouts + Transaction Search): decide

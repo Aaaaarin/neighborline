@@ -50,7 +50,7 @@ Quoted from the [official rules](https://paypalaihackathon.devpost.com/rules) (f
 - [ ] A live-model run of `pnpm --filter @neighborline/agents eval --mode live` committed to EVAL.md, if a key arrives; otherwise §9b's "Honest status" paragraph stays.
 
 **Consistency** (a careful judge cross-checks)
-- [ ] Test counts in README, DEVPOST_FIELDS, the video's code card and badges equal a fresh `pnpm test` (972 on Oct 17) and `playwright test --list` (34). CI green on `main`.
+- [ ] Test counts in README, DEVPOST_FIELDS and badges equal a fresh `pnpm test` (1103 on Oct 17) and `playwright test --list` (38). CI green on `main`. The video's code card is baked into Draft 4 from the run that read **1093** (before the sandbox stand-in tests); re-render only if a new cut is made anyway.
 - [ ] The stopwatch value (`0:22.4`), the split (`0:19.2` / `0:03.1`) and "about 22 s / about 3 s" agree across video, thumbnail, gallery and text.
 - [ ] Every "not built / not live" statement is still true: phone line built but no number; SMS/WhatsApp not built; hosted or not; sandbox run or not.
 - [ ] `/trust` "Sandbox reality" matches README "Sandbox reality" and §9c.

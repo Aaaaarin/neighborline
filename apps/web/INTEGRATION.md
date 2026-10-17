@@ -162,7 +162,8 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 - Category key is `medicine_copay` (core) in the web mock too.
 - Stage texts come straight from `packages/agents/fixtures/scenarios/*.json` (`lib/server/fixtures/scenarios.ts`).
 - Jean is paid by Venmo `@jean-baptiste-h` (sandbox rejects `recipient_type: PHONE`).
-- Rosa's `rosa.m.delgado@example.com` has "no PayPal account yet" in fake PayPal (`unclaimedReceivers`).
+- Rosa's `rosa.m.delgado@example.com` has "no PayPal account yet" in fake PayPal (`unclaimedReceivers`); in the real
+  sandbox with stand-ins on, each run uses a fresh `neighborline-unclaimed-rosa-…@example.com` instead.
 
 ## Environment
 
@@ -172,6 +173,7 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 | `PAYPAL_PLAN_ID`, `PAYPAL_PLAN_ID_10`, `_25`, `_50` | Monthly plans for the subscription buttons |
 | `PAYPAL_MODE` | `sandbox` flips the "simulated" tags off where real calls are made |
 | `AI_MODE` | `live` changes the Sandbox-reality line for AI |
+| `SANDBOX_DEMO_RECEIVER_EMAIL` | Sandbox only, with `DEMO_MODE` on: `/demo` runs file Lan's, Jean's and Walter's payouts to this sandbox Personal account (PayPal wallet, by email) after the rail checks on the scripted destination, and Rosa's to a fresh unregistered address so it genuinely stays `UNCLAIMED`. `RequestView.sandboxStandIn` / `ThreadView.sandboxNote` carry the sentence the stage, phones and card show (`lib/server/engine/sandbox-standin.ts`, [DEMO.md](../../docs/DEMO.md#in-the-real-paypal-sandbox)) |
 | `DEMO_MODE` | Fails closed: unset means on only with `PAYPAL_MODE=fake`. Off disables `/api/demo/play`, demo keys and demo-visitor passkeys. `/api/demo/reset` additionally needs the internal HMAC (`NEIGHBORLINE_INTERNAL_SECRET`) |
 | `APPROVER_URL`, `NEIGHBORLINE_APPROVER_SECRET` | Where the approver listens (default `http://127.0.0.1:4020`) and the HMAC key shared with it. `pnpm dev` / `render-start.sh` set both |
 | `DATABASE_URL`, `DEV_DB_CONTROL_URL` | The database shared with the approver; `pnpm dev` points both at `tools/dev-db`, whose control URL lets `/demo` reset swap in a fresh database |
@@ -194,7 +196,7 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 in-process fake PayPal + the real approver HTTP service on a random port sharing that database + fixture AI),
 the internal-endpoint tests, the privacy tests and the least-privilege check.
 `pnpm --filter @neighborline/web test:e2e` starts tools/dev-db on :4130, tools/fake-paypal on :4110, apps/approver on
-:4120, builds into `.next-e2e`, starts on :3100 (real engine, `PAYPAL_MODE=fake`) and runs the 34 tests in
+:4120, builds into `.next-e2e`, starts on :3100 (real engine, `PAYPAL_MODE=fake`) and runs the 38 tests in
 `e2e/*.spec.ts`: Lan → SUCCESS with the stopwatch frozen; a visitor approves as Marcus with a passkey or the demo key; a visitor's own `/call` request is paid after they approve it as Marcus;
 lookalike blocked; a payout PayPal refuses (`FAILED_RAIL`) stops the stage honestly; approval idempotency and visitor isolation over the API; cross-site and non-JSON requests refused;
 the nonce CSP; an organizer enrolls a passkey; `/call` on a phone (sample voice note, a Chinese clarifying question

@@ -103,7 +103,7 @@ A strict-TypeScript pnpm monorepo:
 
 **Schema-first AI:** one forced tool call with strict JSON Schema → zod validation → **one** repair call that shows the model its own output and the exact issues → if still invalid or unsure, ask the neighbor again in her language. A payout handle or amount she didn't say is dropped, never guessed.
 
-**Tests:** 972 unit and integration tests and 34 Playwright end-to-end tests (axe accessibility on every page) against the production process layout, plus a 208-case, 10-language eval ([EVAL.md](https://github.com/Aaaaarin/neighborline/blob/main/docs/EVAL.md)): 33/33 injections flagged, 0/35 benign messages flagged, 22/22 impersonating handles blocked, 0/158 legitimate handles blocked, measured on the offline extractor (no live model has been scored yet).
+**Tests:** 1103 unit and integration tests and 38 Playwright end-to-end tests (axe accessibility on every page) against the production process layout, plus a 208-case, 10-language eval ([EVAL.md](https://github.com/Aaaaarin/neighborline/blob/main/docs/EVAL.md)): 33/33 injections flagged, 0/35 benign messages flagged, 22/22 impersonating handles blocked, 0/158 legitimate handles blocked, measured on the offline extractor (no live model has been scored yet).
 
 ## Challenges we ran into
 
