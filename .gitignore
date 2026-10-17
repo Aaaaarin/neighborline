@@ -10,3 +10,5 @@ coverage
 playwright-report
 test-results
 .turbo
+# pnpm golive outputs (evidence, generated ids, logs): never committed; docs/GOLIVE.md
+golive-out
