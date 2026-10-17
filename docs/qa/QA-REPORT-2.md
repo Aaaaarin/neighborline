@@ -20,8 +20,8 @@ contradicts a headline claim · **P2** a careful judge or PayPal engineer will n
 |---|---|---|---|
 | P0 | 0 | 0 | 0 |
 | P1 | 1 | 1 | 0 |
-| P2 | 7 | 6 | 1 (P2-3, stage on a refused batch) |
-| P3 | 4 | 0 | 4 |
+| P2 | 7 | 7 | 0 (P2-3 fixed after the pass) |
+| P3 | 4 | 3 | 1 (per-IP reconcile limit, deliberate) |
 
 Every QA-1 fix still holds: per-visitor isolation, reset not public, JSON-only same-origin writes, nonce CSP, the
 `/call` clarifying question and its refresh, the 2,000-character limit, decline idempotency and the REVIEW appeal,
@@ -53,7 +53,7 @@ Spanish (`shots2/organizer-1920-visitor-approved.jpg`, `shots2/call-1280-after-o
 |---|---|---|---|
 | P2-1 | **/report contradicts its own header every evening (Pacific).** The page says "last 30 days · September 16 – October 16, 2026"; the narrative under it says "From 2026-09-17 to 2026-10-17" (UTC dates from `buildFacts`). JUDGE-PANEL-2 #3 promised "one window with the same labels". | `/report` after 5 pm PT | **Fixed** (`8c533b9`): `buildFacts` / `ReportWriter` take the page's `periodLabel`; the label's year is the group's too. Tests in agents and `test/consistency.test.ts` (no ISO date in the narrative, label quoted). `shots2/report-1920-period.jpg` |
 | P2-2 | **/trust under-states what a visitor's key can sign.** The disclosure said a visitor's key signs "never the shared queue, a rules change or a sign-in", but `/api/policy/sign` accepts Marcus's demo key as the second signature on a rules draft (the e2e rules test does exactly that). It can never be the only one (the other must be a real passkey), so the security claim holds; the sentence did not. | `org.mjs`: Priya (passkey) + Marcus (demo key, another browser) → Policy v2 active (`shots2/rules-1280-v2-active.jpg`) | **Fixed** (`52710fa`): disclosure, NOTES-trust and README say it; test pins it |
-| P2-3 | **The /demo stage hangs when PayPal refuses the batch at the account level.** With a `SENDER_RESTRICTED` fault on the fake, both approvals land, the rail shows "PayPal Payouts batch created (in progress)" and the stopwatch runs forever; no "Stopped", no message to the neighbor. The organizer alert and the manual fallback work (`shots2/organizer-1920-rail-refused.jpg`), but nothing reaches the stage because `StageEvent` has no batch-refused event. Judges can't trigger it in fake mode; a restricted sandbox account would. | `railstage.mjs`, `shots2/demo-1920-rail-refused.jpg` | **Open** (core `StageEvent` + stage UI; BACKLOG) |
+| P2-3 | **The /demo stage hangs when PayPal refuses the batch at the account level.** With a `SENDER_RESTRICTED` fault on the fake, both approvals land, the rail shows "PayPal Payouts batch created (in progress)" and the stopwatch runs forever; no "Stopped", no message to the neighbor. The organizer alert and the manual fallback work (`shots2/organizer-1920-rail-refused.jpg`), but nothing reaches the stage because `StageEvent` has no batch-refused event. Judges can't trigger it in fake mode; a restricted sandbox account would. | `railstage.mjs`, `shots2/demo-1920-rail-refused.jpg` | **Fixed**: core `payout.rail_refused`; the clock stops in the alarm color, the rail ends at "Organizers alerted", both organizer phones and the neighbor (in their language) are told no money moved; e2e `e2e/rail.spec.ts` |
 | P2-4 | **Stale test counts in the README.** Badges said 711 unit / 30 Playwright; the table's per-package numbers were older still. `pnpm test` gives **953** and `playwright test --list` **32** (31 before this pass's new test; DEVPOST and INTEGRATION.md said 30). | `pnpm test`, `--list` | **Fixed**: README badges and table, DEVPOST, INTEGRATION.md, VIDEO_SCRIPT code card |
 | P2-5 | **The MCP example told a different story** (organizers Ana and Ben, handle `@lan-nguyen`) from `/demo` and the video (Dana, Marcus, `@lan-nguyen54`). | `examples/mcp-agent-demo` | **Fixed** (`d4eec49`): transcript, `--llm` approvers, sign CLI, README output from a real run, docs/MCP.md; tests pin the cast; terminal take re-recorded (14.6 s) |
 | P2-6 | **`next build` with a custom `NEXT_DIST_DIR` dirtied the tree** (QA-1 P3, raised because every parallel agent and the e2e run hits it): Next rewrote the tracked `next-env.d.ts` and `tsconfig.json`, which blocks `git pull --rebase`. | any `NEXT_DIST_DIR=.next-x next build` | **Fixed** (`c078dae`): a generated, git-ignored `.next-tsconfig-<dir>.json` via `typescript.tsconfigPath`; `next-env.d.ts` git-ignored as Next recommends, with a tracked `next-types.d.ts`. Two builds in this pass left `git status` clean. Documented in `apps/web/INTEGRATION.md` |
@@ -62,14 +62,14 @@ Spanish (`shots2/organizer-1920-visitor-approved.jpg`, `shots2/call-1280-after-o
 ## P3
 
 - **Rules text still says "(v1)" after v2 is active.** Line 1 of the plain-English rules is the seed's title, "rules
-  for quick cash help (v1)", and it is never updated when a new version activates.
+  for quick cash help (v1)", and it is never updated when a new version activates. **Fixed**: the marker follows the draft's version.
 - **Font preload warnings on `/organizer`.** Chromium logs "preloaded using link preload but not used within a few
-  seconds" for three fonts (the preload added for `/report` CLS is global). Console noise only.
+  seconds" for three fonts (the preload added for `/report` CLS is global). Console noise only. **Fixed**: preloads are per page (`/`, `/report`).
 - **Reconcile rate limit is per IP (4 a minute).** Several judges behind one office IP pressing "Reconcile now" get
   "Too many requests from this device". Deliberate for live PayPal; generous enough for one judge.
 - **Every passkey is labelled "Priya's device" unless renamed**, so an organizer with three passkeys sees three
   identical rows in "Devices that can sign" before revoking one. The enrollment form has a "Name this device" field;
-  the default could include the browser and OS.
+  the default could include the browser and OS. **Fixed**: "Priya’s Mac · Chrome", repeats numbered ("… 2").
 
 ## What was run (all on the production build)
 
