@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { PageShell } from '@/components/PageShell';
 import { Bars, ChartFrame, Columns, Dots } from '@/components/report/Charts';
 import { duration, money, shortDate, shortId } from '@/lib/format';
+import { preloadTextFonts } from '@/lib/fonts';
 import { services } from '@/lib/server/services';
 import { demoModeOn } from '@neighborline/passkeys';
 
@@ -15,6 +16,8 @@ export const dynamic = 'force-dynamic';
 const txUrl = (id: string) => `https://www.sandbox.paypal.com/activity/payment/${encodeURIComponent(id)}`;
 
 export default async function ReportPage() {
+  // The charts are laid out in these faces: have them before first paint so nothing reflows (CLS 0).
+  preloadTextFonts();
   const svc = services();
   const r = await svc.getReport();
   const sandbox = svc.modes.paypalMode === 'sandbox';

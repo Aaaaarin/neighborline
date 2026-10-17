@@ -3,6 +3,7 @@ import { HeroPhone } from '@/components/HeroPhone';
 import { PageShell } from '@/components/PageShell';
 import { SCENARIOS } from '@/lib/server/fixtures/scenarios';
 import * as tpl from '@/lib/server/fixtures/templates';
+import { preloadTextFonts } from '@/lib/fonts';
 import { services } from '@/lib/server/services';
 import { stopwatch } from '@/lib/format';
 import type { ThreadView } from '@/lib/types';
@@ -92,6 +93,8 @@ const REFUSALS = [
 export const dynamic = 'force-dynamic';
 
 export default function Home() {
+  // The hero's display type: in place at first paint (lib/fonts.ts).
+  preloadTextFonts();
   const speed = services().lastRunSpeed();
   const paypal = services().modes.paypalMode;
   return (

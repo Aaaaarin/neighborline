@@ -15,8 +15,6 @@ export const metadata: Metadata = {
     'Leave a voice note in any language. Two neighbors approve, each with a passkey. The money lands in PayPal or Venmo in minutes, not days.',
 };
 
-const PRELOAD_FONTS = ['be-vietnam-pro-latin-400-normal.woff2', 'be-vietnam-pro-latin-600-normal.woff2', 'literata-latin-opsz-normal.woff2'];
-
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#eff1ee' },
@@ -30,12 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   await headers();
   return (
     <html lang="en">
-      <head>
-        {/* The Latin text faces (globals.css): fetched with the CSS, so the first paint is already in them. */}
-        {PRELOAD_FONTS.map((f) => (
-          <link key={f} rel="preload" href={`/fonts/${f}`} as="font" type="font/woff2" crossOrigin="anonymous" />
-        ))}
-      </head>
+      {/* Text-face preloads are per page (lib/fonts.ts: /report and /), not global (QA-2 P3). */}
       <body className="min-h-dvh">{children}</body>
     </html>
   );

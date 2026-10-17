@@ -184,6 +184,19 @@ test('pages run under the nonce CSP: no violations, and /donate still offers a P
   expect(violations).toEqual([]);
 });
 
+test('text fonts are preloaded only where first paint needs them; /organizer logs no unused-preload warning', async ({ page }) => {
+  const warnings: string[] = [];
+  page.on('console', (m) => {
+    if (/preloaded using link preload but not used/i.test(m.text())) warnings.push(m.text());
+  });
+  await page.goto('/report');
+  await expect(page.locator('link[rel="preload"][as="font"]')).toHaveCount(3);
+  await page.goto('/organizer');
+  await expect(page.locator('link[rel="preload"][as="font"]')).toHaveCount(0);
+  await page.waitForTimeout(3500);
+  expect(warnings).toEqual([]);
+});
+
 test('an approval without a signature is refused', async ({ request }) => {
   const res = await request.post('/api/approvals', { data: { requestIds: ['req_seed_q_ana'], organizerId: 'org_dana', deviceLabel: 'no signature' } });
   expect(res.status()).toBe(400);
