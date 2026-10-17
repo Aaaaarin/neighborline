@@ -252,6 +252,12 @@ export const StageEvent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('request.flagged'), at: z.string(), requestId: z.string(), flags: z.array(RailFlag) }),
   z.object({ type: z.literal('approval.added'), at: z.string(), approvalId: z.string(), organizerId: z.string(), count: z.number() }),
   z.object({ type: z.literal('payout.batch_created'), at: z.string(), batchId: z.string(), senderBatchId: z.string(), paypalBatchId: z.string().optional(), itemCount: z.number(), totalCents: z.number() }),
+  /**
+   * PayPal refused the batch at the account level (FAILED_RAIL: the sponsor's account is restricted,
+   * locked or not authorized). Nothing was sent; organizers were alerted. `reason` is PayPal's error
+   * name (e.g. SENDER_RESTRICTED), never PII.
+   */
+  z.object({ type: z.literal('payout.rail_refused'), at: z.string(), batchId: z.string(), itemCount: z.number(), totalCents: z.number(), reason: z.string().optional(), manualFallback: z.boolean() }),
   z.object({ type: z.literal('payout.item_updated'), at: z.string(), itemId: z.string(), requestId: z.string(), status: PayoutItemStatus, paypalItemId: z.string().optional(), transactionId: z.string().optional() }),
   z.object({ type: z.literal('webhook.verified'), at: z.string(), eventType: z.string(), eventId: z.string() }),
   z.object({ type: z.literal('notify.sent'), at: z.string(), requestId: z.string(), lang: Lang, text: z.string(), channel: Channel }),
