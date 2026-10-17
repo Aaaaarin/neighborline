@@ -5,7 +5,8 @@ export const dirOf = (lang: Lang | string | undefined): 'rtl' | 'ltr' => (lang ?
 
 /**
  * Requester-facing UI chrome, written natively for every supported language (vi/es/ht/ar reviewed with the
- * message catalog; zh/ko/ru/fr/tl awaiting a native-speaker pass). Anything not listed falls back to English.
+ * message catalog; zh/ko/ru/fr/tl machine-assisted, awaiting a native-speaker pass). Anything not listed
+ * falls back to English. The mic* lines are the /call errors when recording is blocked or unsupported.
  */
 const STRINGS = {
   en: {
@@ -48,6 +49,11 @@ const STRINGS = {
     backToVoice: "Back to voice",
     startOver: "Start a new request",
     yourAnswer: "Your answer",
+    micBlocked: "The microphone is blocked.",
+    micUnsupported: "This browser can’t record audio.",
+    micUseSample: "Use a sample voice note below, or type instead.",
+    micTypeAnswer: "Type your answer instead.",
+    sampleAnswer: "Send a sample answer",
   },
   vi: {
     lineName: 'Neighborline · Eastside',
@@ -89,6 +95,11 @@ const STRINGS = {
     backToVoice: "Quay lại ghi âm",
     startOver: "Gửi yêu cầu mới",
     yourAnswer: "Câu trả lời của bạn",
+    micBlocked: "Micro đang bị chặn.",
+    micUnsupported: "Trình duyệt này không ghi âm được.",
+    micUseSample: "Bạn dùng tin nhắn thoại mẫu bên dưới, hoặc gõ chữ nhé.",
+    micTypeAnswer: "Bạn gõ câu trả lời nhé.",
+    sampleAnswer: "Gửi câu trả lời mẫu",
   },
   es: {
     lineName: 'Neighborline · Eastside',
@@ -130,6 +141,11 @@ const STRINGS = {
     backToVoice: "Volver a la voz",
     startOver: "Hacer otra solicitud",
     yourAnswer: "Su respuesta",
+    micBlocked: "El micrófono está bloqueado.",
+    micUnsupported: "Este navegador no puede grabar audio.",
+    micUseSample: "Use una nota de voz de ejemplo (abajo) o escriba su mensaje.",
+    micTypeAnswer: "Escriba su respuesta.",
+    sampleAnswer: "Enviar una respuesta de ejemplo",
   },
   ht: {
     lineName: 'Neighborline · Eastside',
@@ -171,6 +187,11 @@ const STRINGS = {
     backToVoice: "Retounen nan vwa",
     startOver: "Fè yon nouvo demann",
     yourAnswer: "Repons ou",
+    micBlocked: "Mikwo a bloke.",
+    micUnsupported: "Navigatè sa a pa ka anrejistre son.",
+    micUseSample: "Sèvi ak yon mesaj vokal egzanp anba a, oswa ekri pito.",
+    micTypeAnswer: "Ekri repons ou pito.",
+    sampleAnswer: "Voye yon repons egzanp",
   },
   ar: {
     lineName: 'Neighborline · Eastside',
@@ -212,6 +233,11 @@ const STRINGS = {
     backToVoice: "العودة إلى التسجيل الصوتي",
     startOver: "طلب جديد",
     yourAnswer: "إجابتك",
+    micBlocked: "الميكروفون محظور.",
+    micUnsupported: "لا يستطيع هذا المتصفح تسجيل الصوت.",
+    micUseSample: "استخدم رسالة صوتية نموذجية بالأسفل، أو اكتب بدلًا من ذلك.",
+    micTypeAnswer: "اكتب إجابتك بدلًا من ذلك.",
+    sampleAnswer: "أرسل إجابة نموذجية",
   },
   zh: {
     lineName: "Neighborline · Eastside",
@@ -253,6 +279,11 @@ const STRINGS = {
     backToVoice: "返回语音",
     startOver: "提交新的申请",
     yourAnswer: "您的回答",
+    micBlocked: "麦克风被禁用了。",
+    micUnsupported: "这个浏览器无法录音。",
+    micUseSample: "请使用下面的示例语音消息，或改为打字。",
+    micTypeAnswer: "请改为打字回答。",
+    sampleAnswer: "发送示例回答",
   },
   ko: {
     lineName: "Neighborline · Eastside",
@@ -294,6 +325,11 @@ const STRINGS = {
     backToVoice: "음성으로 돌아가기",
     startOver: "새 요청 보내기",
     yourAnswer: "내 답변",
+    micBlocked: "마이크가 차단되어 있어요.",
+    micUnsupported: "이 브라우저에서는 녹음할 수 없어요.",
+    micUseSample: "아래 예시 음성 메시지를 쓰시거나 글로 써 주세요.",
+    micTypeAnswer: "답을 글로 써 주세요.",
+    sampleAnswer: "예시 답변 보내기",
   },
   ru: {
     lineName: "Neighborline · Eastside",
@@ -335,6 +371,11 @@ const STRINGS = {
     backToVoice: "Вернуться к голосу",
     startOver: "Новая просьба",
     yourAnswer: "Ваш ответ",
+    micBlocked: "Доступ к микрофону запрещён.",
+    micUnsupported: "Этот браузер не может записывать звук.",
+    micUseSample: "Выберите пример голосового сообщения ниже или напишите текстом.",
+    micTypeAnswer: "Напишите ответ текстом.",
+    sampleAnswer: "Отправить пример ответа",
   },
   fr: {
     lineName: "Neighborline · Eastside",
@@ -376,6 +417,11 @@ const STRINGS = {
     backToVoice: "Revenir à la voix",
     startOver: "Nouvelle demande",
     yourAnswer: "Votre réponse",
+    micBlocked: "Le micro est bloqué.",
+    micUnsupported: "Ce navigateur ne peut pas enregistrer le son.",
+    micUseSample: "Utilisez un message vocal d’exemple ci-dessous, ou écrivez plutôt.",
+    micTypeAnswer: "Écrivez plutôt votre réponse.",
+    sampleAnswer: "Envoyer une réponse d’exemple",
   },
   tl: {
     lineName: "Neighborline · Eastside",
@@ -417,6 +463,11 @@ const STRINGS = {
     backToVoice: "Bumalik sa boses",
     startOver: "Bagong request",
     yourAnswer: "Ang sagot mo",
+    micBlocked: "Naka-block ang mikropono.",
+    micUnsupported: "Hindi makapag-record ng audio ang browser na ito.",
+    micUseSample: "Gumamit ng halimbawang voice message sa ibaba, o mag-type na lang.",
+    micTypeAnswer: "I-type na lang ang sagot mo.",
+    sampleAnswer: "Magpadala ng halimbawang sagot",
   },
 } as const;
 

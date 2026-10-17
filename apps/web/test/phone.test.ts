@@ -54,7 +54,9 @@ describe('phone line: inbound call → filed request → call-back', () => {
     expect(readBack.xml).toMatch(/<Gather input="dtmf" action="\/api\/voice\/confirm\?rid=/);
     expect(lines[0]).toMatchObject({ language: 'vi-VN', voice: 'Google.vi-VN-Chirp3-HD-Aoede' });
     expect(lines[0]!.text).toContain('@lan-nguyen54');
-    expect(lines[1]!.text).toBe(phrase('confirmPrompt', 'vi').text);
+    // She called herself "bà": the prompts around the read-back address her as bà (core address.ts).
+    expect(lines[1]!.text).toBe(phrase('confirmPrompt', 'vi', {}, 'bà').text);
+    expect(lines[1]!.text).toBe('Nếu đúng, bà bấm số 1. Để nói lại, bà bấm số 2 ạ.');
 
     // The recording was fetched once and deleted at Twilio after transcription, and the audit log says so.
     const sid = api.fetched.at(-1)!;
@@ -64,7 +66,8 @@ describe('phone line: inbound call → filed request → call-back', () => {
 
     const filed = await call.press(readBack, '1');
     if (process.env.SHOW_TWIML) for (const t of call.log) console.log(t.status, t.xml);
-    expect(said(filed.xml)).toContain(phrase('filed', 'vi').text);
+    expect(said(filed.xml)).toContain(phrase('filed', 'vi', {}, 'bà').text);
+    expect(said(filed.xml)).toContain('Chúng cháu sẽ gọi hoặc nhắn tin lại cho bà.');
     expect(filed.xml).toContain('<Hangup/>');
     const r = (await getRequest(await db(), rid))!;
     expect(r).toMatchObject({ channel: 'phone', status: 'awaiting_approval', lang: 'vi', contact: { phone: '+15035550101' }, confirmedByRequester: true });
@@ -77,8 +80,8 @@ describe('phone line: inbound call → filed request → call-back', () => {
     await h.engine.approve({ requestIds: [rid], organizerId: 'org_marcus', signer: { kind: 'demo_key' } });
     const back = await waitFor(() => api.calls.find((c) => c.to === '+15035550101'), 20_000, 'call-back');
     expect(back.twiml).toContain('language="vi-VN"');
-    expect(back.twiml).toContain('Đã gửi $150 vào Venmo của bạn');
-    expect(back.twiml).toContain(phrase('callIntro', 'vi').text);
+    expect(back.twiml).toContain('Chúng cháu đã gửi $150 vào Venmo của bà');
+    expect(back.twiml).toContain(phrase('callIntro', 'vi', {}, 'bà').text);
     if (process.env.SHOW_TWIML) console.log(back.twiml);
     expect(back.twiml.length).toBeLessThanOrEqual(4000);
     expect(api.sms).toHaveLength(0); // no verified SMS sender configured → never texts

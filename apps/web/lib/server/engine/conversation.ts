@@ -5,7 +5,7 @@
  * The answers are plain text in the neighbor's language, so they go through the same intake agent as
  * anything typed (live LLM or the offline extractor, which knows these exact labels).
  */
-import type { HelpRequest, Lang, Policy } from '@neighborline/core';
+import { textFor, type AddressForm, type HelpRequest, type Lang, type Policy, type WithViRegisters } from '@neighborline/core';
 import { questionText } from '@neighborline/agents';
 import type { DeclineReasonCode, ThreadQuestion } from '../../types';
 import type { RequestMeta } from './meta';
@@ -47,7 +47,7 @@ export function householdAnswer(n: number, lang: Lang): string {
 /** The pending question, derived from the stored request so it survives a server restart. */
 export function questionFor(r: HelpRequest, policy: Policy | null, meta: RequestMeta | undefined, opts: { blocked: boolean }): ThreadQuestion | null {
   const lang = r.lang;
-  if (r.status === 'declined') return appealQuestion(lang, meta);
+  if (r.status === 'declined') return appealQuestion(lang, meta, r.extracted?.addressForm);
   if (opts.blocked) return null;
   let key: Key | null = null;
   let optional = false;
@@ -59,7 +59,7 @@ export function questionFor(r: HelpRequest, policy: Policy | null, meta: Request
     optional = true;
   }
   if (!key) return null;
-  const text = meta?.question?.key === key && meta.question.lang === lang ? meta.question.text : questionText(key, lang);
+  const text = meta?.question?.key === key && meta.question.lang === lang ? meta.question.text : questionText(key, lang, x?.addressForm);
   const answers =
     key === 'ask_household'
       ? [1, 2, 3, 4, 5, 6].map((n) => ({ label: String(n), send: householdAnswer(n, lang) }))
@@ -74,32 +74,48 @@ export function questionFor(r: HelpRequest, policy: Policy | null, meta: Request
 
 /* ---------- appeal ---------- */
 
-const REVIEW_WORD: Partial<Record<Lang, string>> = { en: 'REVIEW', es: 'REVISAR', vi: 'XEM LẠI', ht: 'REVIZE', ar: 'مراجعة', zh: '复查' };
+/** The appeal keyword the decline asks for, in each language (copy-decline.ts DECLINE_WITH_APPEAL). */
+const REVIEW_WORD: Record<Lang, string> = { en: 'REVIEW', es: 'REVISAR', vi: 'XEM LẠI', ht: 'REVIZE', ar: 'مراجعة', zh: '复查', fr: 'RÉEXAMEN', tl: 'SURIIN', ko: '재검토', ru: 'ПЕРЕСМОТР' };
 
-function appealQuestion(lang: Lang, meta: RequestMeta | undefined): ThreadQuestion | null {
+/** Vietnamese register variants: viElder (bà, ông… → "chúng cháu", "ạ"), viPeer (anh, chị, em); core address.ts. */
+const APPEAL_QUESTION: WithViRegisters<string> = {
+  en: 'Think this is wrong? Reply REVIEW, or tell us what we missed.',
+  es: '¿Cree que es un error? Responda REVISAR o cuéntenos qué se nos pasó.',
+  vi: 'Bạn thấy chưa đúng? Nhắn XEM LẠI, hoặc cho chúng tôi biết điều còn thiếu.',
+  viElder: '{You} thấy chưa đúng ạ? {You} nhắn XEM LẠI, hoặc cho chúng cháu biết điều còn thiếu.',
+  viPeer: '{You} thấy chưa đúng? Nhắn XEM LẠI, hoặc cho chúng tôi biết điều còn thiếu.',
+  ht: 'Ou panse se yon erè? Reponn REVIZE, oswa di nou sa nou rate.',
+  ar: 'هل ترى أن هذا خطأ؟ ردّ بكلمة مراجعة، أو أخبرنا بما فاتنا.',
+  zh: '觉得有误？请回复“复查”，或告诉我们漏掉了什么。',
+  fr: 'Vous pensez que c’est une erreur ? Répondez RÉEXAMEN, ou dites-nous ce qui nous a échappé.',
+  tl: 'Sa tingin mo ba ay mali ito? Sumagot ng SURIIN, o sabihin sa amin kung ano ang hindi namin napansin.',
+  ko: '잘못되었다고 생각하세요? ‘재검토’라고 답장하시거나, 저희가 놓친 부분을 알려 주세요.',
+  ru: 'Считаете, что это ошибка? Ответьте ПЕРЕСМОТР или напишите, что мы упустили.',
+};
+
+const APPEAL_ACK: WithViRegisters<string> = {
+  en: 'Thank you. A different organizer will look at your request again within 24 hours. We’ll message you here.',
+  es: 'Gracias. Otra persona del grupo revisará su solicitud de nuevo en 24 horas. Le escribiremos aquí.',
+  vi: 'Cảm ơn bạn. Một người khác trong nhóm sẽ xem lại yêu cầu của bạn trong 24 giờ. Chúng tôi sẽ nhắn bạn ở đây.',
+  viElder: 'Cảm ơn {you} ạ. Một người khác trong nhóm sẽ xem lại yêu cầu của {you} trong 24 giờ. Chúng cháu sẽ nhắn {you} ở đây.',
+  viPeer: 'Cảm ơn {you}. Một người khác trong nhóm sẽ xem lại yêu cầu của {you} trong 24 giờ. Chúng tôi sẽ nhắn {you} ở đây.',
+  ht: 'Mèsi. Yon lòt òganizatè ap gade demann ou an ankò nan 24 èdtan. N ap ekri w isit la.',
+  ar: 'شكرًا لك. سيراجع منظّم آخر طلبك مرة أخرى خلال 24 ساعة، وسنراسلك هنا.',
+  zh: '谢谢。另一位组织者会在24小时内重新查看您的申请，我们会在这里回复您。',
+  fr: 'Merci. Une autre personne du groupe réexaminera votre demande sous 24 heures. Nous vous écrirons ici.',
+  tl: 'Salamat. Titingnan ulit ng ibang organizer ang iyong kahilingan sa loob ng 24 oras. Magme-message kami sa iyo rito.',
+  ko: '감사합니다. 다른 운영자가 24시간 안에 요청을 다시 살펴볼 거예요. 여기로 메시지 드릴게요.',
+  ru: 'Спасибо. Другой организатор ещё раз рассмотрит вашу просьбу в течение 24 часов. Мы напишем вам здесь.',
+};
+
+function appealQuestion(lang: Lang, meta: RequestMeta | undefined, form?: AddressForm): ThreadQuestion | null {
   if (meta?.appeal) return null; // one appeal per request; a second organizer's decision is final
-  const word = REVIEW_WORD[lang] ?? 'REVIEW';
-  const text: Partial<Record<Lang, string>> = {
-    en: 'Think this is wrong? Reply REVIEW, or tell us what we missed.',
-    es: '¿Cree que es un error? Responda REVISAR o cuéntenos qué se nos pasó.',
-    vi: 'Bạn thấy chưa đúng? Nhắn XEM LẠI, hoặc cho chúng tôi biết điều còn thiếu.',
-    ht: 'Ou panse se yon erè? Reponn REVIZE, oswa di nou sa nou rate.',
-    ar: 'هل ترى أن هذا خطأ؟ ردّ بكلمة مراجعة، أو أخبرنا بما فاتنا.',
-    zh: '觉得有误？请回复“复查”，或告诉我们漏掉了什么。',
-  };
-  return { key: 'appeal', text: text[lang] ?? text.en!, optional: true, answers: [{ label: word, send: word }] };
+  const word = REVIEW_WORD[lang];
+  return { key: 'appeal', text: textFor(APPEAL_QUESTION, lang, form), optional: true, answers: [{ label: word, send: word }] };
 }
 
-export function appealAck(lang: Lang): { text: string; textEn: string } {
-  const by: Partial<Record<Lang, string>> = {
-    en: 'Thank you. A different organizer will look at your request again within 24 hours. We’ll message you here.',
-    es: 'Gracias. Otra persona del grupo revisará su solicitud de nuevo en 24 horas. Le escribiremos aquí.',
-    vi: 'Cảm ơn bạn. Một người khác trong nhóm sẽ xem lại yêu cầu của bạn trong 24 giờ. Chúng tôi sẽ nhắn bạn ở đây.',
-    ht: 'Mèsi. Yon lòt òganizatè ap gade demann ou an ankò nan 24 èdtan. N ap ekri w isit la.',
-    ar: 'شكرًا لك. سيراجع منظّم آخر طلبك مرة أخرى خلال 24 ساعة، وسنراسلك هنا.',
-    zh: '谢谢。另一位组织者会在24小时内重新查看您的申请，我们会在这里回复您。',
-  };
-  return { text: by[lang] ?? by.en!, textEn: by.en! };
+export function appealAck(lang: Lang, form?: AddressForm): { text: string; textEn: string } {
+  return { text: textFor(APPEAL_ACK, lang, form), textEn: APPEAL_ACK.en };
 }
 
 export const DECLINE_REASON_EN: Record<DeclineReasonCode, string> = {

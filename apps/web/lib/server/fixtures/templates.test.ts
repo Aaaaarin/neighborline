@@ -59,3 +59,55 @@ describe('Spanish requester messages assume no gender', () => {
     expect(tpl.claimHelp('es', slots).text).toContain('¿Quiere que le llamemos');
   });
 });
+
+describe('every intake language has its own status and decline texts', () => {
+  const LANGS = ['es', 'vi', 'ht', 'zh', 'ar', 'fr', 'tl', 'ko', 'ru'] as const;
+  const CODES: DeclineReasonCode[] = ['outside_area', 'household_cap', 'needs_info', 'not_covered', 'other'];
+  const all = (lang: (typeof LANGS)[number] | 'en', a = {}) => [
+    tpl.ack(lang, a),
+    tpl.sending(lang, a),
+    tpl.needsPayout(lang, a),
+    tpl.paid(lang, slots, a),
+    tpl.claimHelp(lang, slots, a),
+    tpl.claimed(lang, slots, a),
+    tpl.blockedReply(lang, a),
+    tpl.genericReadback(lang, { summary: 'x', categoryLabel: 'y', cap: '$150', payout: '@a' }, a),
+    ...CODES.flatMap((c) => [tpl.declined(lang, c, undefined, a), tpl.declined(lang, c, undefined, { ...a, final: true })]),
+  ];
+  it.each(LANGS)('%s: no English fallback, no leftover slots, and the English twin is the same entry', (lang) => {
+    const en = all('en');
+    all(lang).forEach((m, i) => {
+      expect(m.text).not.toBe(en[i]!.text);
+      expect(m.text).not.toMatch(/[{}]/);
+      expect(m.textEn).toBe(en[i]!.textEn);
+    });
+    expect(tpl.quickReplies(lang).yes).not.toBe(tpl.quickReplies('en').yes);
+  });
+
+  it('Vietnamese elders (bà, ông, cô, chú, bác) are addressed by their form; the volunteers are "chúng cháu"', () => {
+    for (const f of ['bà', 'ông', 'cô', 'chú', 'bác'] as const) {
+      for (const m of all('vi', { addressForm: f })) {
+        expect(m.text).not.toMatch(/(?<!\p{L})bạn(?!\p{L})|chúng tôi|[{}]/iu);
+      }
+      expect(tpl.paid('vi', slots, { addressForm: f }).text).toBe(
+        `Chúng cháu đã gửi $150 vào Venmo của ${f} (@samira-haddad). Mã giao dịch 7TX123. Nếu chưa thấy tiền, ${f} cứ nhắn lại đây ạ.`,
+      );
+    }
+    expect(tpl.ack('vi', { addressForm: 'bà' }).text).toBe('Cảm ơn bà ạ. Hai người trong nhóm đang xem yêu cầu của bà. Thường chỉ mất vài phút — gửi tiền xong là chúng cháu nhắn bà ngay ạ.');
+  });
+
+  it('Vietnamese peers (anh, chị, em) are named; the volunteers stay "chúng tôi"; no form → "bạn"', () => {
+    for (const f of ['anh', 'chị', 'em'] as const) {
+      for (const m of all('vi', { addressForm: f })) expect(m.text).not.toMatch(/(?<!\p{L})bạn(?!\p{L})|chúng cháu|[{}]/iu);
+      expect(tpl.claimed('vi', slots, { addressForm: f }).text).toBe(`Xong rồi — $150 đã vào PayPal của ${f}. Cảm ơn ${f} đã kiên nhẫn chờ.`);
+    }
+    expect(tpl.claimed('vi', slots).text).toBe('Xong rồi — $150 đã vào PayPal của bạn. Cảm ơn bạn đã kiên nhẫn chờ.');
+    expect(tpl.claimed('vi', slots, { addressForm: 'bạn' }).text).toBe(tpl.claimed('vi', slots).text);
+  });
+
+  it('the address form never changes another language', () => {
+    for (const lang of ['es', 'ht', 'zh', 'ar', 'fr', 'tl', 'ko', 'ru'] as const) {
+      expect(all(lang, { addressForm: 'bà' }).map((m) => m.text)).toEqual(all(lang).map((m) => m.text));
+    }
+  });
+});

@@ -11,7 +11,7 @@ import type { ThreadView } from '@/lib/types';
 const lan = SCENARIOS.lan;
 // Bubble times follow the story clock below: voice note at 0:00, read-back at 0:02, money at 0:22.
 const at = (min: number, sec: number) => new Date(Date.UTC(2026, 9, 4, 14, min, sec)).toISOString(); // 7:mm PDT
-const paid = tpl.paid('vi', { amount: '$150', wallet: 'VENMO', receiver: '@lan-nguyen54', tx: '4B2C8F2073253B0E1' });
+const paid = tpl.paid('vi', { amount: '$150', wallet: 'VENMO', receiver: '@lan-nguyen54', tx: '4B2C8F2073253B0E1' }, { addressForm: lan.extraction.addressForm });
 
 const heroThread: ThreadView = {
   requestId: 'hero',
@@ -71,7 +71,7 @@ const STORY: Array<{ t: string; title: string; body: string; lang?: string; quot
     title: 'She hears back in her language',
     body: 'A message in her thread, from a vetted template, in Vietnamese. If the money can’t be claimed, the message explains how — Rosa’s did, in Spanish.',
     lang: 'vi',
-    quote: 'Đã gửi $150 vào Venmo của bạn.',
+    quote: 'Chúng cháu đã gửi $150 vào Venmo của bà.',
   },
 ];
 

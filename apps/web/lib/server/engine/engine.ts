@@ -309,7 +309,7 @@ export class Engine implements Services {
     for (const r of sent.requests) {
       const item = sent.items.find((i) => i.requestId === r.id);
       if (!item) continue;
-      const n = await ctx.agents.notify.render({ key: 'approved_sending', lang: r.lang, amountCents: item.amountCents, wallet: item.wallet });
+      const n = await ctx.agents.notify.render({ key: 'approved_sending', lang: r.lang, amountCents: item.amountCents, wallet: item.wallet, addressForm: r.extracted?.addressForm });
       ctx.meta.message(r.id, { from: 'line', kind: 'status', lang: r.lang, text: n.text, textEn: n.textEn });
       await recordNotification(ctx.db, { requestId: r.id, channel: r.channel, lang: r.lang, messageKey: 'approved_sending', text: n.text, status: 'sent' });
     }
@@ -362,7 +362,7 @@ export class Engine implements Services {
     const already = () => {
       const d = meta.decline ?? { reasonCode: input.reasonCode, note: input.note };
       const noteLocal = meta.decline ? meta.declineNoteLocal : undefined;
-      return { status: 'declined' as RequestStatus, message: { ...tpl.declined(r.lang, d.reasonCode, d.note, { final: !!meta.appeal, ...(noteLocal ? { noteLocal } : {}) }), lang: r.lang }, alreadyDeclined: true };
+      return { status: 'declined' as RequestStatus, message: { ...tpl.declined(r.lang, d.reasonCode, d.note, { final: !!meta.appeal, addressForm: r.extracted?.addressForm, ...(noteLocal ? { noteLocal } : {}) }), lang: r.lang }, alreadyDeclined: true };
     };
     if (r.status === 'declined') return already();
     if ((await listItemsForRequest(ctx.db, r.id)).length) throw new HttpError(409, 'Already sent to PayPal; it can no longer be declined.');
@@ -381,7 +381,7 @@ export class Engine implements Services {
       }
       throw err;
     }
-    const m = tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal, ...(noteLocal ? { noteLocal } : {}) });
+    const m = tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal, addressForm: r.extracted?.addressForm, ...(noteLocal ? { noteLocal } : {}) });
     meta.decline = { organizerId: org.id, reasonCode: input.reasonCode, ...(input.note ? { note: input.note } : {}), at: nowIso() };
     if (noteLocal) meta.declineNoteLocal = noteLocal;
     else delete meta.declineNoteLocal;
@@ -399,7 +399,7 @@ export class Engine implements Services {
     const appeal = ctx.meta.get(r.id)?.appeal;
     // The preview refreshes as the organizer types: it never calls a model (live mode says "translated on send").
     const noteLocal = await localizeDeclineNote(ctx, r.lang, input.note, { translate: false });
-    return { ...tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal && !appeal.closed, ...(noteLocal ? { noteLocal } : {}) }), lang: r.lang };
+    return { ...tpl.declined(r.lang, input.reasonCode, input.note, { final: !!appeal && !appeal.closed, addressForm: r.extracted?.addressForm, ...(noteLocal ? { noteLocal } : {}) }), lang: r.lang };
   }
 
   async cancelPayoutItem(input: { batchId: string; itemId: string; actor: PayoutActor }) {

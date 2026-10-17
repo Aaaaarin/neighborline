@@ -102,10 +102,10 @@ export class TwilioOutbound implements OutboundNotifier {
   }
 
   /** Builds the call's TwiML: intro, the message, how to hear it again, the message once more. */
-  async twiml(n: Pick<OutboundNotice, 'lang' | 'text' | 'textEn'>): Promise<string> {
+  async twiml(n: Pick<OutboundNotice, 'lang' | 'text' | 'textEn' | 'addressForm'>): Promise<string> {
     const speaker = createSpeaker(this.cfg, { tts: this.deps.tts, clips: this.deps.clips, base: this.deps.base });
     const p = (key: 'callIntro' | 'callAgain', lang: Lang) => {
-      const ph = phrase(key, lang);
+      const ph = phrase(key, lang, {}, n.addressForm);
       return speaker.speak(ph.text, ph.lang, { textEn: phrase(key, 'en').text, clipTtlMs: 30 * 60_000 });
     };
     const message = await speaker.speak(n.text, n.lang, { textEn: n.textEn, clipTtlMs: 30 * 60_000 });

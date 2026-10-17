@@ -61,7 +61,7 @@ export async function onRailRefused(ctx: BaseCtx, refusal: ApproverRefusal): Pro
   for (const id of ids) {
     const r = await getRequest(ctx.db, id);
     if (!r) continue;
-    const n = railRefusedNotice(r.lang);
+    const n = railRefusedNotice(r.lang, r.extracted?.addressForm);
     ctx.meta.message(r.id, { from: 'line', kind: 'status', lang: r.lang, text: n.text, textEn: n.textEn });
     const channel: Channel = r.channel === 'sms' ? 'sms' : 'whatsapp';
     await recordNotification(ctx.db, { requestId: r.id, channel, lang: r.lang, messageKey: 'payout_rail_refused', text: n.text, status: 'sent' });
@@ -81,7 +81,7 @@ export async function onRailRefused(ctx: BaseCtx, refusal: ApproverRefusal): Pro
   for (const id of ids) {
     const r = await getRequest(ctx.db, id);
     if (!r) continue;
-    const n = railRefusedNotice(r.lang);
+    const n = railRefusedNotice(r.lang, r.extracted?.addressForm);
     ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: r.id, lang: r.lang, text: n.text, channel: r.channel === 'sms' ? 'sms' : 'whatsapp' }, [r.id]);
   }
 }

@@ -8,7 +8,7 @@
  * on the combined text, like a typed correction on /call. The raw audio is wiped after transcription
  * (AUDIO_RETENTION) and the Twilio copy is deleted by the call flow; both are audit-logged.
  */
-import { hasBlockingFlag, type Lang } from '@neighborline/core';
+import { hasBlockingFlag, type AddressForm, type Lang } from '@neighborline/core';
 import type { TTS } from '@neighborline/agents';
 import { appendAudit, getRequest } from '@neighborline/db';
 import type { ThreadQuestion } from '../../types';
@@ -31,6 +31,8 @@ export interface PhoneTurn {
   /** Rail protection stopped it at intake (lookalike handle, …): organizers review, nothing to confirm. */
   blocked: boolean;
   simulated: boolean;
+  /** Vietnamese address form from the intake (bà, ông, chị…), for the prompts around the read-back. */
+  addressForm?: AddressForm;
 }
 
 export interface PhoneIntake {
@@ -41,12 +43,14 @@ export interface PhoneIntake {
   /** The request exists, came in by phone, and belongs to this caller's number. */
   owns(requestId: string, callerPhone: string | null): Promise<boolean>;
   lang(requestId: string): Promise<Lang>;
+  /** How to address the caller (Vietnamese only; core address.ts), once the intake heard it. */
+  addressForm(requestId: string): Promise<AddressForm | undefined>;
   submitRecording(requestId: string, input: { audio: Uint8Array; mimeType: string; answer?: AnswerKind }): Promise<PhoneTurn>;
   /** A keypad answer to a question with fixed answers (category): `send` from ThreadQuestion.answers. */
   answer(requestId: string, text: string): Promise<PhoneTurn>;
   /** The state after the last turn (re-reading a prompt after no key was pressed). */
   current(requestId: string): Promise<PhoneTurn>;
-  confirm(requestId: string): Promise<{ status: string; lang: Lang }>;
+  confirm(requestId: string): Promise<{ status: string; lang: Lang; addressForm?: AddressForm }>;
   /** "Press 2 to try again". */
   reject(requestId: string): Promise<void>;
   audit(requestId: string, action: string, data: Record<string, unknown>): Promise<void>;
@@ -73,6 +77,7 @@ export function phoneBridge(ctx: BaseCtx): PhoneIntake {
       awaitingConfirmation: t.awaitingConfirmation,
       blocked: r.status === 'awaiting_approval' && hasBlockingFlag(r.railFlags),
       simulated,
+      ...(r.extracted?.addressForm ? { addressForm: r.extracted.addressForm } : {}),
     };
   }
 
@@ -131,6 +136,9 @@ export function phoneBridge(ctx: BaseCtx): PhoneIntake {
     async lang(requestId) {
       return (await load(requestId)).lang;
     },
+    async addressForm(requestId) {
+      return (await load(requestId)).extracted?.addressForm;
+    },
     async submitRecording(requestId, input) {
       const r = await load(requestId);
       if (input.answer || r.originalText.trim()) return answerRecording(requestId, { ...input, answer: input.answer ?? 'retry' });
@@ -150,7 +158,8 @@ export function phoneBridge(ctx: BaseCtx): PhoneIntake {
     async confirm(requestId) {
       await load(requestId);
       const out = await intake.confirmIntake(ctx, requestId, { confirmed: true });
-      return { status: out.status, lang: out.thread.lang };
+      const form = (await load(requestId)).extracted?.addressForm;
+      return { status: out.status, lang: out.thread.lang, ...(form ? { addressForm: form } : {}) };
     },
     async reject(requestId) {
       await load(requestId);

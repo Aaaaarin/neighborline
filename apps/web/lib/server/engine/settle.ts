@@ -40,7 +40,7 @@ export async function applyItemStatus(
   if (!key || !req) return out;
   const meta = ctx.meta.ensure(req.id);
   const name = meta.displayName && meta.displayName !== 'Neighbor' ? meta.displayName : undefined;
-  const n = await ctx.agents.notify.render({ key, lang: req.lang, amountCents: item.amountCents, wallet: item.wallet, ...(name ? { name } : {}) });
+  const n = await ctx.agents.notify.render({ key, lang: req.lang, amountCents: item.amountCents, wallet: item.wallet, addressForm: req.extracted?.addressForm, ...(name ? { name } : {}) });
   const channel: Channel = req.channel === 'sms' ? 'sms' : req.channel === 'phone' ? 'phone' : 'whatsapp';
   const textEn = n.textEn;
   ctx.meta.message(req.id, {
@@ -56,7 +56,7 @@ export async function applyItemStatus(
   if (ctx.outbound && req.contact?.phone) {
     const tz = (ctx.gen.group as { timezone?: string }).timezone;
     ctx.outbound
-      .notify({ id: rec.id, requestId: req.id, key, lang: req.lang, text: n.text, textEn, phone: req.contact.phone, ...(tz ? { timezone: tz } : {}) })
+      .notify({ id: rec.id, requestId: req.id, key, lang: req.lang, text: n.text, textEn, phone: req.contact.phone, ...(tz ? { timezone: tz } : {}), ...(req.extracted?.addressForm ? { addressForm: req.extracted.addressForm } : {}) })
       .catch((err) => log.warn('notify.outbound_failed', { requestId: req.id, error: errorText(err) }));
   }
   ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: req.id, lang: req.lang, text: n.text, channel }, [req.id]);

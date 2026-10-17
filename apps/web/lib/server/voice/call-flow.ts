@@ -15,7 +15,7 @@
  * otherwise). State that matters lives in the signed action URLs (request id, attempt counters) and in
  * the database; each step re-checks that the request belongs to the calling number.
  */
-import type { Lang } from '@neighborline/core';
+import type { AddressForm, Lang } from '@neighborline/core';
 import type { Env } from '../engine/env';
 import { HttpError, isHttpError } from '../errors';
 import { errorText, log } from '../log';
@@ -105,13 +105,14 @@ class Call {
     return rid;
   }
 
-  async p(key: PhraseKey, lang: Lang, vars?: Record<string, string | number>): Promise<TwimlNode> {
-    const ph = phrase(key, lang, vars);
+  /** A prompt in the caller's language; `form` (Vietnamese address form) once the intake heard it. */
+  async p(key: PhraseKey, lang: Lang, vars?: Record<string, string | number>, form?: AddressForm): Promise<TwimlNode> {
+    const ph = phrase(key, lang, vars, form);
     return this.speaker.speak(ph.text, ph.lang, { textEn: phrase(key, 'en', vars).text });
   }
 
-  async end(key: PhraseKey, lang: Lang): Promise<Response> {
-    return xml(await this.p(key, lang), await this.p('goodbye', lang), hangup());
+  async end(key: PhraseKey, lang: Lang, form?: AddressForm): Promise<Response> {
+    return xml(await this.p(key, lang, undefined, form), await this.p('goodbye', lang, undefined, form), hangup());
   }
 
   /** <Record> for `kind`, unless this call already used its recordings. */
@@ -310,62 +311,63 @@ async function wait(call: Call): Promise<Response> {
 
 /** What the caller hears after a turn of intake. */
 async function next(call: Call, turn: PhoneTurn, repeat = 0): Promise<Response> {
-  const { rid, lang } = { rid: turn.requestId, lang: turn.lang };
+  const { rid, lang, addressForm: form } = { rid: turn.requestId, lang: turn.lang, addressForm: turn.addressForm };
   const readBack = () => call.speaker.speak(turn.readBack.text, lang, { textEn: turn.readBack.textEn, ...(turn.readBack.audioDataUrl ? { audioDataUrl: turn.readBack.audioDataUrl } : {}) });
-  if (turn.blocked) return xml(await readBack(), await call.p('goodbye', lang), hangup());
+  if (turn.blocked) return xml(await readBack(), await call.p('goodbye', lang, undefined, form), hangup());
   const q = turn.question;
   if (q?.key === 'ask_payout') {
-    const prompt = await call.p('payoutChoice', lang);
+    const prompt = await call.p('payoutChoice', lang, undefined, form);
     const body = repeat ? [prompt] : [await readBack(), prompt];
     return xml(gatherDigits({ action: `/api/voice/payout?rid=${rid}&r=${repeat}` }, ...body), redirect(`/api/voice/payout?rid=${rid}&r=${repeat}&none=1`));
   }
   if (q && q.answers.length > 0 && q.answers.length <= 9) {
-    const options = await Promise.all(q.answers.map((a, i) => call.p('pressN', lang, { label: a.label, n: i + 1 })));
+    const options = await Promise.all(q.answers.map((a, i) => call.p('pressN', lang, { label: a.label, n: i + 1 }, form)));
     const ask = await call.speaker.speak(q.text, lang);
     return xml(gatherDigits({ action: `/api/voice/menu?rid=${rid}&r=${repeat}` }, ask, ...options), redirect(`/api/voice/menu?rid=${rid}&r=${repeat}&none=1`));
   }
-  if (q) return call.recordNext(rid, 'question', 1, lang, await call.speaker.speak(q.text, lang), await call.p('answerAfterBeep', lang));
+  if (q) return call.recordNext(rid, 'question', 1, lang, await call.speaker.speak(q.text, lang), await call.p('answerAfterBeep', lang, undefined, form));
   if (turn.awaitingConfirmation) {
-    return xml(gatherDigits({ action: `/api/voice/confirm?rid=${rid}&r=${repeat}` }, await readBack(), await call.p('confirmPrompt', lang)), redirect(`/api/voice/confirm?rid=${rid}&r=${repeat}&none=1`));
+    return xml(gatherDigits({ action: `/api/voice/confirm?rid=${rid}&r=${repeat}` }, await readBack(), await call.p('confirmPrompt', lang, undefined, form)), redirect(`/api/voice/confirm?rid=${rid}&r=${repeat}&none=1`));
   }
-  if (turn.readBack.text) return call.recordNext(rid, 'retry', 1, lang, await readBack(), await call.p('answerAfterBeep', lang));
-  return call.recordNext(rid, 'retry', 1, lang, await call.p('tryAgain', lang));
+  if (turn.readBack.text) return call.recordNext(rid, 'retry', 1, lang, await readBack(), await call.p('answerAfterBeep', lang, undefined, form));
+  return call.recordNext(rid, 'retry', 1, lang, await call.p('tryAgain', lang, undefined, form));
 }
 
 /** A keypad step: the pressed digit, or a repeat of the prompt (twice), then goodbye. */
-async function keypad(call: Call, onDigit: (rid: string, digit: string, lang: Lang) => Promise<Response | null>): Promise<Response> {
+async function keypad(call: Call, onDigit: (rid: string, digit: string, lang: Lang, form: AddressForm | undefined) => Promise<Response | null>): Promise<Response> {
   const rid = await assertOwner(call);
   const lang = await call.phone.lang(rid);
+  const form = await call.phone.addressForm(rid);
   const digit = call.q.get('none') ? '' : param(call.params, 'Digits');
-  const out = digit ? await onDigit(rid, digit, lang) : null;
+  const out = digit ? await onDigit(rid, digit, lang, form) : null;
   if (out) return out;
   const r = int(call.q.get('r')) + 1;
-  if (r > MAX_REPEATS) return call.end('gaveUp', lang);
+  if (r > MAX_REPEATS) return call.end('gaveUp', lang, form);
   return next(call, await call.phone.current(rid), r);
 }
 
 async function confirm(call: Call): Promise<Response> {
-  return keypad(call, async (rid, digit, lang) => {
+  return keypad(call, async (rid, digit, lang, form) => {
     if (digit === '1') {
       const out = await call.phone.confirm(rid);
       if (out.status === 'awaiting_approval') {
         await call.phone.audit(rid, 'phone.confirmed', { callSid: call.callSid });
-        return xml(await call.p('filed', out.lang), await call.p('goodbye', out.lang), hangup());
+        return xml(await call.p('filed', out.lang, undefined, out.addressForm), await call.p('goodbye', out.lang, undefined, out.addressForm), hangup());
       }
       return next(call, await call.phone.current(rid));
     }
     if (digit === '2') {
       await call.phone.reject(rid);
-      return call.recordNext(rid, 'retry', 1, lang, await call.p('tryAgain', lang));
+      return call.recordNext(rid, 'retry', 1, lang, await call.p('tryAgain', lang, undefined, form));
     }
     return null;
   });
 }
 
 async function payout(call: Call): Promise<Response> {
-  return keypad(call, async (rid, digit, lang) => {
-    if (digit === '1') return call.recordNext(rid, 'venmo', 1, lang, await call.p('sayVenmo', lang));
-    if (digit === '2') return call.recordNext(rid, 'paypal', 1, lang, await call.p('sayPaypal', lang));
+  return keypad(call, async (rid, digit, lang, form) => {
+    if (digit === '1') return call.recordNext(rid, 'venmo', 1, lang, await call.p('sayVenmo', lang, undefined, form));
+    if (digit === '2') return call.recordNext(rid, 'paypal', 1, lang, await call.p('sayPaypal', lang, undefined, form));
     return null;
   });
 }

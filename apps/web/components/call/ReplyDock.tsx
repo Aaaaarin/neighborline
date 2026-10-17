@@ -147,12 +147,11 @@ export function ReplyDock({
             </p>
           )}
           {(rec.state === 'denied' || rec.state === 'unsupported') && (
-            <p className="mt-2 text-[0.82rem] leading-snug text-ink-2" lang="en" dir="ltr">
-              {rec.state === 'denied' ? 'The microphone is blocked.' : 'This browser can’t record audio.'} Type your answer, or{' '}
+            <p className="mt-2 text-[0.82rem] leading-snug text-ink-2" lang={lang} dir={dirOf(lang)}>
+              {rec.state === 'denied' ? t.micBlocked : t.micUnsupported} {t.micTypeAnswer}{' '}
               <button type="button" onClick={onSampleAnswer} className="font-semibold text-ink underline underline-offset-4">
-                send a sample answer
+                {t.sampleAnswer}
               </button>
-              .
             </p>
           )}
         </form>

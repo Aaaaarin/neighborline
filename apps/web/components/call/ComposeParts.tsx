@@ -3,7 +3,7 @@
 import type { Lang } from '@neighborline/core';
 import { LoaderCircle, Mic, Play } from 'lucide-react';
 import { cx } from '@/lib/format';
-import type { UiStrings } from '@/lib/i18n';
+import { dirOf, type UiStrings } from '@/lib/i18n';
 import type { SampleVoiceNote, ScenarioId } from '@/lib/types';
 import type { RecState } from './useRecorder';
 
@@ -51,8 +51,8 @@ export function RecordButton({
             </p>
             {recording && <p className="text-[0.85rem] text-ink-3" lang={lang}>{t.tapToStop}</p>}
             {(rec.state === 'denied' || rec.state === 'unsupported') && (
-              <p role="alert" className="mt-3 max-w-[30ch] text-center text-[0.88rem] text-signal">
-                {rec.state === 'denied' ? 'The microphone is blocked.' : 'This browser can’t record audio.'} Use a sample voice note below, or type instead.
+              <p role="alert" className="mt-3 max-w-[30ch] text-center text-[0.88rem] text-signal" lang={lang} dir={dirOf(lang)}>
+                {rec.state === 'denied' ? t.micBlocked : t.micUnsupported} {t.micUseSample}
               </p>
             )}
           </div>

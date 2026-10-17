@@ -147,9 +147,11 @@ export class PayPalPayoutsRail implements PayoutRail {
  */
 export function railBatchFor(group: Group, requests: readonly HelpRequest[], bw: BatchWithItems): RailBatch {
   const langOf = (requestId: string): Lang | undefined => requests.find((r) => r.id === requestId)?.lang;
+  /** Vietnamese address form (bà, ông, chị…) from the intake, so the Venmo note greets her as the thread does. */
+  const formOf = (requestId: string) => requests.find((r) => r.id === requestId)?.extracted?.addressForm;
   return {
     senderBatchId: bw.batch.senderBatchId,
-    emailSubject: batchEmailSubject(bw.items.map((it) => langOf(it.requestId) ?? 'en'), group.name),
+    emailSubject: batchEmailSubject(bw.items.map((it) => ({ lang: langOf(it.requestId) ?? 'en', addressForm: formOf(it.requestId) })), group.name),
     note: payoutCopy('en', group.name).note,
     purpose: PAYOUT_PURPOSE,
     items: bw.items.map((it) => {
@@ -161,7 +163,7 @@ export function railBatchFor(group: Group, requests: readonly HelpRequest[], bw:
         receiver: it.receiver,
         recipientType: it.recipientType,
         wallet: it.wallet,
-        note: payoutCopy(lang ?? 'en', group.name).note,
+        note: payoutCopy(lang ?? 'en', group.name, formOf(it.requestId)).note,
         ...(it.wallet === 'VENMO' ? { socialFeedPrivacy: 'PRIVATE' as const } : {}),
         ...(nl ? { notificationLanguage: nl } : {}),
       };

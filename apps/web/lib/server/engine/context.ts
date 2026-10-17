@@ -1,5 +1,5 @@
 /** What every engine operation gets: one DB generation (captured at the start of the call) + shared services. */
-import { Lang, type Policy } from '@neighborline/core';
+import { Lang, type AddressForm, type Policy } from '@neighborline/core';
 import { getActivePolicy, type Db } from '@neighborline/db';
 import type { Agents } from '@neighborline/agents';
 import type { ScenarioId } from '../../types';
@@ -46,6 +46,8 @@ export interface OutboundNotice {
   phone: string;
   /** The group's time zone (quiet hours). */
   timezone?: string;
+  /** Vietnamese address form (bà, ông, chị…) for the call's intro and outro; core address.ts. */
+  addressForm?: AddressForm;
 }
 
 export interface OutboundNotifier {

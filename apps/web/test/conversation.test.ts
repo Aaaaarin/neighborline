@@ -133,3 +133,14 @@ describe('decline: idempotent, honest, with a real appeal', () => {
     expect(again.message.text).toBe(sent.message.text);
   });
 });
+
+describe('appeal copy in every language and register', () => {
+  it('asks and acknowledges in the neighbor’s language, with the Vietnamese address form', async () => {
+    const { appealAck } = await import('../lib/server/engine/conversation');
+    for (const lang of ['es', 'vi', 'ht', 'zh', 'ar', 'fr', 'tl', 'ko', 'ru'] as const) expect(appealAck(lang).text).not.toBe(appealAck('en').text);
+    expect(appealAck('vi', 'bà').text).toBe('Cảm ơn bà ạ. Một người khác trong nhóm sẽ xem lại yêu cầu của bà trong 24 giờ. Chúng cháu sẽ nhắn bà ở đây.');
+    expect(appealAck('vi', 'chị').text).toBe('Cảm ơn chị. Một người khác trong nhóm sẽ xem lại yêu cầu của chị trong 24 giờ. Chúng tôi sẽ nhắn chị ở đây.');
+    expect(appealAck('vi').text).toContain('Cảm ơn bạn.');
+    expect(appealAck('fr', 'bà').textEn).toBe(appealAck('en').text);
+  });
+});

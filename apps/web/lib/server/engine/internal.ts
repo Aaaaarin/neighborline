@@ -179,7 +179,7 @@ export async function renotifyUnclaimed(ctx: BaseCtx, req: RenotifyRequest): Pro
   const r = await getRequest(ctx.db, row.requestId);
   if (!r) return { sent: false, skippedReason: 'no_contact_channel' };
   const key = notifyKeyFor({ itemStatus: 'UNCLAIMED' }) ?? 'unclaimed_help';
-  const n = await ctx.agents.notify.render({ key, lang: r.lang, amountCents: row.amountCents, wallet: row.wallet as 'PAYPAL' | 'VENMO' });
+  const n = await ctx.agents.notify.render({ key, lang: r.lang, amountCents: row.amountCents, wallet: row.wallet as 'PAYPAL' | 'VENMO', addressForm: r.extracted?.addressForm });
   const channel = r.channel === 'sms' ? 'sms' : 'whatsapp';
   // Record first under the key (so a retry after this point cannot send twice), then send.
   const { created } = await appendOnce(ctx.db, 'unclaimed.renotify', req.idempotencyKey, {
@@ -192,7 +192,7 @@ export async function renotifyUnclaimed(ctx: BaseCtx, req: RenotifyRequest): Pro
   const rec = await recordNotification(ctx.db, { requestId: r.id, channel, lang: r.lang, messageKey: key, text: n.text, status: 'sent' });
   ctx.meta.message(r.id, { from: 'line', kind: 'claim_help', lang: r.lang, text: n.text, textEn: n.textEn, meta: { channel, amountCents: row.amountCents, wallet: row.wallet as 'PAYPAL' | 'VENMO' } });
   if (ctx.outbound && r.contact?.phone) {
-    await ctx.outbound.notify({ id: rec.id, requestId: r.id, key, lang: r.lang, text: n.text, textEn: n.textEn, phone: r.contact.phone }).catch(() => undefined);
+    await ctx.outbound.notify({ id: rec.id, requestId: r.id, key, lang: r.lang, text: n.text, textEn: n.textEn, phone: r.contact.phone, ...(r.extracted?.addressForm ? { addressForm: r.extracted.addressForm } : {}) }).catch(() => undefined);
   }
   ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: r.id, lang: r.lang, text: n.text, channel }, [r.id]);
   return { sent: true, lang: r.lang, channel, notificationId: rec.id };

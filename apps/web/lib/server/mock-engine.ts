@@ -373,11 +373,11 @@ export class MockEngine implements Services {
     rec.confirmedAtMs = Date.now();
     if (!r.payoutDestination) {
       r.status = 'needs_clarification';
-      const q = tpl.needsPayout(r.lang);
+      const q = tpl.needsPayout(r.lang, { addressForm: r.extracted?.addressForm });
       this.msg(rec, { from: 'line', kind: 'status', lang: r.lang, text: q.text, textEn: q.textEn });
     } else {
       r.status = 'awaiting_approval';
-      const a = tpl.ack(r.lang);
+      const a = tpl.ack(r.lang, { addressForm: r.extracted?.addressForm });
       this.msg(rec, { from: 'line', kind: 'ack', lang: r.lang, text: a.text, textEn: a.textEn });
     }
     this.emit({ type: 'request.confirmed', at: now(), requestId }, [requestId]);
@@ -544,7 +544,7 @@ export class MockEngine implements Services {
       rec.batchId = batch.id;
       rec.itemId = item.id;
       r.status = 'paying';
-      const s = tpl.sending(r.lang);
+      const s = tpl.sending(r.lang, { addressForm: r.extracted?.addressForm });
       this.msg(rec, { from: 'line', kind: 'status', lang: r.lang, text: s.text, textEn: s.textEn });
     }
     const ids = recs.map((r) => r.request.id);
@@ -603,10 +603,10 @@ export class MockEngine implements Services {
     const note =
       status === 'SUCCESS'
         ? wasUnclaimed
-          ? { kind: 'paid' as const, ...tpl.claimed(r.lang, slots) }
-          : { kind: 'paid' as const, ...tpl.paid(r.lang, slots) }
+          ? { kind: 'paid' as const, ...tpl.claimed(r.lang, slots, { addressForm: r.extracted?.addressForm }) }
+          : { kind: 'paid' as const, ...tpl.paid(r.lang, slots, { addressForm: r.extracted?.addressForm }) }
         : status === 'UNCLAIMED'
-          ? { kind: 'claim_help' as const, ...tpl.claimHelp(r.lang, slots) }
+          ? { kind: 'claim_help' as const, ...tpl.claimHelp(r.lang, slots, { addressForm: r.extracted?.addressForm }) }
           : null;
     if (note) {
       this.later(rec, 1600, () => {
@@ -625,14 +625,14 @@ export class MockEngine implements Services {
 
   async previewDecline(input: { requestId: string; reasonCode: DeclineReasonCode; note?: string }) {
     const rec = this.rec(input.requestId);
-    return { ...tpl.declined(rec.request.lang, input.reasonCode, input.note), lang: rec.request.lang };
+    return { ...tpl.declined(rec.request.lang, input.reasonCode, input.note, { addressForm: rec.request.extracted?.addressForm }), lang: rec.request.lang };
   }
 
   async decline(input: { requestId: string; organizerId: string; reasonCode: DeclineReasonCode; note?: string }) {
     const rec = this.rec(input.requestId);
     if (!ORGANIZERS.some((o) => o.id === input.organizerId)) throw new HttpError(403, 'Unknown organizer');
     if (rec.batchId) throw new HttpError(409, 'Already sent to PayPal; it can no longer be declined.');
-    const m = tpl.declined(rec.request.lang, input.reasonCode, input.note);
+    const m = tpl.declined(rec.request.lang, input.reasonCode, input.note, { addressForm: rec.request.extracted?.addressForm });
     rec.request.status = 'declined';
     rec.decline = { organizerId: input.organizerId, reasonCode: input.reasonCode, note: input.note, at: now() };
     this.msg(rec, { from: 'line', kind: 'declined', lang: rec.request.lang, text: m.text, textEn: m.textEn });

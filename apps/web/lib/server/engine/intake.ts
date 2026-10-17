@@ -227,7 +227,7 @@ async function appeal(ctx: Ctx, req: HelpRequest, text: string, opts: { recorded
   meta.breakdown = rail.breakdown;
   delete meta.decline;
   await appendAudit(ctx.db, { actor: 'requester', action: 'request.appealed', entityType: 'request', entityId: req.id, data: { firstDeclineBy: firstDecline.organizerId, reasonCode: firstDecline.reasonCode } });
-  const ack = appealAck(lang);
+  const ack = appealAck(lang, req.extracted.addressForm);
   ctx.meta.message(req.id, { from: 'line', kind: 'ack', lang, text: ack.text, textEn: ack.textEn });
   const channel = req.channel === 'sms' ? 'sms' : 'whatsapp';
   await recordNotification(ctx.db, { requestId: req.id, channel, lang, messageKey: 'confirmed_waiting', text: ack.text, status: 'sent' });
@@ -355,7 +355,7 @@ async function blockAtIntake(ctx: Ctx, req: HelpRequest, policy: Policy, rail: R
   const meta = ctx.meta.ensure(req.id);
   meta.breakdown = rail.breakdown;
   ctx.bus.emit({ type: 'request.flagged', at: nowIso(), requestId: req.id, flags: rail.flags }, [req.id]);
-  const reply = tpl.blockedReply(updated.lang);
+  const reply = tpl.blockedReply(updated.lang, { addressForm: updated.extracted?.addressForm });
   ctx.meta.message(req.id, { from: 'line', kind: 'blocked', lang: updated.lang, text: reply.text, textEn: reply.textEn, meta: { channel: updated.channel } });
   await recordNotification(ctx.db, { requestId: req.id, channel: updated.channel, lang: updated.lang, messageKey: 'needs_info', text: reply.text, status: 'sent' });
   ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: req.id, lang: updated.lang, text: reply.text, channel: updated.channel }, [req.id]);
@@ -388,7 +388,7 @@ export async function confirmIntake(
   ctx.meta.message(requestId, { from: 'neighbor', kind: 'text', lang, text: ui(lang).yes, textEn: 'Yes, that’s right' });
   if (!req.payoutDestination || !req.extracted) {
     await updateRequest(ctx.db, requestId, { status: 'needs_clarification', confirmedByRequester: true }, { actor: 'requester' });
-    const ask = ctx.meta.ensure(requestId).question?.key === 'ask_payout' ? ctx.meta.ensure(requestId).question!.text : render('ask_payout', lang);
+    const ask = ctx.meta.ensure(requestId).question?.key === 'ask_payout' ? ctx.meta.ensure(requestId).question!.text : render('ask_payout', lang, {}, { addressForm: req.extracted?.addressForm });
     ctx.meta.message(requestId, { from: 'line', kind: 'question', lang, text: ask, textEn: render('ask_payout', 'en') });
     ctx.bus.emit({ type: 'request.confirmed', at: nowIso(), requestId }, [requestId]);
     return done();
@@ -403,7 +403,7 @@ export async function confirmIntake(
   );
   ctx.meta.ensure(requestId).breakdown = rail.breakdown;
   const blocked = hasBlockingFlag(rail.flags);
-  const note = await ctx.agents.notify.render({ key: blocked ? 'needs_info' : 'confirmed_waiting', lang });
+  const note = await ctx.agents.notify.render({ key: blocked ? 'needs_info' : 'confirmed_waiting', lang, addressForm: req.extracted?.addressForm });
   const kind: ThreadMessage['kind'] = blocked ? 'status' : 'ack';
   ctx.meta.message(requestId, { from: 'line', kind, lang, text: note.text, textEn: note.textEn });
   await recordNotification(ctx.db, { requestId, channel: req.channel, lang, messageKey: note.key, text: note.text, status: 'sent' });

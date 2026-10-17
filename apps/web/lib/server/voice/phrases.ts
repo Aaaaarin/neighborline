@@ -4,7 +4,7 @@
  * agents.notify. vi/es/ht/ar follow the reviewed message catalog's register; zh/ko/ru/fr/tl await a
  * native-speaker pass (same status as apps/web/lib/i18n.ts). Missing languages fall back to English.
  */
-import type { Lang } from '@neighborline/core';
+import { addressed, viRegister, type AddressForm, type Lang } from '@neighborline/core';
 
 export type PhraseKey =
   | 'greeting'
@@ -244,11 +244,46 @@ const PHRASES: Partial<Record<Lang, Table>> = {
   },
 };
 
-/** The phrase in `lang`, else English; {slots} filled from `vars`. */
-export function phrase(key: PhraseKey, lang: Lang, vars: Record<string, string | number> = {}): { text: string; lang: Lang } {
+/**
+ * Vietnamese register variants for the prompts said once the caller is known (core address.ts): an elder
+ * (bà, ông, cô, chú, bác) hears "chúng cháu" and "ạ"; anh / chị / em are named. {you} / {You} = the form.
+ * Prompts before the intake (greeting, oneMoment…) have no form yet and stay neutral.
+ */
+const VI_REGISTERS: { viElder: Partial<Table>; viPeer: Partial<Table> } = {
+  viElder: {
+    confirmPrompt: 'Nếu đúng, {you} bấm số 1. Để nói lại, {you} bấm số 2 ạ.',
+    tryAgain: 'Dạ được ạ. Sau tiếng bíp, {you} nói lại giúp chúng cháu {you} cần gì nhé.',
+    filed: 'Cảm ơn {you} ạ. Hai người hàng xóm sẽ xem yêu cầu này. Chúng cháu sẽ gọi hoặc nhắn tin lại cho {you}.',
+    payoutChoice: 'Chúng cháu cũng cần biết gửi tiền vào đâu ạ. Để nói tên Venmo, {you} bấm số 1. Để nói email PayPal, {you} bấm số 2.',
+    sayVenmo: 'Sau tiếng bíp, {you} nói chậm giúp chúng cháu tên người dùng Venmo của {you} nhé.',
+    sayPaypal: 'Sau tiếng bíp, {you} nói chậm giúp chúng cháu địa chỉ email PayPal của {you} nhé.',
+    answerAfterBeep: '{You} trả lời sau tiếng bíp nhé ạ.',
+    pressN: 'Nếu là {label}, {you} bấm số {n}.',
+    notHeard: 'Xin lỗi {you}, chúng cháu không nghe thấy gì.',
+    trouble: 'Xin lỗi {you}, hệ thống của chúng cháu đang gặp sự cố. {You} gọi lại sau vài phút nhé.',
+    gaveUp: 'Xin lỗi {you}, lần này chúng cháu chưa hiểu đúng. {You} gọi lại giúp chúng cháu, hoặc nhờ một người {you} tin cậy gọi cùng nhé.',
+    tooLong: 'Chúng cháu phải kết thúc cuộc gọi này ạ. Nếu cần, {you} cứ gọi lại.',
+    goodbye: 'Chào {you} ạ. {You} giữ gìn sức khỏe nhé.',
+    callIntro: 'Dạ, chào {you}, chúng cháu gọi từ Neighborline về yêu cầu của {you} ạ.',
+    callAgain: 'Để nghe lại, {you} cứ gọi lại số này ạ.',
+  },
+  viPeer: {
+    tryAgain: 'Được rồi. Sau tiếng bíp, xin nói lại {you} cần gì.',
+    filed: 'Cảm ơn {you}. Hai người hàng xóm sẽ xem yêu cầu này. Chúng tôi sẽ gọi hoặc nhắn tin lại cho {you}.',
+    sayVenmo: 'Sau tiếng bíp, xin nói chậm tên người dùng Venmo của {you}.',
+    sayPaypal: 'Sau tiếng bíp, xin nói chậm địa chỉ email PayPal của {you}.',
+    goodbye: 'Chào {you}. {You} giữ gìn sức khỏe nhé.',
+    callIntro: 'Xin chào, đây là Neighborline, gọi về yêu cầu của {you}.',
+  },
+};
+
+/** The phrase in `lang` (and, in Vietnamese, the caller's register), else English; {slots} filled from `vars`. */
+export function phrase(key: PhraseKey, lang: Lang, vars: Record<string, string | number> = {}, form?: AddressForm | null): { text: string; lang: Lang } {
   const table = PHRASES[lang];
   const used: Lang = table ? lang : 'en';
-  const raw = (table ?? en)[key];
+  const reg = used === 'vi' ? viRegister(form) : 'neutral';
+  const variant = reg === 'elder' ? VI_REGISTERS.viElder[key] : reg === 'peer' ? VI_REGISTERS.viPeer[key] : undefined;
+  const raw = addressed(variant ?? (table ?? en)[key], form);
   return { text: raw.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')), lang: used };
 }
 
