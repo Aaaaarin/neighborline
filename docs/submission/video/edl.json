@@ -1,5 +1,5 @@
 {
-  "output": "/home/claude/video-out/neighborline-draft2.mp4",
+  "output": "/home/claude/video-out/neighborline-draft3.mp4",
   "durationSeconds": 160.5,
   "stopwatch": {
     "lan": "0:22.4",
@@ -62,14 +62,14 @@
       "playAt": 0,
       "eventsAfterPlay": {
         "start": 0.35,
-        "refused": 2.91,
-        "approval1": 5.75,
-        "approval2": 6.25,
-        "token": 6.75,
-        "paid": 8.85,
-        "success": 9.96,
-        "reconciled": 11.6,
-        "done": 12.35
+        "refused": 2.95,
+        "approval1": 5.79,
+        "approval2": 6.29,
+        "token": 6.79,
+        "paid": 8.9,
+        "success": 10.01,
+        "reconciled": 11.65,
+        "done": 12.4
       }
     }
   },
@@ -482,7 +482,7 @@
   ],
   "warnings": [],
   "tests": {
-    "total": 943,
+    "total": 972,
     "failed": false,
     "rows": [
       {
@@ -492,13 +492,13 @@
       },
       {
         "pkg": "packages/core",
-        "files": "13",
-        "tests": "348 passed"
+        "files": "14",
+        "tests": "356 passed"
       },
       {
         "pkg": "packages/agents",
         "files": "12",
-        "tests": "193 passed"
+        "tests": "196 passed"
       },
       {
         "pkg": "packages/passkeys",
@@ -532,8 +532,8 @@
       },
       {
         "pkg": "apps/web",
-        "files": "19",
-        "tests": "150 passed"
+        "files": "21",
+        "tests": "168 passed"
       }
     ]
   }
