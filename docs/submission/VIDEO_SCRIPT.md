@@ -133,7 +133,7 @@ header. The pipeline cuts each excerpt from the committed file by regex and fail
 | 1 | 1:45.5–1:50.5 | `packages/agents/src/validate.ts` (header comment + `summarizeTrace`) | "invalid? → ONE repair call…" and the `Schema repaired …` summary |
 | 2 | 1:50.5–1:55.5 | `packages/core/src/approvals.ts` lines 144–183 (`canExecute`, `SENDER_BATCH_DOMAIN`, `senderBatchIdFor`) | `distinctApprovers(...) >= requiredApprovers(...)`, `SENDER_BATCH_DOMAIN = 'neighborline/paypal/sender_batch_id/v2'`, and ``return `nl_${sha256Hex(`${SENDER_BATCH_DOMAIN}\n${approval.id}\n${approval.hash}`).slice(0, 24)}` `` (the domain-separated derivation the approver calls) |
 | 3 | 1:55.5–2:00.5 | `packages/paypal/src/webhooks.ts` | `path: '/v1/notifications/verify-webhook-signature'` and the raw-body splice |
-| 4 | 2:00.5–2:05.5 | Terminal card: the real `pnpm test` summary per package, then `packages/paypal/src/reconcile.ts` `reconcile(…)` | **943 tests pass** (Oct 16, 2026, 10 packages; read from the cached run, never typed) |
+| 4 | 2:00.5–2:05.5 | Terminal card: the real `pnpm test` summary per package, then `packages/paypal/src/reconcile.ts` `reconcile(…)` | **953 tests pass** (Oct 17, 2026, 10 packages; read from the cached run, never typed; re-cache before re-rendering: `edl.json` still holds the Oct 16 run, 943) |
 
 - **VO V7b (1:45.6–1:50.4):** "AI output is schema-checked, repaired once, or the neighbor is asked again."
 - **VO V7c (1:50.8–2:05.2):** "The batch ID is derived from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. The test count is from a real run."

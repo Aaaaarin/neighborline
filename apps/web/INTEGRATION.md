@@ -194,8 +194,8 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 in-process fake PayPal + the real approver HTTP service on a random port sharing that database + fixture AI),
 the internal-endpoint tests, the privacy tests and the least-privilege check.
 `pnpm --filter @neighborline/web test:e2e` starts tools/dev-db on :4130, tools/fake-paypal on :4110, apps/approver on
-:4120, builds into `.next-e2e`, starts on :3100 (real engine, `PAYPAL_MODE=fake`) and runs the 30 tests in
-`e2e/*.spec.ts`: Lan → SUCCESS with the stopwatch frozen; a visitor approves as Marcus with a passkey or the demo key;
+:4120, builds into `.next-e2e`, starts on :3100 (real engine, `PAYPAL_MODE=fake`) and runs the 32 tests in
+`e2e/*.spec.ts`: Lan → SUCCESS with the stopwatch frozen; a visitor approves as Marcus with a passkey or the demo key; a visitor's own `/call` request is paid after they approve it as Marcus;
 lookalike blocked; approval idempotency and visitor isolation over the API; cross-site and non-JSON requests refused;
 the nonce CSP; an organizer enrolls a passkey; `/call` on a phone (sample voice note, a Chinese clarifying question
 answered after a refresh, category quick answers, the 2,000-character limit, decline and REVIEW); the rules editor;

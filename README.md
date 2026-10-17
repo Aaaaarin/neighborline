@@ -3,8 +3,8 @@
 [![CI](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml/badge.svg)](https://github.com/Aaaaarin/neighborline/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6)
-![Unit tests](https://img.shields.io/badge/unit%20tests-711-2d6a4f)
-![E2E tests](https://img.shields.io/badge/Playwright-30-2d6a4f)
+![Unit tests](https://img.shields.io/badge/unit%20tests-953-2d6a4f)
+![E2E tests](https://img.shields.io/badge/Playwright-32-2d6a4f)
 
 **A hotline, not a dashboard.** A neighbor leaves a voice note in their own language. Two volunteer organizers
 approve it on their phones. PayPal or Venmo cash lands. Then the neighbor gets a message back in their language.
@@ -307,20 +307,21 @@ The full STRIDE model is in [THREAT_MODEL.md](THREAT_MODEL.md); these are the co
 
 ## Testing
 
-**711 unit and integration tests** (vitest, offline, `pnpm test`), **30 Playwright end-to-end tests**, and 18 tests
-for the Render Workflows tasks (`node --test`). Counts from a run on Oct 16, 2026.
+**953 unit and integration tests** (vitest, offline, `pnpm test`), **32 Playwright end-to-end tests**, and 18 tests
+for the Render Workflows tasks (`node --test`). Counts from a run on Oct 17, 2026.
 
 | Package | Tests | What they cover |
 |---|---|---|
-| `packages/core` | 304 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics in every supported language (polite pleas must not flag), approval hashing (NIST SHA-256 vectors), `sender_batch_id` derivation, state machines, i18n, k-anonymous report, PII redaction |
-| `packages/db` | 65 | Two distinct signers, voiding on content change, idempotent batch creation, at-least-once webhooks, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), passkey credentials, assertions and revocation, persisted reconcile runs, migration drift |
-| `packages/agents` | 110 | Validate → repair → re-ask, grounding (an injected "$5000 to @x" is dropped), data-tag escape, back-translation fact check, report number grounding, policy drafts with a quote per cap, the offline extractor in ten languages, providers against fake Anthropic and OpenAI clients |
+| `packages/core` | 348 | Amounts and caps, lookalike/confusable handles, multilingual prompt-injection heuristics in every supported language (polite pleas must not flag), approval hashing (NIST SHA-256 vectors), `sender_batch_id` derivation, state machines, i18n, k-anonymous report, PII redaction |
+| `packages/db` | 72 | Two distinct signers, voiding on content change, idempotent batch creation, at-least-once webhooks, out-of-order webhooks, append-only audit (UPDATE/DELETE/TRUNCATE rejected), passkey credentials, assertions and revocation, persisted reconcile runs, migration drift |
+| `packages/agents` | 196 | Validate → repair → re-ask, grounding (an injected "$5000 to @x" is dropped), data-tag escape, back-translation fact check, report number grounding, policy drafts with a quote per cap, the offline extractor in ten languages, providers against fake Anthropic and OpenAI clients |
 | `packages/passkeys` | 14 | Challenges bound to the approval hash and a server nonce (a captured assertion is not reusable), WebAuthn verification, labelled demo authenticator, fail-closed `DEMO_MODE` |
-| `packages/paypal` | 83 | Payouts idempotency and duplicate resolution, ambiguous vs definite errors, Venmo rules, raw-body webhook verification, retries, Transaction Search chunking, reconcile (status drift, currency, stuck pending), MCP approval tokens |
-| `apps/approver` | 30 | Pays a complete two-person record once; replayed, unsigned and stale requests refused; tampered amounts, a forced single approver, an inflated amount written into the database, a lookalike destination and today's budget all refused before PayPal; nonce-bound signatures re-verified; a timeout is `UNKNOWN`, re-sent only after a fresh policy check; demo credentials refused when `DEMO_MODE` is off |
-| `apps/web` (vitest) | 85 | The real engine through the approver process (Lan, Rosa, lookalike, concurrent taps, cancel, reset), visitor isolation and redaction, same-origin/JSON guards and rate limits, decline and the REVIEW appeal, the rules editor, Arabic templates, signed `/api/internal/*` jobs, audio deletion and log redaction, and the least-privilege check that fails the build if web code can reach Payouts |
-| `tools/fake-paypal`, `tools/dev-db` | 15 + 5 | The fake's own contract; the shared dev database under concurrent pooled connections and reset |
-| `apps/web` (Playwright) | 30 | Same process layout as production (dev-db, fake PayPal, approver, web build): Lan → `SUCCESS` with the clock frozen; a visitor approving as Marcus with a passkey or the demo key; lookalike blocked; idempotent approvals and visitor isolation over HTTP; cross-site and non-JSON requests refused; pages under the nonce CSP; organizer passkey enrollment; `/call` on a phone (Chinese clarifying question answered after a refresh, quick answers, the 2,000-character limit, decline and REVIEW); the rules editor; axe WCAG 2.1 AA on every page, at phone width and on the dark stage |
+| `packages/paypal` | 97 | Payouts idempotency and duplicate resolution, ambiguous vs definite errors, Venmo rules, raw-body webhook verification, retries, Transaction Search chunking, reconcile (status drift, currency, stuck pending), MCP approval tokens |
+| `apps/approver` | 42 | Pays a complete two-person record once; replayed, unsigned and stale requests refused; tampered amounts, a forced single approver, an inflated amount written into the database, a lookalike destination and today's budget all refused before PayPal; nonce-bound signatures re-verified; a timeout is `UNKNOWN`, re-sent only after a fresh policy check; demo credentials refused when `DEMO_MODE` is off |
+| `apps/web` (vitest) | 157 | The real engine through the approver process (Lan, Rosa, lookalike, concurrent taps, cancel, reset), visitor isolation and redaction, Dana's scripted second signature on a visitor's own `/call` request, same-origin/JSON guards and rate limits, decline and the REVIEW appeal, the rules editor, Arabic templates, signed `/api/internal/*` jobs, audio deletion and log redaction, and the least-privilege check that fails the build if web code can reach Payouts |
+| `tools/fake-paypal`, `tools/dev-db` | 16 + 5 | The fake's own contract; the shared dev database under concurrent pooled connections and reset |
+| `examples/mcp-agent-demo` | 6 | The official MCP client against `neighborline-payouts-mcp` over stdio: refused without a token, paid once Dana and Marcus sign, a tampered amount refused, reconciled; the `--llm` loops against scripted fake models |
+| `apps/web` (Playwright) | 32 | Same process layout as production (dev-db, fake PayPal, approver, web build): Lan → `SUCCESS` with the clock frozen; a visitor approving as Marcus with a passkey or the demo key; a visitor's own `/call` request paid after they approve it as Marcus; lookalike blocked; idempotent approvals and visitor isolation over HTTP; cross-site and non-JSON requests refused; pages under the nonce CSP; organizer passkey enrollment; `/call` on a phone (Chinese clarifying question answered after a refresh, quick answers, the 2,000-character limit, decline and REVIEW); the rules editor; axe WCAG 2.1 AA on every page, at phone width and on the dark stage |
 
 ```bash
 pnpm test                                    # all unit tests (vitest), offline

@@ -2,8 +2,8 @@
 
 Ordered by impact on judging. ✅ done · 🔄 in progress · ⏳ blocked on human · ☐ todo
 
-Status as of Oct 16, 2026 (late evening): 795 unit tests (`pnpm test`, plus the workflows' node tests) and 31
-Playwright tests pass on `main`.
+Status as of Oct 17, 2026: 953 unit tests (`pnpm test`), 18 workflows node tests and 32 Playwright tests pass on
+`main`.
 
 ## Blocked on human
 - ⏳ PayPal sandbox client id/secret for the main app **and** a separate Payouts app (Payouts enabled) → real sandbox
@@ -63,7 +63,12 @@ Playwright tests pass on `main`.
 - ☐ Re-record the video takes with the current build (Lan now freezes at about 0:22.5) and re-cut Draft 1; then VO
   once the OpenAI key arrives
 - ☐ Shared rate-limit store and bot protection before any real deployment (R9)
-- ☐ Stop `next build` with a custom `NEXT_DIST_DIR` from rewriting `apps/web/next-env.d.ts` and `tsconfig.json` (QA P3)
+- ☐ Video lane: re-render Draft 2 with the re-recorded MCP take (Dana, Marcus, `@lan-nguyen54`; 14.6 s) and the
+  953-test code card (re-cache the test run in `edl.json`)
+- ☐ `/demo` stage: surface a batch PayPal refused at the account level (`FAILED_RAIL`) instead of running the clock
+  forever; needs a core `StageEvent` and the rail UI (QA-2 P2-3)
+- ☐ QA-2 P3s: rules text keeps "(v1)" in its title after v2; global font preloads warn on `/organizer`; default
+  passkey labels identical per organizer
 
 ## Eval findings, invite codes, neighbor-language payouts ✅
 - ✅ EVAL findings 1–7 fixed with tests and measured dev vs held-out (docs/EVAL.md): phones grounded as E.164, French
@@ -87,6 +92,18 @@ Playwright tests pass on `main`.
   signatures plus a receipt note and never moves money (THREAT_MODEL T36, R16)
 - ✅ QA P3: autoplay reload starts no second run (e2e); /report CLS 0 (fonts preloaded); no unsigned reset in the
   screenshot and video scripts; screenshots re-taken
+
+## QA report 2 fixes ✅ ([QA-REPORT-2](docs/qa/QA-REPORT-2.md))
+- ✅ P1-1 a request a judge sends from `/call` can be paid: after the visitor approves it as Marcus, Dana's scripted
+  demo key signs second (DEMO_MODE only, own `/call` requests only, never after an appeal); `/call` footer, `/trust`
+  disclosure and DEVPOST step 5 say so
+- ✅ P2 `/report` narrative uses the page's window label (group time zone), not UTC dates
+- ✅ P2 `/trust` says Marcus's demo key can be the second signature on a rules draft (never the only one)
+- ✅ P2 README, DEVPOST, INTEGRATION and VIDEO_SCRIPT test counts match `pnpm test` (953) and `--list` (32)
+- ✅ P2 MCP example uses the main story's cast (Dana, Marcus, `@lan-nguyen54`); terminal take re-recorded
+- ✅ P2 `next build`/`next dev` with a custom `NEXT_DIST_DIR` leave the tree clean (generated, git-ignored tsconfig via
+  `typescript.tsconfigPath`; `next-env.d.ts` git-ignored, `next-types.d.ts` tracked)
+- ✅ P2 offline extractor reads a Kreyòl household ("Nou 3 nan kay la")
 
 ## Wave 4: real world
 - ☐ Real sandbox spike: Payouts PayPal + Venmo, webhooks, Transaction Search, Orders/Subscriptions buttons
