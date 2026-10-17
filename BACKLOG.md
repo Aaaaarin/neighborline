@@ -65,10 +65,25 @@ Status as of Oct 17, 2026: 953 unit tests (`pnpm test`), 18 workflows node tests
 - ☐ Shared rate-limit store and bot protection before any real deployment (R9)
 - ☐ Video lane: re-render Draft 2 with the re-recorded MCP take (Dana, Marcus, `@lan-nguyen54`; 14.6 s) and the
   953-test code card (re-cache the test run in `edl.json`)
-- ☐ `/demo` stage: surface a batch PayPal refused at the account level (`FAILED_RAIL`) instead of running the clock
-  forever; needs a core `StageEvent` and the rail UI (QA-2 P2-3)
-- ☐ QA-2 P3s: rules text keeps "(v1)" in its title after v2; global font preloads warn on `/organizer`; default
-  passkey labels identical per organizer
+- ☐ Refresh the test counts in README, DEVPOST, INTEGRATION and VIDEO_SCRIPT: `pnpm test` now gives **972**,
+  `playwright test --list` **34** (after the QA-2 P2-3/P3 fixes)
+- ☐ QA-2 P3 (deliberate, left as is): reconcile rate limit is per IP (4 a minute)
+
+## QA report 2: last P2 and the P3s ✅ ([QA-REPORT-2](docs/qa/QA-REPORT-2.md))
+- ✅ P2-3 a batch PayPal refuses at the account level stops the `/demo` stage honestly: core `payout.rail_refused`
+  StageEvent (once per refused batch, emitted by the engine with the organizer alert); the stopwatch stops in the
+  alarm color ("Stopped · PayPal refused the payout") with "PayPal refused this payout: the sponsor's account needs
+  attention. No money moved. Organizers were alerted; they can record a hand-over instead."; the rail ends at
+  "Organizers alerted" / "<name> told in <language>"; both organizer phones say the same instead of "Sending…"; the
+  neighbor gets a neutral note in their language (core `railRefusedNotice`, all 10 languages; message key
+  `payout_rail_refused`). Tests: core, engine (`test/rail.test.ts`), stage steps, and an e2e that injects
+  `SENDER_RESTRICTED` on the fake (`e2e/rail.spec.ts`, its own Playwright project, run last)
+- ✅ P3 the rules title's "(vN)" follows the version a draft becomes (core `stampPolicyVersion`); a draft that only
+  differs in that marker is still "nothing changed"
+- ✅ P3 text-face preloads are per page (`/`, `/report`; `lib/fonts.ts`), none on `/organizer` (e2e checks no
+  unused-preload warning)
+- ✅ P3 default passkey labels name the browser ("Priya's Mac · Chrome") and an organizer's repeats are numbered
+  server-side ("… 2"), so "Devices that can sign" never shows identical rows
 
 ## Eval findings, invite codes, neighbor-language payouts ✅
 - ✅ EVAL findings 1–7 fixed with tests and measured dev vs held-out (docs/EVAL.md): phones grounded as E.164, French
