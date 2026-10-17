@@ -151,6 +151,14 @@ export interface SentWebhook {
   lastResponseStatus?: number;
 }
 
+/** A webhook subscription made with POST /v1/notifications/webhooks (the dashboard's "Add webhook"). */
+export interface RegisteredWebhook {
+  id: string;
+  url: string;
+  event_types: Array<{ name: string; description?: string; status?: string }>;
+  create_time: string;
+}
+
 export interface IdempotencyRec {
   bodyHash: string;
   /** Resource the original request created; replay returns its latest state. */
@@ -171,6 +179,8 @@ export interface FakeState {
   idempotency: Map<string, IdempotencyRec>;
   webhooks: SentWebhook[];
   events: Map<string, unknown>;
+  /** Webhook subscriptions (id → subscription). Events go to each matching one, signed with its id. */
+  registeredWebhooks: Map<string, RegisteredWebhook>;
 }
 
 export function createState(): FakeState {
@@ -186,6 +196,7 @@ export function createState(): FakeState {
     idempotency: new Map(),
     webhooks: [],
     events: new Map(),
+    registeredWebhooks: new Map(),
   };
 }
 
@@ -201,6 +212,7 @@ export function snapshot(state: FakeState) {
     plans: obj(state.plans),
     subscriptions: obj(state.subscriptions),
     webhooks: state.webhooks.map(({ rawBody: _raw, transmissionSig: _sig, ...w }) => w),
+    registeredWebhooks: [...state.registeredWebhooks.values()],
     activeTokens: state.tokens.size,
   };
 }

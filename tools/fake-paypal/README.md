@@ -58,6 +58,13 @@ WEBHOOK_TARGET_URL=http://localhost:3000/api/webhooks/paypal pnpm fake-paypal
   delivered, with an unmodified body and the right `webhook_id`.
 - `POST /v1/notifications/simulate-event` returns 202. Simulated events are delivered but can **not** be verified,
   just like with PayPal.
+- Subscriptions (`/v1/notifications/webhooks`: list, create, get, `PATCH` with JSON-patch `replace` on `/url` or
+  `/event_types`, delete; `/:id/event-types`), the event-type catalog (`/v1/notifications/webhooks-event-types`), the
+  event list (`/v1/notifications/webhooks-events?event_type&transaction_id&start_time&end_time&page_size`) and
+  `POST /v1/notifications/webhooks-events/:id/resend`. Every event also goes to each matching subscription, signed with
+  that subscription's id, so it verifies only with that id. Limits: 10 subscriptions (`WEBHOOK_NUMBER_LIMIT_EXCEEDED`),
+  one per URL (`WEBHOOK_URL_ALREADY_EXISTS`), known event types only (`INVALID_EVENT_TYPE`). `scripts/golive`'s
+  `sandbox-setup` registers webhooks through these endpoints.
 - `GET /v1/notifications/webhooks-events/:id`
 
 Deliveries carry PayPal's headers: `paypal-transmission-id`, `-time` and `-sig`, plus `paypal-cert-url` and

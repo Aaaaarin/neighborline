@@ -27,6 +27,8 @@ export interface IdFactory {
   subscription(): string;
   /** `WH-` + 17 + `-` + 17, like webhook event ids. */
   webhookEvent(): string;
+  /** Webhook subscription id, 17 chars, e.g. `0EH40505U7160970P`. */
+  webhook(): string;
   /** 13 lowercase hex chars, like `debug_id`. */
   debugId(): string;
   accessToken(): string;
@@ -68,6 +70,7 @@ export function createIdFactory(rng: Rng = Math.random): IdFactory {
     plan: () => `P-${pick(rng, UPPER_ALNUM, 24)}`,
     subscription: () => `I-${pick(rng, UPPER_ALNUM, 12)}`,
     webhookEvent: () => `WH-${pick(rng, UPPER_ALNUM, 17)}-${pick(rng, UPPER_ALNUM, 17)}`,
+    webhook: () => pick(rng, UPPER_ALNUM, 17),
     debugId: () => pick(rng, HEX, 13),
     accessToken: () => `A21AA${pick(rng, UPPER_ALNUM + 'abcdefghijklmnopqrstuvwxyz-_', 92)}`,
     transmissionId: () => randomUUID(),

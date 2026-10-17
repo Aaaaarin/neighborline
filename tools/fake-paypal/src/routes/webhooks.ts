@@ -32,7 +32,7 @@ function verify(ctx: FakeContext, c: Ctx): Reply {
   const failure: Reply = { status: 200, body: { verification_status: 'FAILURE' } };
   const sent = ctx.state.webhooks.find((w) => w.transmissionId === b.transmission_id);
   if (!sent || sent.simulated) return failure;
-  if (b.webhook_id !== ctx.config.webhookId) return failure;
+  if (b.webhook_id !== sent.webhookId) return failure;
   if (b.transmission_time !== sent.transmissionTime || b.cert_url !== sent.certUrl || b.auth_algo !== sent.authAlgo) return failure;
   // Recompute the signature over the original bytes, then require the posted event to be the same document.
   const expected = sign(ctx.config.signingSecret, signedString(sent.transmissionId, sent.transmissionTime, String(b.webhook_id), sent.rawBody));
@@ -47,8 +47,13 @@ function simulate(ctx: FakeContext, c: Ctx): Reply {
   if (!b.webhook_id && !b.url) throw validation([{ field: 'webhook_id', location: 'body', issue: 'Either webhook_id or url is required.' }], API);
   const sample = sampleResource(ctx, b.event_type);
   if (!sample) throw validation([{ field: 'event_type', location: 'body', issue: 'INVALID_EVENT_TYPE', description: 'Event type is not supported by the fake simulator.' }], API);
+  const registered = b.webhook_id ? ctx.state.registeredWebhooks.get(b.webhook_id) : undefined;
   const target = b.url ?? (b.webhook_id === ctx.config.webhookId ? ctx.config.webhookTargetUrl : undefined);
-  const opts = { simulated: true, ...(target ? { target } : {}), ...(b.resource_version ? { resourceVersion: b.resource_version } : {}) };
+  const opts = {
+    simulated: true,
+    ...(registered && !b.url ? { only: [registered] } : target ? { target } : {}),
+    ...(b.resource_version ? { resourceVersion: b.resource_version } : {}),
+  };
   const event = ctx.webhooks.emit(b.event_type, sample.resourceType, sample.resource, sample.summary, opts);
   return { status: 202, body: event };
 }

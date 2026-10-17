@@ -13,6 +13,7 @@ import { registerOAuthRoutes, requireBearer } from './routes/oauth.js';
 import { registerOrderRoutes } from './routes/orders.js';
 import { registerPayoutRoutes } from './routes/payouts.js';
 import { registerReportingRoutes } from './routes/reporting.js';
+import { registerWebhookAdminRoutes } from './routes/webhook-admin.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
 import { createState, type FakeState } from './state.js';
 import { WebhookEmitter } from './webhook-emitter.js';
@@ -85,6 +86,7 @@ export async function createFakePayPal(options: FakePayPalOptions = {}): Promise
   registerBillingRoutes(router, ctx);
   registerReportingRoutes(router, ctx);
   registerWebhookRoutes(router, ctx);
+  registerWebhookAdminRoutes(router, ctx);
   registerControlRoutes(router, ctx, { reset, faults });
 
   const handle = async (method: string, url: URL, c: Ctx): Promise<Reply> => {

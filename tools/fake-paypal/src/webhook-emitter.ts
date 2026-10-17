@@ -1,11 +1,12 @@
 /**
  * Builds PayPal-shaped webhook events, signs them and delivers them in emission order (one queue) to the
- * configured target with PayPal's headers. Every delivery is recorded so verify-webhook-signature can check it.
+ * configured target and to every matching subscription (POST /v1/notifications/webhooks) with PayPal's headers.
+ * Every delivery is recorded so verify-webhook-signature can check it against the webhook id it was signed for.
  */
 import type { FakeConfig } from './config.js';
 import type { IdFactory } from './ids.js';
 import { sign, signedString } from './signing.js';
-import type { FakeState, Link, SentWebhook } from './state.js';
+import type { FakeState, Link, RegisteredWebhook, SentWebhook } from './state.js';
 
 export interface WebhookEvent {
   id: string;
@@ -25,6 +26,13 @@ export interface EmitOptions {
   simulated?: boolean;
   /** Override target (simulate-event `url`). */
   target?: string;
+  /** Deliver only to these subscriptions (simulate-event with a registered `webhook_id`). */
+  only?: ReadonlyArray<{ id: string; url: string }>;
+}
+
+/** Registered subscriptions that want `eventType` (`*` = every event). */
+export function matchingWebhooks(state: FakeState, eventType: string): RegisteredWebhook[] {
+  return [...state.registeredWebhooks.values()].filter((w) => w.event_types.some((t) => t.name === '*' || t.name === eventType));
 }
 
 interface Deps {
@@ -59,32 +67,54 @@ export class WebhookEmitter {
         { href: `${baseUrl()}/v1/notifications/webhooks-events/${id}/resend`, rel: 'resend', method: 'POST' },
       ],
     };
+    state.events.set(id, event);
     const rawBody = JSON.stringify(event);
+    const simulated = Boolean(opts.simulated);
+    if (opts.only) {
+      for (const w of opts.only) this.transmit(event, rawBody, w.url, w.id, simulated);
+      return event;
+    }
+    // The configured target (WEBHOOK_TARGET_URL) is the fake's built-in subscription, recorded even with no target.
+    this.transmit(event, rawBody, opts.target ?? config.webhookTargetUrl, config.webhookId, simulated);
+    // Subscriptions made with POST /v1/notifications/webhooks: each matching one gets its own transmission,
+    // signed with its own webhook id (so it verifies only with that id, like PayPal).
+    if (!simulated) for (const w of matchingWebhooks(state, eventType)) this.transmit(event, rawBody, w.url, w.id, false);
+    return event;
+  }
+
+  /** POST /v1/notifications/webhooks-events/{id}/resend: a fresh transmission of a stored event. */
+  resend(eventId: string, webhooks: ReadonlyArray<{ id: string; url: string }>): WebhookEvent | undefined {
+    const event = this.deps.state.events.get(eventId) as WebhookEvent | undefined;
+    if (!event) return undefined;
+    const rawBody = JSON.stringify(event);
+    for (const w of webhooks) this.transmit(event, rawBody, w.url, w.id, false);
+    return event;
+  }
+
+  private transmit(event: WebhookEvent, rawBody: string, target: string | undefined, webhookId: string, simulated: boolean): void {
+    const { ids, config, state, baseUrl } = this.deps;
     const transmissionId = ids.transmissionId();
     const transmissionTime = new Date().toISOString();
-    const signature = sign(config.signingSecret, signedString(transmissionId, transmissionTime, config.webhookId, rawBody));
+    const signature = sign(config.signingSecret, signedString(transmissionId, transmissionTime, webhookId, rawBody));
     const record: SentWebhook = {
-      eventId: id,
-      eventType,
+      eventId: event.id,
+      eventType: event.event_type,
       transmissionId,
       transmissionTime,
       // Simulator signatures are random: they look real but can never verify.
-      transmissionSig: opts.simulated ? sign(`${config.signingSecret}:simulator:${Math.random()}`, transmissionId) : signature,
+      transmissionSig: simulated ? sign(`${config.signingSecret}:simulator:${Math.random()}`, transmissionId) : signature,
       certUrl: `${baseUrl()}/v1/notifications/certs/CERT-360caa42-fca2a594-fakecert`,
       authAlgo: 'SHA256withRSA',
-      webhookId: config.webhookId,
+      webhookId,
       rawBody,
-      simulated: Boolean(opts.simulated),
+      simulated,
       deliveryStatus: 'PENDING',
       attempts: 0,
     };
-    const target = opts.target ?? config.webhookTargetUrl;
     if (target) record.target = target;
     else record.deliveryStatus = 'NO_TARGET';
     state.webhooks.push(record);
-    state.events.set(id, event);
     if (target) this.queue = this.queue.then(() => this.deliver(record, target));
-    return event;
   }
 
   /** Resolves when every queued delivery has finished (delivered or given up). */
