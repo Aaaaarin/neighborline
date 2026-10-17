@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigserial,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -303,6 +304,26 @@ export const reconcileRuns = pgTable('reconcile_runs', {
   items: jsonb('items').$type<Record<string, unknown>>().notNull(),
 });
 
+/**
+ * Shared token buckets for the web app's rate limits (THREAT_MODEL R9). One row per bucket key
+ * ("ai:ip:1.2.3.4", "voice:caller:+1555…", "human:pow:<nonce>"). `tokens` is refilled from
+ * `updated_at` at one token per `refill_ms`, up to `capacity`, inside one locking UPSERT
+ * (repo/rate-limits.ts), so every web instance and every restart sees the same budget. A row past
+ * `expires_at` would be full again; the TTL sweep deletes it (an absent row means a full bucket).
+ */
+export const rateLimitBuckets = pgTable(
+  'rate_limit_buckets',
+  {
+    key: text('key').primaryKey(),
+    tokens: doublePrecision('tokens').notNull(),
+    capacity: integer('capacity').notNull(),
+    refillMs: integer('refill_ms').notNull(),
+    updatedAt: ts('updated_at').notNull(),
+    expiresAt: ts('expires_at').notNull(),
+  },
+  (t) => [index('rate_limit_buckets_expires_idx').on(t.expiresAt)],
+);
+
 /** Append-only, hash-chained audit log. UPDATE/DELETE are rejected by a trigger (see migrations). */
 export const auditLog = pgTable('audit_log', {
   seq: bigserial('seq', { mode: 'number' }).primaryKey(),
@@ -333,4 +354,5 @@ export const schema = {
   notifications,
   reconcileRuns,
   auditLog,
+  rateLimitBuckets,
 };

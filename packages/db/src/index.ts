@@ -12,3 +12,4 @@ export * from './repo/payouts.js';
 export * from './repo/misc.js';
 export * from './seed.js';
 export * from './repo/reconcile.js';
+export * from './repo/rate-limits.js';

@@ -36,6 +36,13 @@
       "when": 1792190606884,
       "tag": "0004_organizer_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792245717543,
+      "tag": "0005_rate_limit_buckets",
+      "breakpoints": true
     }
   ]
 }
