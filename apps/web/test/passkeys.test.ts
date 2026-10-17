@@ -203,6 +203,17 @@ describe('invite codes are single use and expire (THREAT_MODEL R13)', () => {
     return { a, session };
   }
 
+  it('two passkeys with the same default label are told apart: "Priya’s phone 2" (QA-2 P3)', async () => {
+    const before = (await h.engine.passkeyRoster()).organizers.find((o) => o.id === 'org_priya')!.passkeys.length;
+    const first = await enroll('org_priya', (await createOrganizerInvite(await db(), { organizerId: 'org_priya', createdBy: 'cli' })).code);
+    const second = await enroll('org_priya', (await createOrganizerInvite(await db(), { organizerId: 'org_priya', createdBy: 'cli' })).code);
+    expect(second.session.deviceLabel).not.toBe(first.session.deviceLabel);
+    expect(second.session.deviceLabel).toMatch(/^Priya’s phone \d+$/);
+    const labels = (await h.engine.passkeyRoster()).organizers.find((o) => o.id === 'org_priya')!.passkeys.map((p) => p.deviceLabel);
+    expect(labels).toHaveLength(before + 2);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
   it('a code from the CLI enrolls one passkey, once; the second use is refused', async () => {
     const { code } = await createOrganizerInvite(await db(), { organizerId: 'org_priya', createdBy: 'cli' });
     const { a, session } = await enroll('org_priya', code);

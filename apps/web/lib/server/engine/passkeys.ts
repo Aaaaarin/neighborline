@@ -26,6 +26,7 @@ import type { ApprovalChallenge, ApproveInput, OrganizerSession, PasskeyAssertio
 import { HttpError } from '../errors';
 import { newChallenge, takeChallenge } from '../passkeys/challenges';
 import { DEMO_SEAT, demoModeOn, demoSign } from '../passkeys/demo-signer';
+import { uniqueDeviceLabel } from '../passkeys/labels';
 import { bindingTag, DEMO_VISITOR_BINDING, demoRunTagOf } from '../security/visitor';
 import type { BaseCtx } from './context';
 
@@ -136,6 +137,8 @@ export async function register(
   // A demo visitor's device is always labelled as such ("Visitor’s Mac (as Marcus)"), never as Marcus's own.
   if (boundTo && !label.startsWith('Visitor’s ')) label = `Visitor’s ${label}`.slice(0, 60);
   if (boundTo && !label.includes(`(as ${org.name})`)) label = `${label.slice(0, 50)} (as ${org.name})`;
+  // Two passkeys of one organizer never share a label ("Priya’s Mac · Chrome 2"), so revoking the right one is easy.
+  if (!boundTo) label = uniqueDeviceLabel(label, (await listOrganizerCredentials(ctx.db, org.id)).filter((c) => !c.boundTo).map((c) => c.deviceLabel));
   try {
     await addOrganizerCredential(ctx.db, {
       id: info.credential.id,

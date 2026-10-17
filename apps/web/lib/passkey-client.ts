@@ -24,9 +24,11 @@ export async function passkeysAvailable(): Promise<boolean> {
   }
 }
 
-/** "Dana’s iPhone", "Dana’s Mac"… from the user agent; the organizer can edit it. */
-export function guessDeviceLabel(name: string): string {
-  const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+/**
+ * "Dana’s iPhone · Safari", "Dana’s Mac · Chrome"… from the user agent; the organizer can edit it. The
+ * server numbers a repeat ("… 2"), so two passkeys never read the same in "Devices that can sign".
+ */
+export function guessDeviceLabel(name: string, ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): string {
   const device = /iPhone/.test(ua)
     ? 'iPhone'
     : /iPad/.test(ua)
@@ -40,7 +42,18 @@ export function guessDeviceLabel(name: string): string {
             : /CrOS/.test(ua)
               ? 'Chromebook'
               : 'device';
-  return `${name}’s ${device}`;
+  const browser = /Edg\//.test(ua)
+    ? 'Edge'
+    : /Firefox\/|FxiOS/.test(ua)
+      ? 'Firefox'
+      : /SamsungBrowser/.test(ua)
+        ? 'Samsung Internet'
+        : /Chrome\/|CriOS/.test(ua)
+          ? 'Chrome'
+          : /Safari\//.test(ua)
+            ? 'Safari'
+            : '';
+  return browser ? `${name}’s ${device} · ${browser}` : `${name}’s ${device}`;
 }
 
 /** A judge's own device enrolled as a demo organizer: "Visitor’s Mac (as Marcus)". */
