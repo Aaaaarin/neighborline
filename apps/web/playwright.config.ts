@@ -8,6 +8,8 @@ const DB_PORT = Number(process.env.E2E_DEV_DB_PORT ?? 4130);
 const DATABASE_URL = `postgres://postgres@127.0.0.1:${DB_PORT}/postgres`;
 // e2e makes organizer invite codes with the CLI (scripts/organizer-invite.ts) in this database.
 process.env.E2E_DATABASE_URL ??= DATABASE_URL;
+// e2e/rail.spec.ts injects PayPal faults through the fake's control plane.
+process.env.E2E_FAKE_PAYPAL_URL ??= process.env.BASE_URL ? '' : `http://127.0.0.1:${FAKE_PORT}`;
 // Per-run HMAC key shared by web and approver only (the fake PayPal and the database never see it).
 const APPROVER_SECRET = (process.env.NEIGHBORLINE_APPROVER_SECRET ??= randomBytes(32).toString('hex'));
 // Per-run session-cookie key for the web server.
@@ -31,10 +33,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }, testIgnore: /(mobile|rules)\.spec\.ts/ },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }, testIgnore: /(mobile|rules|rail)\.spec\.ts/ },
     { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec\.ts/ },
     // Activating a new policy re-prices the shared queue, so the rules editor runs after everything else.
     { name: 'rules', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }, testMatch: /rules\.spec\.ts/, dependencies: ['desktop', 'mobile'] },
+    // A PayPal fault on the shared fake hits the next payout call from any test, so the rail runs alone, last.
+    { name: 'rail', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }, testMatch: /rail\.spec\.ts/, dependencies: ['rules'] },
   ],
   // Real engine in fake mode: dev-db + tools/fake-paypal + apps/approver + a production build.
   webServer: process.env.BASE_URL

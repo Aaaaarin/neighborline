@@ -218,8 +218,9 @@ export class Engine implements Services {
     try {
       outcome = await ctx.approvals.approve({ db: ctx.db, group: ctx.gen.group, bus: ctx.bus }, { requestIds: input.requestIds, organizerId: signed.organizerId, deviceLabel });
     } catch (err) {
-      // PayPal refused at the account level (nothing sent): alert the organizers, offer the manual path.
-      if (err instanceof ApproverRefusal && err.code === 'rail_unavailable') await rail.alertRailUnavailable(this.baseOf(await this.state), err).catch(() => {});
+      // PayPal refused at the account level (nothing sent): alert the organizers (manual path), tell the
+      // neighbor in their language, and stop the /demo stage (payout.rail_refused).
+      if (err instanceof ApproverRefusal && err.code === 'rail_unavailable') await rail.onRailRefused(this.baseOf(await this.state), err).catch((e) => log.warn('rail.refused_notify_failed', { error: errorText(e) }));
       throw err;
     }
     const { sent, ...result } = outcome;

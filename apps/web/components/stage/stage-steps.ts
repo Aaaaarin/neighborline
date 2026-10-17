@@ -29,7 +29,14 @@ const PLAN: Record<'voice' | 'rescue' | 'blocked', string[]> = {
   blocked: ['received', 'flag_lookalike', 'flag_injection', 'disabled', 'reply'],
 };
 
-export function planFor(scenario: ScenarioId | null): string[] {
+/** After PayPal refuses the batch at the account level, the run ends here instead of at a webhook. */
+const REFUSED_TAIL = ['rail_alert', 'rail_told'];
+
+export function planFor(scenario: ScenarioId | null, opts: { refused?: boolean } = {}): string[] {
+  if (opts.refused && scenario !== 'blocked') {
+    const p = scenario === 'rosa' ? PLAN.rescue : PLAN.voice;
+    return [...p.slice(0, p.indexOf('batch') + 1), ...REFUSED_TAIL];
+  }
   if (scenario === 'blocked') return PLAN.blocked;
   if (scenario === 'rosa') return PLAN.rescue;
   return PLAN.voice;
@@ -44,7 +51,8 @@ export function buildSteps(input: {
   claimScripted?: boolean;
 }): Step[] {
   const { scenario, events, view } = input;
-  const plan = planFor(scenario);
+  const refused = railRefusal(events) !== null;
+  const plan = planFor(scenario, { refused });
   const lang = view?.request.lang ?? (scenario === 'rosa' ? 'es' : scenario === 'jean' ? 'ht' : scenario === 'walter' || scenario === 'blocked' ? 'en' : 'vi');
   const langName = LANGUAGE_NAMES[lang].en;
   const NAMES: Record<ScenarioId, string> = { lan: 'Lan', rosa: 'Rosa', jean: 'Jean', walter: 'Walter', blocked: 'Sender' };
@@ -73,9 +81,12 @@ export function buildSteps(input: {
   ghost('flag_injection', 'Instructions inside the message');
   ghost('disabled', 'Approve buttons');
   ghost('reply', 'Reply to sender');
+  ghost('rail_alert', 'Organizers alerted');
+  ghost('rail_told', `${who} told in ${langName}`);
 
   let webhooks = 0;
   let notifies = 0;
+  let refusedSeen = false;
   const set = (key: string, patch: Partial<Step>) => {
     const cur = steps.get(key);
     if (cur) steps.set(key, { ...cur, ...patch });
@@ -131,6 +142,7 @@ export function buildSteps(input: {
         break;
       }
       case 'payout.batch_created':
+        refusedSeen = false;
         set('batch', {
           state: 'done',
           atMs,
@@ -139,6 +151,22 @@ export function buildSteps(input: {
             ['sender_batch_id', e.senderBatchId],
             ['payout_batch_id', e.paypalBatchId ?? '—'],
           ],
+        });
+        break;
+      case 'payout.rail_refused':
+        refusedSeen = true;
+        set('batch', {
+          state: 'blocked',
+          atMs,
+          title: 'PayPal refused this payout',
+          detail: `The sponsor’s account needs attention${e.reason ? ` (${e.reason})` : ''}. No money moved.`,
+        });
+        set('rail_alert', {
+          state: 'done',
+          atMs,
+          detail: e.manualFallback
+            ? 'They can record a cash or check hand-over instead, with the same two signatures and a receipt note'
+            : 'They can turn on manual recording and record a cash or check hand-over instead',
         });
         break;
       case 'payout.item_updated':
@@ -164,6 +192,10 @@ export function buildSteps(input: {
         set(webhooks === 1 ? 'webhook' : 'webhook2', { state: 'done', atMs, detail: `${e.eventType} · signature checked` });
         break;
       case 'notify.sent':
+        if (refusedSeen) {
+          set('rail_told', { state: 'done', atMs, title: `${who} told in ${LANGUAGE_NAMES[e.lang].en}`, detail: 'A neutral note in the neighbor’s thread: approved, PayPal couldn’t send it yet, the volunteers know' });
+          break;
+        }
         notifies++;
         if (scenario === 'blocked') {
           set('reply', { state: 'done', atMs, title: 'Reply sent · no money moved', detail: 'The sender is asked to describe their own need, in their own words.' });
@@ -186,7 +218,17 @@ export function buildSteps(input: {
   return rows;
 }
 
-export type ClockState = { kind: 'idle' } | { kind: 'running'; startAt: number } | { kind: 'stopped'; ms: number; reason: 'paid' | 'blocked' };
+export type ClockState = { kind: 'idle' } | { kind: 'running'; startAt: number } | { kind: 'stopped'; ms: number; reason: 'paid' | 'blocked' | 'refused' };
+
+/** PayPal's account-level refusal of this run's batch, unless a later re-send got through. */
+export function railRefusal(events: TimedEvent[]): TimedEvent | null {
+  let last: TimedEvent | null = null;
+  for (const e of events) {
+    if (e.event.type === 'payout.rail_refused') last = e;
+    else if (e.event.type === 'payout.batch_created') last = null;
+  }
+  return last;
+}
 
 export function clockFrom(events: TimedEvent[]): ClockState {
   const start = events.find((e) => e.event.type === 'request.created');
@@ -195,6 +237,9 @@ export function clockFrom(events: TimedEvent[]): ClockState {
   if (paid) return { kind: 'stopped', ms: paid.at - start.at, reason: 'paid' };
   const flagged = events.find((e) => e.event.type === 'request.flagged' && e.event.flags.some((f) => f.severity === 'block'));
   if (flagged) return { kind: 'stopped', ms: flagged.at - start.at, reason: 'blocked' };
+  // PayPal refused the batch: nothing is in flight, so the clock stops instead of running forever (QA-2 P2-3).
+  const refused = railRefusal(events);
+  if (refused) return { kind: 'stopped', ms: refused.at - start.at, reason: 'refused' };
   return { kind: 'running', startAt: start.at };
 }
 

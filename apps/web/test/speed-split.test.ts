@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { tidyQuotes } from '../lib/format';
 import type { StageEvent } from '@neighborline/core';
-import { splitFrom, storyClock, type TimedEvent } from '../components/stage/stage-steps';
+import { buildSteps, clockFrom, planFor, splitFrom, storyClock, type TimedEvent } from '../components/stage/stage-steps';
 
 const T0 = Date.parse('2026-10-16T18:00:00Z');
 const ev = (sec: number, e: Partial<StageEvent> & { type: StageEvent['type'] }): TimedEvent => ({ at: T0 + sec * 1000, event: { at: new Date(T0 + sec * 1000).toISOString(), ...e } as StageEvent });
@@ -41,6 +41,38 @@ describe('splitFrom (people vs system time)', () => {
   });
 
   it('idle → null', () => expect(splitFrom([], T0)).toBeNull());
+});
+
+describe('PayPal refuses the batch at the account level (QA-2 P2-3)', () => {
+  const refused = [
+    ...lan.slice(0, 6),
+    ev(21.8, { type: 'payout.rail_refused', batchId: 'b', itemCount: 1, totalCents: 15_000, reason: 'SENDER_RESTRICTED', manualFallback: true } as never),
+    ev(21.9, { type: 'notify.sent', requestId: 'r', lang: 'vi', text: '…', channel: 'whatsapp' } as never),
+  ];
+
+  it('stops the clock at the refusal instead of running forever', () => {
+    expect(clockFrom(refused)).toEqual({ kind: 'stopped', ms: 21_800, reason: 'refused' });
+    const s = splitFrom(refused, T0 + 99_000)!;
+    expect(s.totalMs).toBe(21_800);
+    expect(s.humanNow).toBe(false);
+  });
+
+  it('the rail ends at the refusal: organizers alerted, the neighbor told; no webhook or SUCCESS rows', () => {
+    const steps = buildSteps({ scenario: 'lan', events: refused, view: null, organizerName: () => 'Dana' });
+    expect(steps.map((x) => x.key)).toEqual(planFor('lan', { refused: true }));
+    expect(steps.map((x) => x.key)).not.toContain('success');
+    expect(steps.find((x) => x.key === 'batch')).toMatchObject({ state: 'blocked', title: 'PayPal refused this payout', detail: 'The sponsor’s account needs attention (SENDER_RESTRICTED). No money moved.' });
+    expect(steps.find((x) => x.key === 'rail_alert')).toMatchObject({ state: 'done', detail: expect.stringMatching(/record a cash or check hand-over/) });
+    expect(steps.find((x) => x.key === 'rail_told')).toMatchObject({ state: 'done', title: 'Lan told in Vietnamese' });
+    expect(steps.some((x) => x.state === 'active')).toBe(false);
+  });
+
+  it('a later re-send PayPal accepts resumes the normal story', () => {
+    const resent = [...refused, ev(40, { type: 'payout.batch_created', itemCount: 1, totalCents: 15_000, senderBatchId: 's' } as never)];
+    expect(clockFrom(resent).kind).toBe('running');
+    expect(buildSteps({ scenario: 'lan', events: resent, view: null, organizerName: () => 'Dana' }).map((x) => x.key)).toContain('success');
+    expect(clockFrom([...resent, ev(42, { type: 'payout.item_updated', status: 'SUCCESS' } as never)])).toMatchObject({ kind: 'stopped', reason: 'paid' });
+  });
 });
 
 describe('storyClock (the /demo phones live at 7:42 the morning after the storm)', () => {

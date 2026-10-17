@@ -128,7 +128,9 @@ export function Stage({
             : 'Running',
     paid: `Stopped at the verified SUCCESS webhook · ${s.view?.payout?.item.wallet === 'VENMO' ? 'Venmo' : 'PayPal'}`,
     blocked: 'Stopped · blocked before any money moved',
+    refused: 'Stopped · PayPal refused the payout',
   };
+  const refused = clock.kind === 'stopped' && clock.reason === 'refused';
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -223,7 +225,7 @@ export function Stage({
               ))}
             </div>
             <div className="text-right">
-              <Stopwatch clock={clock} skewMs={s.skew.current} size="sm" caption={{ idle: '', running: '', paid: '', blocked: '' }} />
+              <Stopwatch clock={clock} skewMs={s.skew.current} size="sm" caption={{ idle: '', running: '', paid: '', blocked: '', refused: '' }} />
             </div>
           </div>
         </div>
@@ -303,6 +305,12 @@ export function Stage({
                 <div className="mt-2">
                   <Stopwatch clock={clock} skewMs={s.skew.current} caption={captions} splitAt={(t) => splitFrom(s.events, t)} />
                 </div>
+                {refused && (
+                  <p role="status" data-testid="rail-refused" className="mt-4 max-w-[34rem] rounded-xl border border-signal/40 bg-signal-wash px-4 py-3 text-[0.92rem] leading-snug text-ink">
+                    <strong className="font-semibold text-signal">PayPal refused this payout:</strong> the sponsor’s account needs attention. No money moved. Organizers were
+                    alerted; they can record a hand-over instead.
+                  </p>
+                )}
                 {modes.paypalMode === 'sandbox' && s.view?.request.status === 'unclaimed' && s.view.payout && (
                   <SandboxUnclaimed name={active.title} batchId={s.view.payout.batch.id} itemId={s.view.payout.item.id} />
                 )}

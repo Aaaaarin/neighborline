@@ -5,7 +5,9 @@
  * paid, the ledger labels it "by hand" (no PayPal transaction, not reconciled), the totals still agree.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { addOrganizerCredential, getBatch, listAudit, listItemsForRequest } from '@neighborline/db';
+import { addOrganizerCredential, getBatch, getRequest, listAudit, listItemsForRequest, listNotifications } from '@neighborline/db';
+import { RAIL_REFUSED_NOTICE } from '@neighborline/core';
+import { buildSteps, clockFrom } from '../components/stage/stage-steps';
 import { createSoftwareAuthenticator } from '@neighborline/passkeys';
 import { RAIL_FALLBACK_ACTION as PROTOCOL_ACTION } from '@neighborline/approver/protocol';
 import { RAIL_FALLBACK_ACTION } from '../lib/server/engine/rail';
@@ -58,6 +60,45 @@ describe('PayPal unavailable → FAILED_RAIL → manual recording', () => {
     expect(ledger.rows.find((r) => r.itemId === item.id)).toMatchObject({ rail: 'refused', status: 'PENDING' });
     expect(ledger.fund.notSentCents).toBe(8_000);
     expect(ledger.fund.sendingCents).toBe(0);
+  });
+
+  it('the stage hears about it: payout.rail_refused stops the clock, the neighbor is told in their language (QA-2 P2-3)', async () => {
+    const id = 'req_seed_q_minh';
+    const events = h.events(id);
+    const refused = events.find((e) => e.type === 'payout.rail_refused');
+    expect(refused).toMatchObject({ type: 'payout.rail_refused', batchId, itemCount: 1, totalCents: 8_000, reason: 'SENDER_RESTRICTED', manualFallback: false });
+    // Nothing claims a batch was created or that the money is on its way.
+    expect(events.some((e) => e.type === 'payout.batch_created')).toBe(false);
+
+    const r = (await getRequest(await db(), id))!;
+    const thread = await h.engine.getThread(id);
+    const last = thread!.messages.at(-1)!;
+    expect(last).toMatchObject({ from: 'line', kind: 'status', lang: r.lang, text: RAIL_REFUSED_NOTICE[r.lang], textEn: RAIL_REFUSED_NOTICE.en });
+    expect(thread!.messages.some((m) => /Sending the money/.test(m.textEn ?? ''))).toBe(false);
+    const notes = await listNotifications(await db(), id);
+    expect(notes.filter((n) => n.messageKey === 'payout_rail_refused')).toHaveLength(1);
+    const told = events.filter((e) => e.type === 'notify.sent').at(-1);
+    expect(told).toMatchObject({ requestId: id, lang: r.lang, text: RAIL_REFUSED_NOTICE[r.lang] });
+
+    // What /demo renders from these events: a stopped clock and an honest rail.
+    const timed = events.map((event) => ({ event, at: Date.parse(event.at) }));
+    const withStart = [{ event: { type: 'request.created', at: new Date(timed[0]!.at - 1000).toISOString(), requestId: id, lang: r.lang, channel: r.channel }, at: timed[0]!.at - 1000 } as (typeof timed)[number], ...timed];
+    expect(clockFrom(withStart)).toMatchObject({ kind: 'stopped', reason: 'refused' });
+    const steps = buildSteps({ scenario: 'lan', events: withStart, view: null, organizerName: () => 'Dana' });
+    expect(steps.map((s) => s.key).slice(-3)).toEqual(['batch', 'rail_alert', 'rail_told']);
+    expect(steps.find((s) => s.key === 'batch')).toMatchObject({ state: 'blocked', title: 'PayPal refused this payout' });
+    expect(steps.find((s) => s.key === 'rail_told')!.state).toBe('done');
+  });
+
+  it('PayPal refusing a re-send of the same batch raises no second alert, notice or stage event', async () => {
+    const id = 'req_seed_q_minh';
+    const before = h.events(id).filter((e) => e.type === 'payout.rail_refused').length;
+    const { onRailRefused } = await import('../lib/server/engine/rail');
+    const { ApproverRefusal } = await import('../lib/server/approver-client');
+    const base = (await (h.engine as unknown as { state: Promise<{ ctx: Parameters<typeof onRailRefused>[0] }> }).state).ctx;
+    await onRailRefused(base, new ApproverRefusal(503, 'rail_unavailable', 'refused', { batchId, railReason: 'SENDER_RESTRICTED' }));
+    expect(h.events(id).filter((e) => e.type === 'payout.rail_refused')).toHaveLength(before);
+    expect((await listNotifications(await db(), id)).filter((n) => n.messageKey === 'payout_rail_refused')).toHaveLength(1);
   });
 
   it('only a signed-in organizer changes the setting or records; the setting is off by default', async () => {

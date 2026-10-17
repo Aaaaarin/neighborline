@@ -15,7 +15,7 @@ export function Stopwatch({
   /** client clock minus server clock */
   skewMs: number;
   size?: 'lg' | 'sm';
-  caption: { idle: string; running: string; paid: string; blocked: string };
+  caption: { idle: string; running: string; paid: string; blocked: string; refused?: string };
   /** people vs system time at a given server time (large stopwatch only) */
   splitAt?: (serverNowMs: number) => SpeedSplit | null;
 }) {
@@ -30,14 +30,17 @@ export function Stopwatch({
   const text = stopwatch(ms);
   const paid = clock.kind === 'stopped' && clock.reason === 'paid';
   const blocked = clock.kind === 'stopped' && clock.reason === 'blocked';
+  // PayPal refused the batch: stopped, nothing moved, in the alarm color (never the paid lamp).
+  const refused = clock.kind === 'stopped' && clock.reason === 'refused';
   const split = size === 'lg' && splitAt ? splitAt(now - skewMs) : null;
-  const status = clock.kind === 'idle' ? caption.idle : clock.kind === 'running' ? caption.running : paid ? caption.paid : caption.blocked;
+  const status = clock.kind === 'idle' ? caption.idle : clock.kind === 'running' ? caption.running : paid ? caption.paid : refused ? (caption.refused ?? caption.blocked) : caption.blocked;
 
   return (
     <div>
       <p
         role="timer"
-        aria-label={`Elapsed ${text}`}
+        aria-label={`Elapsed ${text}${refused ? ', stopped: PayPal refused the payout' : ''}`}
+        data-clock={clock.kind === 'stopped' ? clock.reason : clock.kind}
         className={cx(
           'tabular font-light leading-[0.9] tracking-[-0.045em] transition-colors duration-700',
           size === 'lg' ? 'text-[clamp(4.5rem,6.4vw,8rem)]' : 'text-[1.6rem] font-normal tracking-[-0.02em]',
@@ -45,11 +48,12 @@ export function Stopwatch({
           clock.kind === 'running' && 'text-ink',
           paid && 'text-lamp-display',
           blocked && 'text-ink-3',
+          refused && 'text-signal',
         )}
       >
         {text}
       </p>
-      <p hidden={size === 'sm'} className={cx('mt-2 flex items-center gap-2 text-[0.95rem]', paid ? 'text-lamp-ink' : blocked ? 'text-signal' : 'text-ink-2')} aria-live="polite">
+      <p hidden={size === 'sm'} className={cx('mt-2 flex items-center gap-2 text-[0.95rem]', paid ? 'text-lamp-ink' : blocked || refused ? 'text-signal' : 'text-ink-2')} aria-live="polite">
         <span
           aria-hidden
           className={cx(
@@ -57,12 +61,12 @@ export function Stopwatch({
             clock.kind === 'running' && 'bg-ink animate-breathe',
             clock.kind === 'idle' && 'border border-ink-3',
             paid && 'bg-lamp',
-            blocked && 'bg-signal',
+            (blocked || refused) && 'bg-signal',
           )}
         />
         {status}
       </p>
-      {split && split.totalMs > 0 && !blocked && <Split split={split} />}
+      {split && split.totalMs > 0 && !blocked && !refused && <Split split={split} />}
     </div>
   );
 }

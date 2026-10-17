@@ -10,9 +10,9 @@
  *   approver.manual_recorded  written by the approver when a hand-over is recorded
  */
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { redactPII } from '@neighborline/core';
+import { railRefusedNotice, redactPII, type Channel } from '@neighborline/core';
 import type { RecordManualResponse } from '@neighborline/approver/protocol';
-import { appendAudit, auditLog, getBatch, payoutBatches, type Db } from '@neighborline/db';
+import { appendAudit, auditLog, getBatch, getRequest, payoutBatches, recordNotification, type BatchWithItems, type Db } from '@neighborline/db';
 import type { ManualRecordView, OrganizerAlert, RailSettingsView } from '../../types';
 import type { ApproverRefusal } from '../approver-client';
 import { HttpError } from '../errors';
@@ -47,10 +47,49 @@ export async function setManualFallback(ctx: BaseCtx, input: { enabled: boolean;
   return railSettings(ctx.db, ctx.gen.group.id);
 }
 
-/** PayPal refused at the account level: one organizer alert per refused batch, offering the manual path. */
-export async function alertRailUnavailable(ctx: BaseCtx, refusal: ApproverRefusal): Promise<void> {
+/**
+ * PayPal refused at the account level: alert the organizers once per refused batch, tell each neighbor
+ * in their language (neutral: nothing is wrong on their side, the volunteers know), and stop the /demo
+ * stage with `payout.rail_refused` instead of leaving it "sending" forever (QA-2 P2-3). A re-send that
+ * PayPal refuses again raises nothing new.
+ */
+export async function onRailRefused(ctx: BaseCtx, refusal: ApproverRefusal): Promise<void> {
+  const alerted = await alertRailUnavailable(ctx, refusal);
+  if (!alerted) return;
+  const { bw, manualFallback } = alerted;
+  const ids = [...new Set(bw.items.map((i) => i.requestId))];
+  for (const id of ids) {
+    const r = await getRequest(ctx.db, id);
+    if (!r) continue;
+    const n = railRefusedNotice(r.lang);
+    ctx.meta.message(r.id, { from: 'line', kind: 'status', lang: r.lang, text: n.text, textEn: n.textEn });
+    const channel: Channel = r.channel === 'sms' ? 'sms' : 'whatsapp';
+    await recordNotification(ctx.db, { requestId: r.id, channel, lang: r.lang, messageKey: 'payout_rail_refused', text: n.text, status: 'sent' });
+  }
+  ctx.bus.emit(
+    {
+      type: 'payout.rail_refused',
+      at: nowIso(),
+      batchId: bw.batch.id,
+      itemCount: bw.items.length,
+      totalCents: bw.items.reduce((t, i) => t + i.amountCents, 0),
+      ...(refusal.extra.railReason ? { reason: refusal.extra.railReason } : {}),
+      manualFallback,
+    },
+    ids,
+  );
+  for (const id of ids) {
+    const r = await getRequest(ctx.db, id);
+    if (!r) continue;
+    const n = railRefusedNotice(r.lang);
+    ctx.bus.emit({ type: 'notify.sent', at: nowIso(), requestId: r.id, lang: r.lang, text: n.text, channel: r.channel === 'sms' ? 'sms' : 'whatsapp' }, [r.id]);
+  }
+}
+
+/** One organizer alert per refused batch, offering the manual path. Returns the batch when the alert is new. */
+export async function alertRailUnavailable(ctx: BaseCtx, refusal: ApproverRefusal): Promise<{ bw: BatchWithItems; manualFallback: boolean } | null> {
   const batchId = refusal.extra.batchId;
-  if (!batchId) return;
+  if (!batchId) return null;
   const bw = await getBatch(ctx.db, batchId);
   const total = bw?.items.reduce((t, i) => t + i.amountCents, 0) ?? 0;
   const settings = await railSettings(ctx.db, ctx.gen.group.id);
@@ -65,7 +104,9 @@ export async function alertRailUnavailable(ctx: BaseCtx, refusal: ApproverRefusa
     entityId: `al_rail_${batchId}`,
     data: { kind: 'rail_unavailable', itemIds: bw?.items.map((i) => i.id) ?? [], batchId, summary: redactPII(summary), reason: refusal.extra.railReason ?? null },
   });
-  if (created) log.warn('rail.unavailable', { batchId, reason: refusal.extra.railReason });
+  if (!created) return null;
+  log.warn('rail.unavailable', { batchId, reason: refusal.extra.railReason });
+  return bw ? { bw, manualFallback: settings.manualFallback } : null;
 }
 
 /** Hand-overs recorded on the manual rail, by batch id (for the ledger, the report and the alerts). */

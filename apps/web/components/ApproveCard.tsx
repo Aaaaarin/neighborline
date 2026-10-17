@@ -193,6 +193,11 @@ export function ApproveCard({
             <p className="rounded-xl border border-rule-strong bg-sunk px-3 py-3 text-[0.88rem] leading-snug text-ink">
               <strong className="font-semibold">Not claimed yet.</strong> {view.requester.displayName} got claim help in {lang.en}. The money waits 30 days.
             </p>
+          ) : item && view.payout?.batch.status === 'FAILED_RAIL' && item.status === 'PENDING' ? (
+            <p ref={setAfter} tabIndex={-1} role="status" className="rounded-xl border border-signal/40 bg-signal-wash px-3 py-3 text-[0.88rem] leading-snug text-ink">
+              <strong className="font-semibold text-signal">PayPal refused this payout:</strong> the sponsor’s account needs attention. No money moved. Organizers were alerted; they can
+              record a hand-over instead.
+            </p>
           ) : item ? (
             <p ref={setAfter} tabIndex={-1} role="status" className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-3 text-[0.9rem] text-ink">
               <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden />
