@@ -71,7 +71,7 @@ if (WITH_VO) vo = await (await import('./lib/vo.mjs')).generateVo(T);
 // 5. Cards and overlays.
 const ltFiles = [];
 let tests;
-await withRenderer(async (render) => {
+await withRenderer(async (render, page) => {
   await renderTitle(render);
   await renderEnd(render, { ...T.endCard, hostedUrl: process.env.HOSTED_URL ? T.endCard.hostedUrl : null });
   await renderCorner(render, T.corner.text);
@@ -84,7 +84,7 @@ await withRenderer(async (render) => {
   }
   await renderHandles(render, LAYOUT.C.handles);
   tests = await renderCodeCards(render, testLog);
-  if (!flag('--no-thumbnail')) await renderThumbnails(render, T.takes.lan);
+  if (!flag('--no-thumbnail')) await renderThumbnails(render, T.takes.lan, page);
 });
 log(`cards rendered · tests on card 4: ${tests.total}${tests.failed ? ' (FAILURES!)' : ''}`);
 
