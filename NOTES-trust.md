@@ -22,6 +22,14 @@ demo mode on) it reads, verbatim:
 > still has to come from a different organizer. The approval service re-checks both signatures and
 > recomputes every amount before it pays. Joining as a real organizer still needs an invite code.
 
+With `PAYPAL_MODE=sandbox` and `SANDBOX_DEMO_RECEIVER_EMAIL` set (the hosted sandbox config from `pnpm golive`),
+one more relaxed sentence is added (`SANDBOX_STAND_IN` in the same file):
+
+> In the PayPal sandbox, /demo payouts go to stand-ins, because sandbox Venmo payouts don’t settle and the
+> neighbors’ addresses are fictional: Lan’s, Jean’s and Walter’s go to one PayPal sandbox test account, and
+> Rosa’s goes to a fresh unregistered address, so it really stays unclaimed until an organizer cancels it. Rail
+> checks run on the scripted address first, and every screen of that run says so.
+
 With demo mode off:
 
 > Demo mode is off on this server. There are no demo keys: every approval is signed with an organizer’s

@@ -181,6 +181,11 @@ export interface RequestView {
    * masked destination, no transcript (lib/server/security/redact.ts). Organizers sign in to see more.
    */
   redacted?: true;
+  /**
+   * PAYPAL_MODE=sandbox /demo run paid to a sandbox stand-in instead of the scripted destination
+   * (lib/server/engine/sandbox-standin.ts). `note` is the sentence every screen shows.
+   */
+  sandboxStandIn?: { note: string; scripted?: { wallet: 'PAYPAL' | 'VENMO'; value: string } };
 }
 
 export interface AppealView {
@@ -247,6 +252,8 @@ export interface ThreadView {
   messages: ThreadMessage[];
   approvalsCount: number;
   approvalsRequired: number;
+  /** Sandbox /demo run paid to a stand-in: the sentence the neighbor's phone shows (sandbox-standin.ts). */
+  sandboxNote?: string;
 }
 
 export interface IntakeResult {

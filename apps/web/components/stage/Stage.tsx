@@ -311,8 +311,13 @@ export function Stage({
                     alerted; they can record a hand-over instead.
                   </p>
                 )}
+                {s.view?.sandboxStandIn && (
+                  <p data-testid="sandbox-standin" className="mt-4 max-w-[34rem] rounded-xl border border-dashed border-rule-strong px-4 py-3 text-[0.88rem] leading-snug text-ink-2">
+                    {s.view.sandboxStandIn.note}
+                  </p>
+                )}
                 {modes.paypalMode === 'sandbox' && s.view?.request.status === 'unclaimed' && s.view.payout && (
-                  <SandboxUnclaimed name={active.title} batchId={s.view.payout.batch.id} itemId={s.view.payout.item.id} />
+                  <SandboxUnclaimed name={active.title} standIn={!!s.view.sandboxStandIn} batchId={s.view.payout.batch.id} itemId={s.view.payout.item.id} />
                 )}
                 {finished && NEXT[s.run?.scenario ?? scenario] && (
                   <button
@@ -345,13 +350,14 @@ export function Stage({
 }
 
 /** Real sandbox: nobody can claim for the neighbor, so say so and let an organizer return the money. */
-function SandboxUnclaimed({ name, batchId, itemId }: { name: string; batchId: string; itemId: string }) {
+function SandboxUnclaimed({ name, batchId, itemId, standIn }: { name: string; batchId: string; itemId: string; standIn: boolean }) {
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
   return (
-    <div className="mt-4 rounded-xl border border-dashed border-rule-strong p-3 text-[0.88rem] text-ink-2">
+    <div data-testid="sandbox-unclaimed" className="mt-4 rounded-xl border border-dashed border-rule-strong p-3 text-[0.88rem] text-ink-2">
       <p>
-        In the PayPal sandbox the claim happens in {name}’s own PayPal account, so the clock keeps running until she does. Unclaimed money returns to the fund
-        after 30 days, or now:
+        {standIn
+          ? `In the PayPal sandbox nobody claims this for ${name}: the address has no PayPal account, so the clock keeps running. Unclaimed money returns to the fund after 30 days, or now:`
+          : `In the PayPal sandbox the claim happens in ${name}’s own PayPal account, so the clock keeps running until she does. Unclaimed money returns to the fund after 30 days, or now:`}
       </p>
       <button
         type="button"

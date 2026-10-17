@@ -57,7 +57,7 @@ function redactRequest(r: HelpRequest, categoryLabel: string): HelpRequest {
 
 export function redactRequestView(v: RequestView): RequestView {
   // The redacted summary is a generic English line, so the offline-translation hint no longer applies.
-  const { decline, appeal, summaryUntranslated: _u, ...rest } = v;
+  const { decline, appeal, summaryUntranslated: _u, sandboxStandIn, ...rest } = v;
   return {
     ...rest,
     request: redactRequest(v.request, v.categoryLabel),
@@ -74,6 +74,9 @@ export function redactRequestView(v: RequestView): RequestView {
             firstDecline: (({ note: _n, ...fd }) => fd)(appeal.firstDecline),
           },
         }
+      : {}),
+    ...(sandboxStandIn
+      ? { sandboxStandIn: { note: sandboxStandIn.note, ...(sandboxStandIn.scripted ? { scripted: { wallet: sandboxStandIn.scripted.wallet, value: maskReceiver(sandboxStandIn.scripted.value) } } : {}) } }
       : {}),
     redacted: true,
   };

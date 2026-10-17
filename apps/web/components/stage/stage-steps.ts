@@ -146,7 +146,7 @@ export function buildSteps(input: {
         set('batch', {
           state: 'done',
           atMs,
-          detail: `${e.itemCount} item · ${money(e.totalCents)} · purpose NON_GOODS_OR_SERVICES`,
+          detail: `${e.itemCount} item · ${money(e.totalCents)} · purpose NON_GOODS_OR_SERVICES${view?.sandboxStandIn ? ` · ${view.sandboxStandIn.note}` : ''}`,
           ids: [
             ['sender_batch_id', e.senderBatchId],
             ['payout_batch_id', e.paypalBatchId ?? '—'],
@@ -174,7 +174,12 @@ export function buildSteps(input: {
           const cur = steps.get('batch');
           if (cur?.ids && e.paypalItemId) set('batch', { ids: [...cur.ids, ['payout_item_id', e.paypalItemId]] });
         } else if (e.status === 'UNCLAIMED') {
-          set('unclaimed', { state: 'warn', atMs, title: 'Item UNCLAIMED', detail: 'That email has no PayPal account yet. The money waits 30 days.' });
+          set('unclaimed', {
+            state: 'warn',
+            atMs,
+            title: 'Item UNCLAIMED',
+            detail: view?.sandboxStandIn ? 'PayPal sandbox: that address has no PayPal account, so the money waits 30 days or until an organizer cancels it.' : 'That email has no PayPal account yet. The money waits 30 days.',
+          });
         } else if (e.status === 'SUCCESS') {
           set('success', {
             state: 'money',

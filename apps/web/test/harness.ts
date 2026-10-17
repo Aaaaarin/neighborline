@@ -26,7 +26,18 @@ export interface Harness {
   close(): Promise<void>;
 }
 
-export async function startHarness(opts: { processingDelayMs?: number; beatScale?: number; outbound?: OutboundNotifier | null } = {}): Promise<Harness> {
+export async function startHarness(
+  opts: {
+    processingDelayMs?: number;
+    beatScale?: number;
+    outbound?: OutboundNotifier | null;
+    /**
+     * Run the engine in PAYPAL_MODE=sandbox against the fake (PAYPAL_BASE_URL → fake-paypal, no claim control):
+     * the closest stand-in for the real sandbox. `env` adds e.g. SANDBOX_DEMO_RECEIVER_EMAIL.
+     */
+    sandbox?: { env?: Record<string, string> };
+  } = {},
+): Promise<Harness> {
   const deliveries: Harness['deliveries'] = [];
   let engine: Engine | undefined;
   const server: Server = createServer(async (req, res) => {
@@ -59,9 +70,20 @@ export async function startHarness(opts: { processingDelayMs?: number; beatScale
     secret: TEST_APPROVER_SECRET,
     health: { paypalMode: 'fake', credentials: 'fake', requirePasskeys: false, demoMode: true },
   });
+  const paypalEnv: Record<string, string> = opts.sandbox
+    ? {
+        PAYPAL_MODE: 'sandbox',
+        PAYPAL_BASE_URL: fake.url,
+        PAYPAL_CLIENT_ID: 'fake-client-id',
+        PAYPAL_CLIENT_SECRET: 'fake-client-secret',
+        PAYPAL_WEBHOOK_ID: fake.config.webhookId,
+        DEMO_MODE: 'true',
+        ...opts.sandbox.env,
+      }
+    : { PAYPAL_MODE: 'fake' };
   engine = new Engine({
     env: {
-      PAYPAL_MODE: 'fake',
+      ...paypalEnv,
       FAKE_PAYPAL_URL: fake.url,
       APPROVER_URL: approver.url,
       NEIGHBORLINE_APPROVER_SECRET: TEST_APPROVER_SECRET,

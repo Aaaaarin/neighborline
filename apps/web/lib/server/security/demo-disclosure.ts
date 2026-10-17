@@ -3,6 +3,7 @@
  * from the running configuration so they can't drift from the code. NOTES-trust.md mirrors them.
  */
 import { demoModeOn } from '@neighborline/passkeys';
+import { sandboxDemoReceiver } from '../engine/sandbox-standin';
 
 export interface DemoDisclosure {
   on: boolean;
@@ -13,6 +14,10 @@ export interface DemoDisclosure {
   /** What stays exactly as it would for real organizers. */
   unchanged: string[];
 }
+
+/** Shown only with PAYPAL_MODE=sandbox and SANDBOX_DEMO_RECEIVER_EMAIL set (engine/sandbox-standin.ts). */
+export const SANDBOX_STAND_IN =
+  'In the PayPal sandbox, /demo payouts go to stand-ins, because sandbox Venmo payouts don’t settle and the neighbors’ addresses are fictional: Lan’s, Jean’s and Walter’s go to one PayPal sandbox test account, and Rosa’s goes to a fresh unregistered address, so it really stays unclaimed until an organizer cancels it. Rail checks run on the scripted address first, and every screen of that run says so.';
 
 export function demoDisclosure(env: Record<string, string | undefined>, paypalMode: 'fake' | 'sandbox' | 'live'): DemoDisclosure {
   if (!demoModeOn(env)) {
@@ -28,6 +33,7 @@ export function demoDisclosure(env: Record<string, string | undefined>, paypalMo
     'Dana’s approval is scripted and signed with a demo key this server holds: in /demo, and on a request you send yourself from /call once you approve it as Marcus. No person unlocks it, and every card it signs says “demo key”.',
     'You play Marcus. You can sign as him with his demo key, or with a passkey on your own device that this server ties to your browser. Either one signs only the runs you started yourself, never the shared queue or a sign-in. Marcus’s demo key can also be the second signature on a rules draft a real organizer has already signed with a passkey, so one visitor alone can never change the rules.',
     'Your demo runs don’t count against a household’s monthly limit or the daily budget, and other visitors can’t see them.',
+    ...(sandboxDemoReceiver(env, paypalMode) ? [SANDBOX_STAND_IN] : []),
   ];
   const unchanged = [
     'The second approval still has to come from a different organizer.',

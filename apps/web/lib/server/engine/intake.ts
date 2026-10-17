@@ -41,6 +41,7 @@ import { nowIso } from './events';
 import { demoSpentTodayCents } from './queries';
 import { appealAck, categoryLabelIn, householdAnswer, questionFor } from './conversation';
 import { getThread } from './views';
+import { swapToStandIn } from './sandbox-standin';
 import { ui } from '../../i18n';
 
 export async function startIntake(
@@ -394,7 +395,10 @@ export async function confirmIntake(
     return done();
   }
   const policy = await activePolicy(ctx);
-  const rail = await railFor(ctx, req, policy, req.payoutDestination);
+  let rail = await railFor(ctx, req, policy, req.payoutDestination);
+  // Sandbox /demo: rail checks ran on the scripted destination; now file the stand-in (sandbox-standin.ts).
+  const swapped = await swapToStandIn(ctx, req, rail, (dest) => railFor(ctx, req, policy, dest));
+  if (swapped) ({ req, rail } = swapped);
   req = await updateRequest(
     ctx.db,
     requestId,

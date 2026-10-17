@@ -4,6 +4,7 @@
  */
 import { demoModeOn } from '@neighborline/passkeys';
 import { demoDisclosure } from '../security/demo-disclosure';
+import { sandboxDemoReceiver } from './sandbox-standin';
 import { MASK, buildReport, percentile, type Lang, type Masked, type TransparencyReport } from '@neighborline/core';
 import { PayPalToolkitInflowSource, type WriteReportResult } from '@neighborline/agents';
 import { getActivePolicy } from '@neighborline/db';
@@ -213,7 +214,9 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
       {
         label: 'Payouts to Venmo',
         status: 'simulated',
-        detail: 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. Whether sandbox Venmo receivers settle is unverified, so SUCCESS for Venmo is simulated.',
+        detail: sandboxDemoReceiver(ctx.env, ctx.cfg.paypalMode)
+          ? 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. Sandbox Venmo payouts don’t settle, so on this server /demo runs pay a PayPal sandbox account standing in for the neighbor’s Venmo, and every screen of the run says so.'
+          : 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. Whether sandbox Venmo receivers settle is unverified, so SUCCESS for Venmo is simulated.',
       },
       {
         label: 'Webhook signatures',

@@ -149,6 +149,12 @@ export function ApproveCard({
               <span className={cx('id-text text-[0.9rem]', block ? 'font-bold text-signal' : 'text-ink')}>{dest.value}</span>
             </p>
           )}
+          {view.sandboxStandIn && (
+            <p data-testid="card-sandbox-note" className="mt-1 text-[0.78rem] leading-snug text-ink-3">
+              {view.sandboxStandIn.note}
+              {view.sandboxStandIn.scripted ? ` Rail checks ran on ${view.sandboxStandIn.scripted.value} first.` : ''}
+            </p>
+          )}
         </div>
         {view.amountBreakdown && !block && (
           <details className="group">

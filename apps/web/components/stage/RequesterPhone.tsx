@@ -93,6 +93,11 @@ export function RequesterPhone({
         emptyHint={idleHint}
         timeOf={timeOf}
       />
+      {thread?.sandboxNote && (
+        <p data-testid="phone-sandbox-note" className="mx-3 mb-1 shrink-0 rounded-lg border border-dashed border-rule-strong px-2.5 py-1.5 text-[0.72rem] leading-snug text-ink-3" lang="en">
+          {thread.sandboxNote}
+        </p>
+      )}
       <div className="flex shrink-0 items-center gap-2 px-3 pb-6 pt-1" aria-hidden>
         <div className="flex h-10 flex-1 items-center rounded-full border border-rule bg-raised px-4 text-[0.85rem] text-ink-3" lang={lang} dir={dirOf(lang)}>
           {t.composer}

@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import type { Lang } from '@neighborline/core';
 import type { ScenarioId, RequestView, ThreadMessage } from '../../types';
 import type { LocalizedNote } from '../fixtures/templates';
+import type { StandIn } from './sandbox-standin';
 import { nowIso } from './events';
 
 export interface RequestMeta {
@@ -27,6 +28,8 @@ export interface RequestMeta {
   scenario?: ScenarioId;
   speed: number;
   nameOnFile?: string;
+  /** PAYPAL_MODE=sandbox /demo runs: where the payout really goes instead of the scripted destination (sandbox-standin.ts). */
+  standIn?: StandIn;
   thread: ThreadMessage[];
 }
 

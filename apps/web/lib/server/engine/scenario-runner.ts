@@ -12,6 +12,7 @@ import { SCENARIOS } from '../fixtures/scenarios';
 import { errorText, log } from '../log';
 import type { Services } from '../services';
 import { DEMO_PREFIX, type Ctx } from './context';
+import { sandboxDemoReceiver, standInFor } from './sandbox-standin';
 
 /** Beats at speed 1, in ms. */
 export const BEATS = {
@@ -41,7 +42,18 @@ export async function playScenario(host: RunnerHost, ctx: Ctx, input: { scenario
   // req_demo_<visitorTag>_<hex>: the run belongs to the visitor who pressed Play (security/visitor.ts).
   const id = input.visitorTag && /^[0-9a-f]{12}$/.test(input.visitorTag) ? `${DEMO_PREFIX}${input.visitorTag}_${randomBytes(6).toString('hex')}` : `${DEMO_PREFIX}${randomBytes(6).toString('hex')}`;
   const run: ScenarioRun = { requestId: id, scenario: s.id, mode, speed, manualOrganizerId: mode === 'manual' ? 'org_marcus' : null };
-  ctx.meta.ensure(id, { displayName: s.requester.displayName, area: s.requester.area, scenario: s.id, speed, ...(s.payout.nameOnFile ? { nameOnFile: s.payout.nameOnFile } : {}) });
+  // PAYPAL_MODE=sandbox + SANDBOX_DEMO_RECEIVER_EMAIL: the payout really settles in a sandbox account (or, for
+  // Rosa, really goes UNCLAIMED). Swapped in after the rail checks on the scripted destination (intake.ts).
+  const receiver = sandboxDemoReceiver(ctx.env, ctx.cfg.paypalMode);
+  const standIn = receiver ? standInFor({ scenario: s.id, name: s.requester.displayName, scripted: s.payout, receiver }) : null;
+  ctx.meta.ensure(id, {
+    displayName: s.requester.displayName,
+    area: s.requester.area,
+    scenario: s.id,
+    speed,
+    ...(s.payout.nameOnFile ? { nameOnFile: s.payout.nameOnFile } : {}),
+    ...(standIn ? { standIn } : {}),
+  });
   await host.startDemoIntake(id, s.channel, s.lang);
   const warn = (step: string) => (err: unknown) => log.warn('scenario.step_failed', { scenario: s.id, step, error: errorText(err) });
 
