@@ -23,6 +23,7 @@ function token(ctx: FakeContext, c: Ctx): Reply {
   }
   const accessToken = ctx.ids.accessToken();
   ctx.state.tokens.set(accessToken, ctx.now() + ctx.config.tokenTtlSec * 1000);
+  ctx.state.tokenClients.set(accessToken, id);
   return {
     status: 200,
     body: {
@@ -50,4 +51,10 @@ export function requireBearer(ctx: FakeContext, c: Ctx): void {
   if (exp === undefined || exp <= ctx.now()) {
     throw new HttpError(401, { error: 'invalid_token', error_description: 'Token signature verification failed' });
   }
+}
+
+/** client_id behind the request's bearer token ('unknown' if none). */
+export function callerClientId(ctx: FakeContext, c: Ctx): string {
+  const auth = c.header('authorization');
+  return (auth?.startsWith('Bearer ') ? ctx.state.tokenClients.get(auth.slice(7)) : undefined) ?? 'unknown';
 }

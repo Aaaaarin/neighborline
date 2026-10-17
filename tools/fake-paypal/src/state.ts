@@ -154,6 +154,8 @@ export interface SentWebhook {
 /** A webhook subscription made with POST /v1/notifications/webhooks (the dashboard's "Add webhook"). */
 export interface RegisteredWebhook {
   id: string;
+  /** client_id of the REST app that created it: each app sees only its own subscriptions, like PayPal. */
+  app: string;
   url: string;
   event_types: Array<{ name: string; description?: string; status?: string }>;
   create_time: string;
@@ -167,6 +169,8 @@ export interface IdempotencyRec {
 
 export interface FakeState {
   tokens: Map<string, number>;
+  /** access token → client_id it was issued to. */
+  tokenClients: Map<string, string>;
   batches: Map<string, BatchRec>;
   /** sender_batch_id → payout_batch_id (PayPal rejects reuse for 30 days). */
   senderBatchIds: Map<string, string>;
@@ -186,6 +190,7 @@ export interface FakeState {
 export function createState(): FakeState {
   return {
     tokens: new Map(),
+    tokenClients: new Map(),
     batches: new Map(),
     senderBatchIds: new Map(),
     items: new Map(),

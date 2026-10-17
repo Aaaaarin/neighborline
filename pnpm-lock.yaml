@@ -292,6 +292,28 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.5)(@vitest/coverage-v8@4.1.12)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15))
 
+  scripts/golive:
+    dependencies:
+      '@neighborline/paypal':
+        specifier: workspace:*
+        version: link:../../packages/paypal
+    devDependencies:
+      '@neighborline/fake-paypal':
+        specifier: workspace:*
+        version: link:../../tools/fake-paypal
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.5
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.20.5)(@vitest/coverage-v8@4.1.12)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15))
+
   tools/dev-db:
     dependencies:
       '@electric-sql/pglite':

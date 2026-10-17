@@ -1,0 +1,24 @@
+{
+  "name": "@neighborline/golive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Key-day automation: preflight, PayPal sandbox setup and spike, live AI, Render deploy, video voiceover and doc finalization in one resumable command (pnpm golive). See docs/GOLIVE.md.",
+  "license": "MIT",
+  "scripts": {
+    "golive": "tsx src/main.ts",
+    "check-links": "tsx src/check-links.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@neighborline/paypal": "workspace:*"
+  },
+  "devDependencies": {
+    "@neighborline/fake-paypal": "workspace:*",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.12"
+  }
+}

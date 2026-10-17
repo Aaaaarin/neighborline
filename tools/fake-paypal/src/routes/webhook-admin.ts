@@ -10,6 +10,9 @@
  *  - GET    /v1/notifications/webhooks-events?page_size&start_time&end_time&event_type&transaction_id → {events, count, links}
  *  - POST   /v1/notifications/webhooks-events/:id/resend {webhook_ids} → 202 event (a new, verifiable transmission)
  *
+ * Subscriptions belong to the REST app (client_id) that created them: each app lists and edits only its own, as on
+ * PayPal. Delivery goes to every matching subscription.
+ *
  * Shapes follow https://docs.paypal.ai/api-reference/notifications_webhooks_v1.json (fetched Oct 17 2026). The error
  * names for a duplicate URL (`WEBHOOK_URL_ALREADY_EXISTS`), the 10-per-app limit (`WEBHOOK_NUMBER_LIMIT_EXCEEDED`) and an
  * unknown event type (`INVALID_EVENT_TYPE` issue) are not in that spec: they are what scripts/golive expects and records,
@@ -19,6 +22,7 @@ import type { FakeContext } from '../context.js';
 import { ppError, validation } from '../errors.js';
 import type { Ctx, Reply, Router } from '../http.js';
 import type { RegisteredWebhook } from '../state.js';
+import { callerClientId } from './oauth.js';
 
 const API = 'webhooks/v1';
 export const MAX_WEBHOOKS_PER_APP = 10;
@@ -47,16 +51,16 @@ const KNOWN = new Set(FAKE_EVENT_TYPES.map((t) => t.name));
 
 export function registerWebhookAdminRoutes(router: Router, ctx: FakeContext): void {
   router
-    .add('GET', '/v1/notifications/webhooks', () => ({ status: 200, body: { webhooks: [...ctx.state.registeredWebhooks.values()].map((w) => view(ctx, w)) } }))
+    .add('GET', '/v1/notifications/webhooks', (c) => ({ status: 200, body: { webhooks: own(ctx, c).map((w) => view(ctx, w)) } }))
     .add('POST', '/v1/notifications/webhooks', (c) => create(ctx, c))
-    .add('GET', '/v1/notifications/webhooks/:id', (c) => ({ status: 200, body: view(ctx, requireWebhook(ctx, c.params.id!)) }))
+    .add('GET', '/v1/notifications/webhooks/:id', (c) => ({ status: 200, body: view(ctx, requireWebhook(ctx, c, c.params.id!)) }))
     .add('PATCH', '/v1/notifications/webhooks/:id', (c) => patch(ctx, c))
     .add('DELETE', '/v1/notifications/webhooks/:id', (c) => {
-      requireWebhook(ctx, c.params.id!);
+      requireWebhook(ctx, c, c.params.id!);
       ctx.state.registeredWebhooks.delete(c.params.id!);
       return { status: 204 };
     })
-    .add('GET', '/v1/notifications/webhooks/:id/event-types', (c) => ({ status: 200, body: { event_types: requireWebhook(ctx, c.params.id!).event_types } }))
+    .add('GET', '/v1/notifications/webhooks/:id/event-types', (c) => ({ status: 200, body: { event_types: requireWebhook(ctx, c, c.params.id!).event_types } }))
     .add('GET', '/v1/notifications/webhooks-event-types', () => ({
       status: 200,
       body: { event_types: FAKE_EVENT_TYPES.map((t) => ({ ...t, status: 'ENABLED', resource_versions: ['1.0', '2.0'] })) },
@@ -78,9 +82,15 @@ function view(ctx: FakeContext, w: RegisteredWebhook) {
   };
 }
 
-function requireWebhook(ctx: FakeContext, id: string): RegisteredWebhook {
+/** The calling app's subscriptions. */
+function own(ctx: FakeContext, c: Ctx): RegisteredWebhook[] {
+  const app = callerClientId(ctx, c);
+  return [...ctx.state.registeredWebhooks.values()].filter((w) => w.app === app);
+}
+
+function requireWebhook(ctx: FakeContext, c: Ctx, id: string): RegisteredWebhook {
   const w = ctx.state.registeredWebhooks.get(id);
-  if (!w) throw ppError(404, 'INVALID_RESOURCE_ID', 'Webhook id not found.', undefined, API);
+  if (!w || w.app !== callerClientId(ctx, c)) throw ppError(404, 'INVALID_RESOURCE_ID', 'Webhook id not found.', undefined, API);
   return w;
 }
 
@@ -111,19 +121,20 @@ function create(ctx: FakeContext, c: Ctx): Reply {
   const b = c.json<{ url?: unknown; event_types?: unknown }>();
   const url = checkUrl(b.url);
   const event_types = checkEventTypes(b.event_types);
-  if ([...ctx.state.registeredWebhooks.values()].some((w) => w.url === url)) {
+  const mine = own(ctx, c);
+  if (mine.some((w) => w.url === url)) {
     throw ppError(400, 'WEBHOOK_URL_ALREADY_EXISTS', 'Webhook URL already exists.', undefined, API);
   }
-  if (ctx.state.registeredWebhooks.size >= MAX_WEBHOOKS_PER_APP) {
+  if (mine.length >= MAX_WEBHOOKS_PER_APP) {
     throw ppError(400, 'WEBHOOK_NUMBER_LIMIT_EXCEEDED', 'Maximum number of webhooks has been reached.', undefined, API);
   }
-  const w: RegisteredWebhook = { id: ctx.ids.webhook(), url, event_types, create_time: ctx.iso() };
+  const w: RegisteredWebhook = { id: ctx.ids.webhook(), app: callerClientId(ctx, c), url, event_types, create_time: ctx.iso() };
   ctx.state.registeredWebhooks.set(w.id, w);
   return { status: 201, body: view(ctx, w) };
 }
 
 function patch(ctx: FakeContext, c: Ctx): Reply {
-  const w = requireWebhook(ctx, c.params.id!);
+  const w = requireWebhook(ctx, c, c.params.id!);
   const ops = c.json<unknown>();
   if (!Array.isArray(ops) || ops.length === 0) throw validation([{ location: 'body', issue: 'INVALID_REQUEST', description: 'Body must be a JSON patch array.' }], API);
   const next = { ...w };
@@ -133,7 +144,7 @@ function patch(ctx: FakeContext, c: Ctx): Reply {
     else if (op.path === '/event_types') next.event_types = checkEventTypes(op.value);
     else throw validation([{ field: 'path', location: 'body', issue: 'INVALID_PARAMETER_VALUE', description: 'path must be /url or /event_types.' }], API);
   }
-  if (next.url !== w.url && [...ctx.state.registeredWebhooks.values()].some((o) => o.id !== w.id && o.url === next.url)) {
+  if (next.url !== w.url && own(ctx, c).some((o) => o.id !== w.id && o.url === next.url)) {
     throw ppError(400, 'WEBHOOK_URL_ALREADY_EXISTS', 'Webhook URL already exists.', undefined, API);
   }
   ctx.state.registeredWebhooks.set(w.id, next);
@@ -159,7 +170,7 @@ function listEvents(ctx: FakeContext, c: Ctx): Reply {
 function resend(ctx: FakeContext, c: Ctx): Reply {
   const b = c.rawBody ? c.json<{ webhook_ids?: unknown }>() : {};
   const ids = Array.isArray(b.webhook_ids) ? (b.webhook_ids as unknown[]).filter((x): x is string => typeof x === 'string') : [];
-  const targets = ids.length ? ids.map((id) => requireWebhook(ctx, id)) : [...ctx.state.registeredWebhooks.values()];
+  const targets = ids.length ? ids.map((id) => requireWebhook(ctx, c, id)) : own(ctx, c);
   const event = ctx.webhooks.resend(c.params.id!, targets);
   if (!event) throw ppError(404, 'INVALID_RESOURCE_ID', 'Requested resource ID was not found.', undefined, API);
   return { status: 202, body: event };

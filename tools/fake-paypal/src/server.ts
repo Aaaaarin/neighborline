@@ -77,8 +77,8 @@ export async function createFakePayPal(options: FakePayPalOptions = {}): Promise
     timers.clear();
     faults.length = 0;
     // Business state is wiped; issued access tokens survive so connected clients keep working.
-    const tokens = ctx.state.tokens;
-    Object.assign(ctx.state, createState(), { tokens });
+    const { tokens, tokenClients } = ctx.state;
+    Object.assign(ctx.state, createState(), { tokens, tokenClients });
   };
   registerOAuthRoutes(router, ctx);
   registerPayoutRoutes(router, ctx);

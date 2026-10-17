@@ -69,6 +69,18 @@ describe('webhook subscriptions (POST/GET/PATCH/DELETE /v1/notifications/webhook
     expect(over.body.name).toBe('WEBHOOK_NUMBER_LIMIT_EXCEEDED');
   });
 
+  it('each REST app sees only its own subscriptions (same URL allowed on two apps)', async () => {
+    await api('POST', '/v1/notifications/webhooks', { url: receiver.url, event_types: PAYOUT_EVENTS });
+    const other = await getToken(fake.url, 'payouts-app', 'secret');
+    const asOther = (method: string, path: string, body?: unknown) =>
+      fetch(`${fake.url}${path}`, { method, headers: { authorization: `Bearer ${other}`, 'content-type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) }).then(async (r) => ({ status: r.status, body: (await r.json()) as any }));
+    expect((await asOther('GET', '/v1/notifications/webhooks')).body.webhooks).toEqual([]);
+    const mine = await asOther('POST', '/v1/notifications/webhooks', { url: receiver.url, event_types: [{ name: '*' }] });
+    expect(mine.status).toBe(201);
+    expect((await api('GET', `/v1/notifications/webhooks/${mine.body.id}`)).status).toBe(404);
+    expect((await api('GET', '/v1/notifications/webhooks')).body.webhooks).toHaveLength(1);
+  });
+
   it('lists the event types it can send (without REVERSED, like PayPal)', async () => {
     const names = (await api('GET', '/v1/notifications/webhooks-event-types')).body.event_types.map((t: any) => t.name);
     expect(names).toContain('PAYMENT.PAYOUTS-ITEM.UNCLAIMED');
