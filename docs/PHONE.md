@@ -133,7 +133,9 @@ Console → Voice → Text-to-speech once an account exists (change any with `TW
   must be ours. Otherwise 403. Validation follows twilio-node 5.x exactly (sorted params, with/without default
   port) and is pinned to Twilio's documented example and to vectors produced by the SDK.
 - **Per caller:** 4 calls, then one more every 15 minutes; the whole line: 60 calls, then one every 10 s; with
-  live AI each call also spends from the global AI budget (`security/rate-limit.ts`). `RATE_LIMITS=off` disables.
+  live AI each call also spends from the global AI budget (`security/rate-limit.ts`). On a shared database these
+  buckets live in Postgres, so every web instance and every restart count the same calls (THREAT_MODEL R9).
+  `RATE_LIMITS=off` disables.
 - **Per call:** 2 minutes per recording, 5 recordings, 10 minutes in total (`PHONE_MAX_CALL_SECONDS`), each keypad
   prompt repeated twice at most.
 - **Withheld numbers** are refused by default (Twilio passes them as digit codes such as `266696687`).
@@ -160,7 +162,7 @@ and TTS from OpenAI.
 
 ## Limits of this version
 
-- Call state (the "one moment" job, the call clock) lives in the web process, like the rate limiter. A restart
+- Call state (the "one moment" job, the call clock) lives in the web process. A restart
   mid-call means the caller hears "please call again"; the request and audit trail are in the database.
 - Call-backs scheduled for after quiet hours are held in memory; the nightly unclaimed sweep re-notifies anyway.
 - Declines are not phoned (only paid and claim-help); there is no appeal by phone yet.

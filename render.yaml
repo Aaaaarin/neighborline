@@ -102,7 +102,10 @@ services:
       - key: DEMO_MODE
         value: "true"
       # Abuse limits (apps/web/lib/server/security/rate-limit.ts): per IP, per visitor and a global live-AI
-      # bucket. Render's proxy appends the client address to X-Forwarded-For: trust exactly one hop.
+      # bucket, kept in this Postgres so every instance and restart share them (RATE_LIMIT_STORE=auto).
+      # Render's proxy appends the client address to X-Forwarded-For: trust exactly one hop.
+      # With AI_MODE=live, model-using intake needs a human pass (HUMAN_CHECK=auto): a background proof of
+      # work, or Cloudflare Turnstile once TURNSTILE_SITE_KEY and TURNSTILE_SECRET are added in the dashboard.
       - key: RATE_LIMITS
         value: "on"
       - key: TRUST_PROXY_HOPS

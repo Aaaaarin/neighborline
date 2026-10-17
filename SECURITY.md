@@ -36,7 +36,8 @@ Known and documented, so not new findings (but fixes are welcome):
   invite codes.
 - `ENGINE=mock` switches the web app to a UI-only in-memory engine that moves no money; it is never set in
   deployment (R2).
-- Rate limits are in memory, per process (R9).
+- Proof of work (the human check when Turnstile is not configured) slows bots down but does not stop a determined
+  one; the shared rate limits cap what it can spend (R9).
 - Transitive dependency advisories reported by `pnpm audit` (R5).
 - `tools/fake-paypal` is a development tool: by default it signs webhooks with a fixed local key, and its `/__fake/*` control
   routes have no authentication by design. It must never be deployed.

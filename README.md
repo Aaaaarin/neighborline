@@ -302,8 +302,11 @@ The full STRIDE model is in [THREAT_MODEL.md](THREAT_MODEL.md); these are the co
   demo reset is not public. Logs and AI traces are redacted, raw audio is deleted after transcription, and the public
   report is k-anonymous (k = 5).
 - **Browser hardening.** Every state-changing API call must be same-origin and (except uploads) `application/json`.
-  Bodies are capped (64 KB JSON, 2-minute / 4 MB voice notes). Intake and live-AI calls are rate-limited per IP, per
-  visitor and globally. A CSP with a per-request nonce and `strict-dynamic` (PayPal and Venmo hosts allowed for the JS
+  Bodies are capped (64 KB JSON, 2-minute / 4 MB voice notes). Intake, live-AI calls and the phone line are
+  rate-limited per IP (or calling number), per visitor and globally, in token buckets kept in Postgres so every
+  instance and every restart share one budget. With live AI, a model-using intake call also needs a human pass:
+  Cloudflare Turnstile when configured, otherwise a proof of work the browser solves in the background (about
+  200 ms, nothing to click or read). Fixture mode and the scripted `/demo` never ask. A CSP with a per-request nonce and `strict-dynamic` (PayPal and Venmo hosts allowed for the JS
   SDK), `frame-ancestors 'none'`, HSTS in production, and a `Permissions-Policy` limited to the microphone and passkeys.
 
 ## Testing
@@ -374,7 +377,7 @@ Running this with real money needs more than code:
   line calls back by voice (no registration needed) and texts only once a verified sender is set.
 - **A Twilio number** for the phone line ([docs/PHONE.md](docs/PHONE.md)): three env vars and one webhook URL.
 - **Organizer authentication.** Passkeys with single-use, expiring invite codes (`pnpm --filter @neighborline/web organizer-invite <id>`); set `DEMO_MODE=false` (the default outside fake mode) so no
-  demo key can sign, and require an organizer session for `/organizer` and `/api/requests`. See
+  demo key can sign; the organizer queue (`/organizer`, `/api/requests`) then needs an organizer session too. See
   [THREAT_MODEL.md](THREAT_MODEL.md) (residual risks R1, R9, R12).
 
 The `/trust` page shows the fiscal-sponsor checklist on screen.
@@ -402,7 +405,7 @@ Not built yet, in rough priority order:
    report refresh). The tasks and the signed `/api/internal/*` endpoints exist and are tested.
 3. Give the approver its own container (Render private service, block ready in `render.yaml`) and its own Postgres
    role.
-4. A shared rate-limit store and bot protection on intake (today: in-memory token buckets per process).
+4. Per-destination limits (many visitors asking for one handle) and a provider-side spend cap on the model keys.
 5. Connect a Twilio number to the built phone line, then WhatsApp intake, then SMS once carrier registration clears.
 6. Vetted catalog text for French, Tagalog, Korean and Russian, and a native-speaker review of the Vietnamese, Spanish
    and Haitian Creole copy (today the four get a checked LLM translation or English).
