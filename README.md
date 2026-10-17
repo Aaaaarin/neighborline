@@ -9,11 +9,12 @@
 **A hotline, not a dashboard.** A neighbor leaves a voice note in their own language. Two volunteer organizers
 approve it on their phones. PayPal or Venmo cash lands. Then the neighbor gets a message back in their language.
 
-![The /demo stage at real pace: Mrs. Lan's Vietnamese voice note, two signed approvals, one PayPal Payouts batch, a verified SUCCESS webhook; the stopwatch splits neighbors' decision time from system time.](apps/web/screenshots/demo-1920-lan-done.png)
+[![The /demo stage, recorded and played at 3x: Mrs. Lan's Vietnamese voice note is read back, two organizers approve with signatures, one PayPal Payouts batch goes out, a verified SUCCESS webhook stops the stopwatch at 0:22.4, and her phone turns warm with a message in Vietnamese.](docs/media/stage.gif)](apps/web/screenshots/demo-1920-lan-done.png)
 
-<sub>The `/demo` stage. Left: the neighbor's phone. Middle: two organizers. Right: every PayPal event, with a
-stopwatch that stops when PayPal reports `SUCCESS` and splits the neighbors' decision time from system time. Shown in
-fake PayPal and fixture AI mode: see [Sandbox reality](#sandbox-reality).</sub>
+<sub>The `/demo` stage, recorded at real pace and played at 3× (click for the full-size still). Left: the neighbor's
+phone. Middle: two organizers. Right: every PayPal event, with a stopwatch that stops when PayPal reports `SUCCESS`
+and splits the neighbors' decision time from system time. Shown in fake PayPal and fixture AI mode: see
+[Sandbox reality](#sandbox-reality). More screens: [gallery](docs/media/gallery).</sub>
 
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT licensed.
 
