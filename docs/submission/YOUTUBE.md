@@ -1,15 +1,15 @@
 # YouTube upload: paste-ready
 
 The rules require the video to be **under 3 minutes** and **publicly visible on YouTube**, with no third-party
-trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft3-vo.mp4` from
+trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft4-vo.mp4` from
 `node docs/submission/video/build.mjs --with-vo`, or the final cut that replaces it), not the caption-only
-`neighborline-draft3.mp4`. Times below are from `video/edl.json` (Draft 3, 2:40.5); re-check them if the cut changes.
+`neighborline-draft4.mp4`. Times below are from `video/edl.json` (Draft 4, 2:40.5); re-check them if the cut changes.
 
 ## File, thumbnail, captions
 
 | Field | Value |
 |---|---|
-| Video file | `/home/claude/video-out/neighborline-draft3-vo.mp4` (2:40.5, 1920×1080, 30 fps) |
+| Video file | `/home/claude/video-out/neighborline-draft4-vo.mp4` (2:40.5, 1920×1080, 30 fps) |
 | Custom thumbnail (16:9, ≤ 2 MB) | `/home/claude/video-out/thumbnail.png` (1280×720, 288 KB) |
 | Subtitles / CC | Upload [`video/captions.srt`](video/captions.srt) as **English** (Subtitles → Add language → English → Upload file → *With timing*). The cut also has burned-in captions; the SRT makes them searchable and lets viewers resize them |
 | Video language | English |

@@ -36,7 +36,7 @@ with a message in Vietnamese.
 
 8
 00:00:34,819 --> 00:00:39,980
-Twenty-two point four seconds to the
+Twenty-two point five seconds to the
 SUCCESS webhook, on our PayPal stand-in.
 
 9
@@ -65,12 +65,12 @@ Rosa asks for groceries, in Spanish.
 Same rules, two approvals.
 
 14
-00:01:09,626 --> 00:01:13,000
+00:01:09,702 --> 00:01:13,076
 Her email has no PayPal
 account yet: unclaimed.
 
 15
-00:01:13,000 --> 00:01:15,226
+00:01:13,076 --> 00:01:15,302
 She gets claim help in Spanish.
 
 16

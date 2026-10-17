@@ -1,59 +1,59 @@
 {
-  "output": "/home/claude/video-out/neighborline-draft3.mp4",
+  "output": "/home/claude/video-out/neighborline-draft4.mp4",
   "durationSeconds": 160.5,
   "stopwatch": {
-    "lan": "0:22.4",
+    "lan": "0:22.5",
     "lanSplit": [
-      "0:19.2",
-      "0:03.1"
+      "0:18.9",
+      "0:03.5"
     ],
     "rosa": "0:18.3",
-    "blocked": "0:01.2"
+    "blocked": "0:01.5"
   },
   "approval2": {
-    "signedWith": "Signed with passkey · Visitor’s device (as Marcus)",
-    "tapAfterPlay": 20.475
+    "signedWith": "Signed with passkey · Visitor’s device · Chrome (as Marcus)",
+    "tapAfterPlay": 20.376
   },
   "takes": {
     "lan": {
       "url": "/demo?scenario=lan&mode=manual&speed=1",
       "dpr": 1.5,
-      "playAt": 1.469,
+      "playAt": 1.467,
       "eventsAfterPlay": {
-        "created": 0.079,
-        "transcribed": 1.601,
-        "readback": 1.62,
-        "confirmed": 8.655,
-        "approval1": 14.798,
-        "approval2": 20.887,
-        "batch": 21.028,
-        "success": 22.532
+        "created": 0.155,
+        "transcribed": 1.791,
+        "readback": 1.82,
+        "confirmed": 8.852,
+        "approval1": 14.94,
+        "approval2": 20.796,
+        "batch": 21.202,
+        "success": 22.702
       }
     },
     "rosa": {
       "url": "/demo?scenario=rosa&speed=2",
       "dpr": 1.5,
-      "playAt": 1.458,
+      "playAt": 1.481,
       "eventsAfterPlay": {
-        "created": 0.072,
-        "transcribed": 0.84,
-        "readback": 0.869,
-        "confirmed": 4.411,
-        "approval1": 7.596,
-        "approval2": 10.723,
-        "batch": 10.819,
-        "unclaimed": 12.326,
-        "success": 18.386
+        "created": 0.105,
+        "transcribed": 0.879,
+        "readback": 0.905,
+        "confirmed": 4.465,
+        "approval1": 7.657,
+        "approval2": 10.745,
+        "batch": 10.948,
+        "unclaimed": 12.402,
+        "success": 18.461
       }
     },
     "blocked": {
       "url": "/demo?scenario=blocked&speed=1",
       "dpr": 1.5,
-      "playAt": 1.479,
+      "playAt": 1.47,
       "eventsAfterPlay": {
-        "created": 0.081,
-        "transcribed": 1.295,
-        "flagged": 1.329
+        "created": 0.098,
+        "transcribed": 1.317,
+        "flagged": 1.619
       }
     },
     "mcp": {
@@ -270,7 +270,7 @@
     },
     {
       "id": "V3",
-      "text": "Paid, into her Venmo, with a message in Vietnamese. Twenty-two point four seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer.",
+      "text": "Paid, into her Venmo, with a message in Vietnamese. Twenty-two point five seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer.",
       "start": "0:31.4",
       "end": "0:43.6",
       "window": 12.2,
@@ -307,8 +307,8 @@
     {
       "id": "V5b",
       "text": "Her email has no PayPal account yet: unclaimed. She gets claim help in Spanish.",
-      "start": "1:09.6",
-      "end": "1:15.2",
+      "start": "1:09.7",
+      "end": "1:15.3",
       "window": 5.6,
       "words": 14,
       "wpm": 150,
@@ -432,8 +432,8 @@
     },
     {
       "id": "lt-approval2",
-      "start": "0:25.9",
-      "end": "0:30.9",
+      "start": "0:25.8",
+      "end": "0:30.8",
       "title": "Approval 2 of 2 · signed with a passkey",
       "sub": "We tapped as Marcus, on cue · a virtual WebAuthn authenticator in Chrome · Dana: labelled demo key"
     },
@@ -441,20 +441,20 @@
       "id": "lt-success",
       "start": "0:31.6",
       "end": "0:43.4",
-      "title": "Voice note → PayPal SUCCESS: 0:22.4",
+      "title": "Voice note → PayPal SUCCESS: 0:22.5",
       "sub": "Approvals on cue in this demo · simulated PayPal sandbox"
     },
     {
       "id": "lt-unclaimed",
-      "start": "1:09.4",
-      "end": "1:15.4",
+      "start": "1:09.5",
+      "end": "1:15.5",
       "title": "PayPal webhook",
       "sub": "PAYMENT.PAYOUTS-ITEM.UNCLAIMED"
     },
     {
       "id": "lt-succeeded",
-      "start": "1:15.4",
-      "end": "1:20.9",
+      "start": "1:15.5",
+      "end": "1:21.0",
       "title": "PayPal webhook",
       "sub": "PAYMENT.PAYOUTS-ITEM.SUCCEEDED · her claim is simulated"
     },
@@ -462,7 +462,7 @@
       "id": "lt-blocked",
       "start": "1:21.9",
       "end": "1:30.5",
-      "title": "Blocked before any money moved · 0:01.2",
+      "title": "Blocked before any money moved · 0:01.5",
       "sub": "Lookalike handle · Approve disabled on every phone"
     },
     {
@@ -482,23 +482,23 @@
   ],
   "warnings": [],
   "tests": {
-    "total": 972,
+    "total": 1093,
     "failed": false,
     "rows": [
       {
         "pkg": "tools/fake-paypal",
-        "files": "2",
-        "tests": "16 passed"
+        "files": "3",
+        "tests": "23 passed"
       },
       {
         "pkg": "packages/core",
-        "files": "14",
-        "tests": "356 passed"
+        "files": "15",
+        "tests": "373 passed"
       },
       {
         "pkg": "packages/agents",
-        "files": "12",
-        "tests": "196 passed"
+        "files": "13",
+        "tests": "219 passed"
       },
       {
         "pkg": "packages/passkeys",
@@ -507,18 +507,23 @@
       },
       {
         "pkg": "packages/paypal",
-        "files": "12",
-        "tests": "97 passed"
+        "files": "13",
+        "tests": "99 passed"
       },
       {
         "pkg": "packages/db",
-        "files": "7",
-        "tests": "72 passed"
+        "files": "8",
+        "tests": "81 passed"
       },
       {
         "pkg": "examples/mcp-agent-demo",
         "files": "2",
         "tests": "6 passed"
+      },
+      {
+        "pkg": "examples/mcp-agent-demo",
+        "files": "5",
+        "tests": "28 passed"
       },
       {
         "pkg": "tools/dev-db",
@@ -532,8 +537,8 @@
       },
       {
         "pkg": "apps/web",
-        "files": "21",
-        "tests": "168 passed"
+        "files": "24",
+        "tests": "203 passed"
       }
     ]
   }

@@ -78,6 +78,8 @@ cháu*, so her read-back and notifications now use the elder register ("Dạ, ch
 line under "approved, sending" now translates that same message ("Good news: your request was approved. We are
 sending $150 to your Venmo now."); Rosa's claim help is gender-neutral Spanish. Draft 3's takes show the old text and
 must not be reused. The thumbnail's stopwatch also fits the 1500×1000 card now (its last digit was clipped).
+Draft 4 (`neighborline-draft4.mp4`, 160.5 s) is cut from the re-recorded takes: stopwatch 0:22.5 (people 0:18.9 ·
+system 0:03.5), blocked 0:01.5, and a fresh `pnpm test` on code card 4 (1093 tests).
 
 ## Known gaps in Draft 4
 
