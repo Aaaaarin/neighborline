@@ -11,6 +11,6 @@ const Input = z.object({
 /** Create an Orders v2 order on the server (amount is never trusted from the button alone). */
 export const POST = route(async (req: Request) => {
   const input = await body(req, Input);
-  enforceLimit(req, 'donate');
+  await enforceLimit(req, 'donate');
   return services().createDonationOrder(input);
 });

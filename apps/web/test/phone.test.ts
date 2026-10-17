@@ -15,6 +15,7 @@ import { readPhoneConfig } from '../lib/server/voice/config';
 import { ClipStore } from '../lib/server/voice/clips';
 import { TwilioOutbound } from '../lib/server/voice/outbound';
 import { phrase } from '../lib/server/voice/phrases';
+import { SharedRateLimiter } from '../lib/server/security/rate-limit';
 
 let h: Harness;
 const cfg = readPhoneConfig(TWILIO_ENV);
@@ -228,6 +229,22 @@ describe('phone line: who may call, and for how long', () => {
     expect((await new SimCall(d, api, '+15035550121').dial()).xml).toContain('<Record'); // other callers unaffected
     now += 15 * 60_000;
     expect((await dial()).xml).toContain('<Record');
+  });
+
+  it('the per-caller limit is shared by every web instance on the same database (THREAT_MODEL R9)', async () => {
+    let now = Date.parse('2026-11-03T19:00:00Z');
+    const secret = () => Buffer.alloc(32, 9);
+    const [a, b] = [new SharedRateLimiter(() => now, secret), new SharedRateLimiter(() => now, secret)];
+    a.attach(await db());
+    b.attach(await db());
+    const on = (limiter: SharedRateLimiter) => deps({ env: { RATE_LIMITS: 'on' }, now: () => now, limiter });
+    const [da, dbb] = [on(a), on(b)];
+    const dial = (d: typeof da) => new SimCall(d, api, '+15035550125').dial();
+    for (const d of [da, dbb, da, dbb]) expect((await dial(d)).xml).toContain('<Record');
+    expect(said((await dial(da)).xml)).toContain(phrase('tooMany', 'en').text);
+    expect(said((await dial(dbb)).xml)).toContain(phrase('tooMany', 'en').text);
+    now += 15 * 60_000;
+    expect((await dial(dbb)).xml).toContain('<Record');
   });
 
   it('ends a call that runs past PHONE_MAX_CALL_SECONDS', async () => {

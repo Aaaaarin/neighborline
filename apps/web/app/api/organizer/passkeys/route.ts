@@ -24,7 +24,7 @@ const Input = z.object({
 export const POST = route(async (req: Request) => {
   const { demoVisitor, ...input } = await body(req, Input);
   const visitor = visitorFromRequest(req);
-  enforceLimit(req, 'passkey', { visitorTag: visitor?.tag ?? null });
+  await enforceLimit(req, 'passkey', { visitorTag: visitor?.tag ?? null });
   if (demoVisitor && !visitor) throw new HttpError(400, 'Open /demo again: this browser has no demo session yet.');
   const session = await services().passkeyRegister({ ...input, origin: originOf(req), session: readSessionFromRequest(req), ...(demoVisitor && visitor ? { demoVisitorTag: visitor.tag } : {}) });
   const res = NextResponse.json({ session });

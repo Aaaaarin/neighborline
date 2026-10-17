@@ -22,7 +22,7 @@ export const POST = route(async (req: Request) => {
   if (!demoModeOn(process.env)) throw new HttpError(403, 'Demo controls are off (DEMO_MODE is off).');
   const input = await body(req, Input);
   const visitor = ensureVisitor(req);
-  enforceLimit(req, 'demo', { visitorTag: visitor.tag });
+  await enforceLimit(req, 'demo', { visitorTag: visitor.tag });
   const run = await services().playScenario({ ...input, visitorTag: visitor.tag });
   return jsonWithVisitor(run, visitor, req);
 });

@@ -13,6 +13,6 @@ import { services } from '@/lib/server/services';
 export const POST = route(async (req: Request) => {
   const viewer = await viewerOf(req);
   if (services().modes.paypalMode !== 'fake' && !viewer.organizer) throw new HttpError(401, 'Sign in as an organizer to reconcile with PayPal.');
-  limit(req, 'reconcile', viewer);
+  await limit(req, 'reconcile', viewer);
   return services().reconcile();
 });

@@ -11,7 +11,7 @@ const Input = z.object({ groupSlug: z.string().min(1).max(64), channel: Channel,
 export const POST = route(async (req: Request) => {
   const input = await body(req, Input);
   const visitor = ensureVisitor(req);
-  limitIntake(req, { organizer: null, visitor, demo: false }, { ai: false });
+  await limitIntake(req, { organizer: null, visitor, demo: false }, { ai: false });
   const out = await services().startIntake({ ...input, id: visitorRequestId(visitor.tag) });
   return jsonWithVisitor(out, visitor, req);
 });

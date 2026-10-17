@@ -19,14 +19,14 @@ export async function requireRequester(req: Request, requestId: string): Promise
 }
 
 /** Rate limits for an intake call; live AI calls also spend from the "ai" buckets. */
-export function limitIntake(req: Request, viewer: Viewer | null, opts: { ai?: boolean } = {}): void {
+export async function limitIntake(req: Request, viewer: Viewer | null, opts: { ai?: boolean } = {}): Promise<void> {
   const tag = viewer?.visitor?.tag ?? null;
-  enforceLimit(req, 'intake', { visitorTag: tag });
-  if (opts.ai ?? services().modes.aiMode === 'live') enforceLimit(req, 'ai', { visitorTag: tag });
+  await enforceLimit(req, 'intake', { visitorTag: tag });
+  if (opts.ai ?? services().modes.aiMode === 'live') await enforceLimit(req, 'ai', { visitorTag: tag });
 }
 
-export function limit(req: Request, cls: LimitClass, viewer: Viewer | null): void {
-  enforceLimit(req, cls, { visitorTag: viewer?.visitor?.tag ?? null });
+export async function limit(req: Request, cls: LimitClass, viewer: Viewer | null): Promise<void> {
+  await enforceLimit(req, cls, { visitorTag: viewer?.visitor?.tag ?? null });
 }
 
 /**

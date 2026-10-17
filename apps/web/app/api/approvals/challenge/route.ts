@@ -18,6 +18,6 @@ const Input = z.object({
  */
 export const POST = route(async (req: Request) => {
   const input = await body(req, Input);
-  limit(req, 'approve', await viewerOf(req));
+  await limit(req, 'approve', await viewerOf(req));
   return services().approvalChallenge({ ...input, origin: originOf(req) });
 });

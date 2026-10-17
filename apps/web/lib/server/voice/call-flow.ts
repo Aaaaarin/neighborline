@@ -19,7 +19,7 @@ import type { Lang } from '@neighborline/core';
 import type { Env } from '../engine/env';
 import { HttpError, isHttpError } from '../errors';
 import { errorText, log } from '../log';
-import { LIMITS, type BucketSpec, type RateLimiter } from '../security/rate-limit';
+import { LIMITS, type BucketSpec, type TokenLimiter } from '../security/rate-limit';
 import { readCapped } from '../security/guard';
 import type { AnswerKind, PhoneIntake, PhoneTurn } from './bridge';
 import type { CallClock, JobStore } from './calls';
@@ -39,7 +39,8 @@ export interface VoiceDeps {
   clips: ClipStore;
   jobs: JobStore;
   calls: CallClock;
-  limiter: RateLimiter;
+  /** The process-wide limiter (shared Postgres buckets when the engine has a shared database). */
+  limiter: TokenLimiter;
 }
 
 export const VOICE_STEPS = ['incoming', 'recorded', 'recording-status', 'wait', 'confirm', 'payout', 'menu'] as const;
@@ -196,7 +197,7 @@ async function incoming(call: Call): Promise<Response> {
       ['voice:line', LINE_LIMIT],
     ];
     if (call.phone.aiLive) entries.push(['ai:global', LIMITS.ai.global]);
-    if (limiter.takeAll(entries) > 0) {
+    if ((await limiter.takeAll(entries)) > 0) {
       log.info('voice.rate_limited', {});
       const lines = await Promise.all(langs.map((l) => call.p('tooMany', l)));
       return xml(...lines, hangup());

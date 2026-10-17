@@ -21,7 +21,7 @@ const Input = z.object({
 export const POST = route(async (req: Request) => {
   const input = await body(req, Input);
   const viewer = await viewerOf(req);
-  limit(req, 'approve', viewer);
+  await limit(req, 'approve', viewer);
   const origin = originOf(req);
   if (input.signer.kind === 'demo_key') {
     if (!input.organizerId) return Response.json({ error: 'organizerId is required with a demo key' }, { status: 400 });

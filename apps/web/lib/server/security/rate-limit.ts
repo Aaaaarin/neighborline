@@ -1,12 +1,20 @@
 /**
- * In-memory token buckets (QA P1-7, P2-18). One process serves the hosted demo, so a per-process
- * limiter is honest protection against one visitor or one IP burning the live-model budget or
- * flooding intake; it is not a distributed limiter (documented in THREAT_MODEL R9).
+ * Token buckets (QA P1-7, P2-18; THREAT_MODEL R9).
  *
  * Every limited call spends one token from up to three buckets: per IP, per visitor (cookie) and, for
  * live AI, one global bucket. Any empty bucket refuses with 429 + Retry-After.
+ *
+ * Where the buckets live: when the engine runs on a shared database (DATABASE_URL, or an on-disk
+ * PGlite), `limiter()` keeps them in Postgres (`rate_limit_buckets`, one locking UPSERT per call,
+ * @neighborline/db repo/rate-limits.ts), so every web instance and every restart spends from the same
+ * budget. Without one (in-memory PGlite, ENGINE=mock, `next build`) or if the database errors, the
+ * same buckets live in this process's memory. Keys are HMAC'd before they are stored, so the table
+ * holds no IP addresses or phone numbers. RATE_LIMIT_STORE=memory forces the in-process store.
  */
+import { deleteExpiredRateLimitBuckets, takeRateLimitTokens, type Executor } from '@neighborline/db';
 import { HttpError } from '../errors';
+import { errorText, log } from '../log';
+import { hmac, sessionSecret } from '../passkeys/secret';
 
 export interface BucketSpec {
   /** Burst size. */
@@ -88,12 +96,86 @@ export class RateLimiter {
   }
 }
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __neighborlineLimiter: RateLimiter | undefined;
+/** Anything that can spend from several buckets at once (the shared limiter, or a bare RateLimiter in tests). */
+export interface TokenLimiter {
+  takeAll(entries: Array<[string, BucketSpec]>): number | Promise<number>;
 }
 
-export const limiter = (): RateLimiter => (globalThis.__neighborlineLimiter ??= new RateLimiter());
+const SWEEP_EVERY_MS = 10 * 60_000;
+
+/**
+ * The process-wide limiter: Postgres when a shared database is attached, memory otherwise (and as the
+ * fallback when the database errors, so a database hiccup degrades to per-process limits, never to none).
+ */
+export class SharedRateLimiter implements TokenLimiter {
+  readonly memory: RateLimiter;
+  private db: Executor | null = null;
+  private lastSweep = 0;
+  private warned = false;
+
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly secret: () => Buffer = () => sessionSecret(),
+  ) {
+    this.memory = new RateLimiter(now);
+  }
+
+  /** Use this database for the buckets (null: back to memory). The engine calls it per database generation. */
+  attach(db: Executor | null): void {
+    this.db = db;
+  }
+
+  get store(): 'postgres' | 'memory' {
+    return this.db ? 'postgres' : 'memory';
+  }
+
+  /** `ai:ip:1.2.3.4` → `ai:ip:<hmac>`: readable class, no personal data at rest. */
+  storeKey(key: string): string {
+    const prefix = key.split(':').slice(0, 2).join(':');
+    return `${prefix}:${hmac(this.secret(), `neighborline/rate-limit/v1\n${key}`).slice(0, 32)}`;
+  }
+
+  async takeAll(entries: Array<[string, BucketSpec]>): Promise<number> {
+    const db = this.db;
+    if (!db) return this.memory.takeAll(entries);
+    try {
+      const wait = await takeRateLimitTokens(
+        db,
+        entries.map(([key, spec]) => ({ key: this.storeKey(key), capacity: spec.capacity, refillSeconds: spec.refillSeconds })),
+        new Date(this.now()),
+      );
+      this.sweep(db);
+      return wait;
+    } catch (err) {
+      if (!this.warned) log.warn('rate_limit.store_failed', { error: errorText(err), fallback: 'memory' });
+      this.warned = true;
+      return this.memory.takeAll(entries);
+    }
+  }
+
+  /** Drop buckets that would be full again, at most every 10 minutes per process, off the request path. */
+  private sweep(db: Executor): void {
+    const t = this.now();
+    if (t - this.lastSweep < SWEEP_EVERY_MS) return;
+    this.lastSweep = t;
+    void deleteExpiredRateLimitBuckets(db, new Date(t)).catch(() => {});
+  }
+
+  /** Tests: forget this process's buckets (the database rows are the database's). */
+  reset() {
+    this.memory.reset();
+  }
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __neighborlineLimiter: SharedRateLimiter | undefined;
+}
+
+export const limiter = (): SharedRateLimiter => (globalThis.__neighborlineLimiter ??= new SharedRateLimiter());
+
+/** RATE_LIMIT_STORE=memory keeps buckets in this process even with a shared database (default: auto). */
+export const sharedStoreAllowed = (env: Record<string, string | undefined> = process.env): boolean => (env.RATE_LIMIT_STORE ?? 'auto').trim().toLowerCase() !== 'memory';
 
 export class RateLimitError extends HttpError {
   readonly headers: Record<string, string>;
@@ -117,7 +199,11 @@ export function clientIp(req: Request, env: Record<string, string | undefined> =
 }
 
 /** Throws RateLimitError when any bucket for this caller is empty. RATE_LIMITS=off disables (tests, e2e). */
-export function enforceLimit(req: Request, cls: LimitClass, opts: { visitorTag?: string | null; env?: Record<string, string | undefined> } = {}): void {
+export async function enforceLimit(
+  req: Request,
+  cls: LimitClass,
+  opts: { visitorTag?: string | null; env?: Record<string, string | undefined>; limiter?: TokenLimiter } = {},
+): Promise<void> {
   const env = opts.env ?? process.env;
   if ((env.RATE_LIMITS ?? '').toLowerCase() === 'off') return;
   const spec = LIMITS[cls] as { ip?: BucketSpec; visitor?: BucketSpec; global?: BucketSpec };
@@ -125,6 +211,6 @@ export function enforceLimit(req: Request, cls: LimitClass, opts: { visitorTag?:
   if (spec.ip) entries.push([`${cls}:ip:${clientIp(req, env)}`, spec.ip]);
   if (spec.visitor && opts.visitorTag) entries.push([`${cls}:v:${opts.visitorTag}`, spec.visitor]);
   if (spec.global) entries.push([`${cls}:global`, spec.global]);
-  const wait = limiter().takeAll(entries);
+  const wait = await (opts.limiter ?? limiter()).takeAll(entries);
   if (wait) throw new RateLimitError(wait);
 }

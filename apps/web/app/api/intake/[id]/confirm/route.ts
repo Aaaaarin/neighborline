@@ -10,6 +10,6 @@ export const POST = route(async (req: Request, { params }: Params<'id'>) => {
   const input = await body(req, Input);
   const viewer = await requireRequester(req, id);
   // A correction is re-extracted by the model; a plain "yes" costs no AI.
-  limitIntake(req, viewer, input.corrections ? {} : { ai: false });
+  await limitIntake(req, viewer, input.corrections ? {} : { ai: false });
   return services().confirmIntake(id, input);
 });

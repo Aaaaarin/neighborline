@@ -11,7 +11,7 @@ import { ClipStore } from '../lib/server/voice/clips';
 import { readPhoneConfig, type PhoneConfig } from '../lib/server/voice/config';
 import { expectedSignature } from '../lib/server/voice/signature';
 import { recordingSidFrom, type TwilioApi } from '../lib/server/voice/twilio-api';
-import { RateLimiter } from '../lib/server/security/rate-limit';
+import { RateLimiter, type TokenLimiter } from '../lib/server/security/rate-limit';
 
 export const TEST_ACCOUNT = 'AC0123456789abcdef0123456789abcdef';
 export const TEST_TOKEN = 'test_auth_token_0123456789abcdef';
@@ -68,7 +68,7 @@ export class FakeTwilioApi implements TwilioApi {
   }
 }
 
-export function voiceTestDeps(phone: () => Promise<PhoneIntake>, opts: { env?: Record<string, string>; now?: () => number; api?: FakeTwilioApi } = {}) {
+export function voiceTestDeps(phone: () => Promise<PhoneIntake>, opts: { env?: Record<string, string>; now?: () => number; api?: FakeTwilioApi; limiter?: TokenLimiter } = {}) {
   const env = { ...TWILIO_ENV, RATE_LIMITS: 'off', ...(opts.env ?? {}) };
   const cfg = readPhoneConfig(env);
   const api = opts.api ?? new FakeTwilioApi(cfg);
@@ -80,7 +80,7 @@ export function voiceTestDeps(phone: () => Promise<PhoneIntake>, opts: { env?: R
     clips: new ClipStore(Buffer.alloc(32, 7)),
     jobs: new JobStore(),
     calls: new CallClock(opts.now),
-    limiter: new RateLimiter(opts.now),
+    limiter: opts.limiter ?? new RateLimiter(opts.now),
   };
   return { deps, api, cfg };
 }

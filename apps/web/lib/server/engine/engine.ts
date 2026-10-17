@@ -32,6 +32,7 @@ import { FakePayPalControl, createPublicPayPal, type PublicPayPal } from '../pay
 import type { AudioInput, InternalOps, Services } from '../services';
 import type { BaseCtx, Ctx } from './context';
 import { openGeneration, retireGeneration, type DbGeneration } from './db-state';
+import { limiter, sharedStoreAllowed } from '../security/rate-limit';
 import * as donations from './donations';
 import * as internal from './internal';
 import { readConfig, type EngineConfig, type Env } from './env';
@@ -109,6 +110,9 @@ export class Engine implements Services {
   }
 
   private makeState(gen: DbGeneration): GenState {
+    // Rate limits follow the database: shared Postgres (or on-disk PGlite) buckets survive restarts and
+    // are shared by every instance; an in-memory database keeps the in-process buckets (THREAT_MODEL R9).
+    if (gen.kind !== 'pglite-memory' && sharedStoreAllowed(this.env)) limiter().attach(gen.db);
     const st: GenState = {
       dead: false,
       timers: new Set(),

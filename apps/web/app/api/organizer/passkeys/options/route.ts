@@ -16,7 +16,7 @@ const Input = z.object({ organizerId: z.string().min(1), inviteCode: z.string().
 export const POST = route(async (req: Request) => {
   const input = await body(req, Input);
   const visitor = ensureVisitor(req);
-  enforceLimit(req, 'passkey', { visitorTag: visitor.tag });
+  await enforceLimit(req, 'passkey', { visitorTag: visitor.tag });
   const { demoVisitor, ...rest } = input;
   const out = await services().passkeyRegistrationOptions({ ...rest, origin: originOf(req), session: readSessionFromRequest(req), ...(demoVisitor ? { demoVisitorTag: visitor.tag } : {}) });
   return jsonWithVisitor(out, visitor, req);

@@ -41,7 +41,7 @@ export const POST = route(async (req: Request, { params }: Params<'id'>) => {
     throw new HttpError(400, 'Send a recording in “audio” or pick a sample voice note.');
   }
   // A bundled sample costs no speech-to-text; a real recording does when AI_MODE=live.
-  limitIntake(req, viewer, audio instanceof Blob ? {} : { ai: false });
+  await limitIntake(req, viewer, audio instanceof Blob ? {} : { ai: false });
   return services().submitAudio(id, {
     audio: audio instanceof Blob ? audio : undefined,
     sampleId: typeof sampleId === 'string' && SAMPLES.includes(sampleId as ScenarioId) ? (sampleId as ScenarioId) : undefined,

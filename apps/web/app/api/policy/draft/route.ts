@@ -14,6 +14,6 @@ const Input = z.object({ sourceText: z.string().min(1).max(8000) });
 export const POST = route(async (req: Request) => {
   const { sourceText } = await body(req, Input);
   const viewer = await viewerOf(req);
-  if (services().modes.aiMode === 'live') limit(req, 'ai', viewer);
+  if (services().modes.aiMode === 'live') await limit(req, 'ai', viewer);
   return services().compilePolicy({ sourceText, session: readSessionFromRequest(req) });
 });

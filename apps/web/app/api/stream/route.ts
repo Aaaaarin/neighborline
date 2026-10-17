@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const requestId = new URL(req.url).searchParams.get('requestId');
   const viewer = await viewerOf(req);
   try {
-    enforceLimit(req, 'demo', { visitorTag: viewer.visitor?.tag ?? null });
+    await enforceLimit(req, 'demo', { visitorTag: viewer.visitor?.tag ?? null });
   } catch (err) {
     if (err instanceof HttpError) return Response.json({ error: err.message }, { status: err.status });
     throw err;

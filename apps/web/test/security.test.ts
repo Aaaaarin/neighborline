@@ -64,22 +64,22 @@ describe('rate limits (token buckets)', () => {
     expect(rl.takeAll([['a', one], ['c', one]])).toBe(60);
     expect(rl.takeAll([['c', one]])).toBe(0); // c was not spent by the refused call
   });
-  it('limits live-AI intake per IP and per visitor, and reads the client IP Render saw', () => {
+  it('limits live-AI intake per IP and per visitor, and reads the client IP Render saw', async () => {
     limiter().reset();
     const req = (ip: string) => new Request('http://x/api/intake/a/text', { method: 'POST', headers: { 'x-forwarded-for': `1.2.3.4, ${ip}` } });
     expect(clientIp(req('9.9.9.9'), {})).toBe('9.9.9.9');
     let refused = 0;
     for (let i = 0; i < 20; i++) {
       try {
-        enforceLimit(req('5.5.5.5'), 'ai', { visitorTag: 'aaaaaaaaaaaa', env: {} });
+        await enforceLimit(req('5.5.5.5'), 'ai', { visitorTag: 'aaaaaaaaaaaa', env: {} });
       } catch (err) {
         refused++;
         expect(err).toMatchObject({ status: 429, headers: { 'retry-after': expect.any(String) } });
       }
     }
     expect(refused).toBe(20 - 8); // visitor bucket: 8
-    expect(() => enforceLimit(req('5.5.5.5'), 'ai', { visitorTag: 'bbbbbbbbbbbb', env: {} })).not.toThrow(); // other visitor, same IP: IP bucket (12) still has tokens
-    expect(() => enforceLimit(req('5.5.5.5'), 'ai', { env: { RATE_LIMITS: 'off' } })).not.toThrow();
+    await expect(enforceLimit(req('5.5.5.5'), 'ai', { visitorTag: 'bbbbbbbbbbbb', env: {} })).resolves.toBeUndefined(); // other visitor, same IP: IP bucket (12) still has tokens
+    await expect(enforceLimit(req('5.5.5.5'), 'ai', { env: { RATE_LIMITS: 'off' } })).resolves.toBeUndefined();
     limiter().reset();
   });
 });

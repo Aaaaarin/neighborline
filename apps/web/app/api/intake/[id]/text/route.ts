@@ -10,6 +10,6 @@ export const POST = route(async (req: Request, { params }: Params<'id'>) => {
   const { id } = await params;
   const input = await body(req, Input);
   const viewer = await requireRequester(req, id);
-  limitIntake(req, viewer);
+  await limitIntake(req, viewer);
   return services().submitText(id, input);
 });
