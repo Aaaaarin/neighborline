@@ -24,6 +24,15 @@ export type PayoutDestination = z.infer<typeof PayoutDestination>;
 export const Channel = z.enum(['web_voice', 'web_text', 'whatsapp', 'phone', 'sms']);
 export type Channel = z.infer<typeof Channel>;
 
+/**
+ * How a Vietnamese-speaking neighbor is addressed, taken from how they refer to themselves ("tôi là bà
+ * Lan" → bà) or to the volunteers ("các cháu" → an elder). 'bạn' is the neutral fallback. Only used for
+ * Vietnamese copy (other languages have one polite form: usted, vous, вы, 您, 존댓말 …); see address.ts.
+ */
+export const VI_ADDRESS_FORMS = ['bà', 'ông', 'cô', 'chú', 'bác', 'anh', 'chị', 'em', 'bạn'] as const;
+export const AddressForm = z.enum(VI_ADDRESS_FORMS);
+export type AddressForm = z.infer<typeof AddressForm>;
+
 /** AI output of the intake agent. Validated before use; never trusted for amounts. */
 export const IntakeExtraction = z.object({
   lang: Lang,
@@ -37,6 +46,8 @@ export const IntakeExtraction = z.object({
   payout: PayoutDestination.omit({ nameOnFile: true }).optional(),
   missing: z.array(z.enum(['payout', 'category', 'household', 'location'])),
   confidence: z.number().min(0).max(1),
+  /** Vietnamese only, and only when grounded in what the person said (agents intake grounding). */
+  addressForm: AddressForm.optional(),
 });
 export type IntakeExtraction = z.infer<typeof IntakeExtraction>;
 

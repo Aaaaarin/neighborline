@@ -10,6 +10,7 @@
  */
 import type { IntakeExtraction } from '@neighborline/core';
 import { detectLang, wordsRe } from '../lang.js';
+import { detectAddressForm } from './address-form.js';
 import { householdFromFolded } from './household.js';
 import { detectPayout, fold } from './spoken-handles.js';
 
@@ -150,6 +151,7 @@ export function heuristicExtract(text: string, categoryKeys: readonly string[], 
   if (!category) missing.push('category');
   if (householdSize === undefined) missing.push('household');
   const short = text.replace(/\s+/g, ' ').trim().slice(0, 280);
+  const addressForm = lang === 'vi' ? detectAddressForm(text) : undefined;
   return {
     lang: ['en', 'es', 'vi', 'ht', 'zh', 'ar', 'fr', 'tl', 'ko', 'ru'].includes(lang) ? lang : 'en',
     summaryEn: lang === 'en' ? short : `(offline mode, not translated) ${short}`.slice(0, 600),
@@ -163,6 +165,7 @@ export function heuristicExtract(text: string, categoryKeys: readonly string[], 
     // The rules are transparent, so a miss is a missing field, not doubt about the person: at or above
     // LOW_CONFIDENCE the agent asks the one specific question (payout, then category) instead of "say it again".
     confidence: category && payout ? 0.7 : 0.6,
+    ...(addressForm ? { addressForm } : {}),
     englishText: text,
   };
 }

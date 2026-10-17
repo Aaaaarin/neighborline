@@ -118,7 +118,7 @@ export class IntakeAgent {
     ];
     const qKey = pickQuestion(extraction.missing, lowConfidence);
     const readBackText = await this.readBack(extraction, lang, outcome.trace);
-    const qText = qKey ? await this.localize(questionText(qKey, lang), lang, [], outcome.trace) : null;
+    const qText = qKey ? await this.localize(questionText(qKey, lang, extraction.addressForm), lang, [], outcome.trace) : null;
     return {
       ok: true,
       status: reasons.length ? 'needs_clarification' : 'awaiting_confirmation',

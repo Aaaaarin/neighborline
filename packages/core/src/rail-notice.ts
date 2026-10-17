@@ -5,13 +5,19 @@
  * already know. It never promises an amount, a time, or a particular way of getting the money.
  * Pure: no I/O.
  */
-import { LANGS, type Lang } from './schemas.js';
+import { textFor, type WithViRegisters } from './address.js';
+import { LANGS, type AddressForm, type Lang } from './schemas.js';
 
-/** Arabic needs no bidi isolation: the only Latin word, PayPal, sits inside one RTL sentence. */
-export const RAIL_REFUSED_NOTICE: Readonly<Record<Lang, string>> = {
+/**
+ * Arabic needs no bidi isolation: the only Latin word, PayPal, sits inside one RTL sentence.
+ * viElder / viPeer: Vietnamese for an elder (bà, ông…: "chúng cháu", "ạ") or a peer (anh, chị, em); address.ts.
+ */
+export const RAIL_REFUSED_NOTICE: WithViRegisters<string> & { readonly viElder: string; readonly viPeer: string } = {
   en: 'Your request was approved, but PayPal could not send the money right now. Nothing is wrong on your side. The volunteers have been told and will message you here.',
   es: 'Su solicitud fue aprobada, pero PayPal no pudo enviar el dinero en este momento. No es un problema de su parte. Los voluntarios ya lo saben y le escribirán aquí.',
   vi: 'Yêu cầu của bạn đã được duyệt, nhưng hiện giờ PayPal chưa gửi được tiền. Bạn không làm gì sai cả. Các tình nguyện viên đã được báo và sẽ nhắn cho bạn ở đây.',
+  viElder: 'Yêu cầu của {you} đã được duyệt, nhưng hiện giờ PayPal chưa gửi được tiền. {You} không làm gì sai cả ạ. Các tình nguyện viên đã biết và sẽ nhắn cho {you} ở đây ạ.',
+  viPeer: 'Yêu cầu của {you} đã được duyệt, nhưng hiện giờ PayPal chưa gửi được tiền. {You} không làm gì sai cả. Các tình nguyện viên đã được báo và sẽ nhắn cho {you} ở đây.',
   ht: 'Yo apwouve demann ou an, men PayPal pa t ka voye lajan an kounye a. Pa gen anyen ki mal sou bò pa w. Volontè yo konnen sa epi y ap ekri w isit la.',
   zh: '您的申请已获批准，但 PayPal 暂时无法汇出这笔钱。这不是您的问题。志愿者已经知道了，会在这里给您发消息。',
   ar: 'تمت الموافقة على طلبك، لكن PayPal لم يتمكن من إرسال المال الآن. لا توجد أي مشكلة من جهتك. أُبلغ المتطوعون وسيراسلونك هنا.',
@@ -22,8 +28,8 @@ export const RAIL_REFUSED_NOTICE: Readonly<Record<Lang, string>> = {
 };
 
 /** The notice in the neighbor's language (English for anything unknown), with the English for organizers. */
-export function railRefusedNotice(lang: Lang | string): { lang: Lang; text: string; textEn: string } {
+export function railRefusedNotice(lang: Lang | string, addressForm?: AddressForm | null): { lang: Lang; text: string; textEn: string } {
   const primary = String(lang).toLowerCase().split(/[-_]/)[0] ?? 'en';
   const l = (LANGS as readonly string[]).includes(primary) ? (primary as Lang) : 'en';
-  return { lang: l, text: RAIL_REFUSED_NOTICE[l], textEn: RAIL_REFUSED_NOTICE.en };
+  return { lang: l, text: textFor(RAIL_REFUSED_NOTICE, l, addressForm), textEn: RAIL_REFUSED_NOTICE.en };
 }

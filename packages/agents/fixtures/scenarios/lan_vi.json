@@ -9,23 +9,25 @@
   "extraction": {
     "lang": "vi",
     "summaryEn": "Elder on the Eastside, power out 2 days after the ice storm; needs a space heater and groceries. Household of 2.",
-    "summaryNative": "Nhà bạn ở khu Eastside bị mất điện hai ngày nay sau trận bão băng. Bạn cần một cái máy sưởi và ít đồ ăn cho hai người.",
+    "summaryNative": "Nhà bà ở khu Eastside bị mất điện hai ngày nay sau trận bão băng. Bà cần một cái máy sưởi và ít đồ ăn cho hai ông bà.",
     "category": "utility_outage",
     "householdSize": 2,
     "urgency": "today",
     "requestedItems": ["space heater", "groceries"],
     "payout": { "wallet": "VENMO", "type": "USER_HANDLE", "value": "@lan-nguyen54" },
     "missing": [],
-    "confidence": 0.93
+    "confidence": 0.93,
+    "addressForm": "bà"
   },
   "expected": {
     "status": "awaiting_confirmation",
-    "readBack": "Đây là những gì chúng tôi hiểu. Xin bạn kiểm tra xem có đúng không: Nhà bạn ở khu Eastside bị mất điện hai ngày nay sau trận bão băng. Bạn cần một cái máy sưởi và ít đồ ăn cho hai người. Nếu được duyệt, tiền sẽ được gửi vào Venmo của bạn: @lan-nguyen54.",
+    "readBack": "Dạ, chúng cháu hiểu như sau. Bà xem giúp chúng cháu có đúng không ạ: Nhà bà ở khu Eastside bị mất điện hai ngày nay sau trận bão băng. Bà cần một cái máy sưởi và ít đồ ăn cho hai ông bà. Nếu được duyệt, tiền sẽ được gửi vào Venmo của bà: @lan-nguyen54.",
     "clarifyingQuestion": null
   },
   "notifications": [
-    { "key": "confirmed_waiting", "vars": {}, "text": "Cảm ơn bạn. Hai tình nguyện viên đang xem yêu cầu của bạn. Chúng tôi sẽ nhắn cho bạn ngay khi có quyết định." },
-    { "key": "paid", "vars": { "amount": "$150", "wallet": "Venmo" }, "text": "Đã gửi $150 vào Venmo của bạn. Mong số tiền này giúp được bạn. Bạn giữ gìn sức khỏe nhé." }
+    { "key": "confirmed_waiting", "vars": {}, "text": "Cảm ơn bà ạ. Hai tình nguyện viên đang xem yêu cầu của bà. Có quyết định là chúng cháu nhắn cho bà ngay ạ." },
+    { "key": "approved_sending", "vars": { "amount": "$150", "wallet": "Venmo" }, "text": "Tin vui ạ: yêu cầu của bà đã được duyệt. Chúng cháu đang gửi $150 vào Venmo của bà." },
+    { "key": "paid", "vars": { "amount": "$150", "wallet": "Venmo", "name": "Lan" }, "text": "Chào bà Lan ạ. Chúng cháu đã gửi $150 vào Venmo của bà. Mong số tiền này giúp được bà phần nào. Bà giữ gìn sức khỏe nhé ạ." }
   ],
   "demo": { "amountCents": 15000, "payoutOutcome": "SUCCESS" }
 }

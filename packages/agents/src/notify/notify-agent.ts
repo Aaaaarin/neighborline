@@ -9,6 +9,7 @@ import {
   isCatalogLang,
   render,
   walletName,
+  type AddressForm,
   type MessageKey,
   type PayoutItemStatus,
   type RequestStatus,
@@ -46,6 +47,8 @@ export interface NotifyInput {
   amountCents?: number;
   wallet?: Wallet;
   name?: string;
+  /** Vietnamese only: how the neighbor is addressed (bà, ông, chị…), from the intake extraction. */
+  addressForm?: AddressForm | null | undefined;
   /** Tone hint for out-of-catalog translation. */
   tone?: string;
   /** Also synthesize speech (callback voice message). */
@@ -83,7 +86,7 @@ export class NotifyAgent {
     const base = { key: input.key, requestedLang: input.lang, textEn: english };
     let result: NotifyResult;
     if (isCatalogLang(input.lang)) {
-      result = { ...base, text: render(input.key, input.lang, vars), lang: input.lang, source: 'catalog', traces: [] };
+      result = { ...base, text: render(input.key, input.lang, vars, { addressForm: input.addressForm }), lang: input.lang, source: 'catalog', traces: [] };
     } else {
       const facts = [vars.amount, vars.wallet].filter((x): x is string => !!x);
       const t = await translateWithCheck(this.deps.llm, { text: english, targetLang: input.lang, facts, ...(input.tone ? { tone: input.tone } : {}) });

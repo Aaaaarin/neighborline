@@ -10,6 +10,7 @@ import {
   textDirection,
   walletName,
 } from './i18n.js';
+import { LANGS } from './schemas.js';
 import { RAIL_REFUSED_NOTICE } from './rail-notice.js';
 
 const ALL = { amount: '$150', wallet: 'Venmo', name: 'Lan' };
@@ -77,13 +78,21 @@ describe('render', () => {
     expect(() => render('paid', 'vi', { amount: '$1' })).toThrow("template 'paid' (vi) needs {wallet}");
   });
   it('falls back to English for languages without a catalog and normalizes tags', () => {
-    expect(render('ask_household', 'ko')).toBe(CATALOG.en.ask_household);
+    expect(render('ask_household', 'pt')).toBe(CATALOG.en.ask_household);
     expect(render('ask_household', 'es-MX')).toBe(CATALOG.es.ask_household);
     expect(resolveLang('ZH_cn')).toBe('zh');
-    expect(resolveLang('fr')).toBe('en');
+    expect(resolveLang('pt-BR')).toBe('en');
+  });
+  it('has a vetted table for every intake language (no English fallback for fr, tl, ko, ru)', () => {
+    expect([...CATALOG_LANGS].sort()).toEqual([...LANGS].sort());
+    for (const lang of ['fr', 'tl', 'ko', 'ru'] as const) {
+      expect(resolveLang(lang)).toBe(lang);
+      for (const k of MESSAGE_KEYS) expect(render(k, lang, ALL)).not.toBe(render(k, 'en', ALL));
+    }
+    expect(render('paid', 'ko', ALL)).toBe('Lan 님, 안녕하세요. Venmo로 $150를 보내 드렸어요. 도움이 되길 바랍니다. 건강 조심하세요.');
   });
   it('never leaves placeholders in any rendered message', () => {
-    for (const lang of [...CATALOG_LANGS, 'fr', 'tl']) {
+    for (const lang of CATALOG_LANGS) {
       for (const k of MESSAGE_KEYS) expect(render(k, lang, ALL)).not.toMatch(/[{}[\]]/);
     }
   });

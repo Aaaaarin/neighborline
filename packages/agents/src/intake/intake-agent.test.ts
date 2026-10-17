@@ -30,7 +30,9 @@ describe('IntakeAgent in fixture mode: every demo scenario', () => {
     expect(r.transcript).toMatchObject({ text: lan.transcript, lang: 'vi', fixture: { id: 'lan_vi', matchedBy: 'marker' } });
     expect(r.extraction?.category).toBe('utility_outage');
     expect(r.extraction?.payout).toEqual({ wallet: 'VENMO', type: 'USER_HANDLE', value: '@lan-nguyen54' });
-    expect(r.readBack.text).toContain('Nếu được duyệt, tiền sẽ được gửi vào Venmo của bạn: @lan-nguyen54.');
+    expect(r.extraction?.addressForm).toBe('bà');
+    expect(r.readBack.text).toBe(lan.expected.readBack);
+    expect(r.readBack.text).toContain('Nếu được duyệt, tiền sẽ được gửi vào Venmo của bà: @lan-nguyen54.');
     expect(r.readBack.audio).toMatchObject({ mimeType: 'audio/wav', useBrowserSpeech: true });
   });
 
@@ -123,7 +125,12 @@ describe('repair + grounding on real-looking model mistakes', () => {
     const r = await new IntakeAgent({ llm }).fromText({ text: lan.transcript, categories });
     expect(r.status).toBe('needs_clarification');
     expect(r.reasons).toEqual(['low_confidence']);
-    expect(r.clarifyingQuestion?.text).toBe('Xin lỗi, chúng tôi muốn chắc là đã hiểu đúng. Bạn có thể nói lại bạn cần gì không?');
+    expect(r.clarifyingQuestion?.text).toBe('Xin lỗi bà, chúng cháu muốn chắc là đã hiểu đúng. Bà nói lại giúp chúng cháu bà cần gì được không ạ?');
+    const neutral = await new IntakeAgent({ llm: new ScriptedLLM([JSON.stringify({ ...lan.extraction, addressForm: undefined, confidence: 0.4, englishText: 'x' })]) }).fromText({
+      text: 'Nhà tôi mất điện. Venmo của tôi là @lan-nguyen54.',
+      categories,
+    });
+    expect(neutral.clarifyingQuestion?.text).toBe('Xin lỗi, chúng tôi muốn chắc là đã hiểu đúng. Bạn có thể nói lại bạn cần gì không?');
   });
 
   it('still invalid after repair → no extraction, ask again, never guess', async () => {
@@ -145,16 +152,14 @@ describe('offline extractor for free text (fixture mode, no scenario match)', ()
   });
 });
 
-describe('languages outside the vetted catalog', () => {
-  it('French read-back frame is translated with a back-translation fact check', async () => {
+describe('French, Tagalog, Korean and Russian use the vetted catalog', () => {
+  it('French read-back frame is vetted text: one model call (the extraction), no translation', async () => {
     const llm = new ScriptedLLM([
       JSON.stringify({ ...getScenario('walter_en').extraction, lang: 'fr', summaryNative: "Vous êtes sous oxygène et vous n'avez plus d'électricité.", englishText: 'x' }),
-      JSON.stringify({ translation: "Voici ce que j'ai compris. Dites-moi si c'est juste :" }),
-      JSON.stringify({ english: 'Here is what I understood. Tell me if it is right:' }),
-      JSON.stringify({ translation: "Si c'est approuvé, l'argent ira sur votre PayPal : walter.reyes1947@example.com." }),
-      JSON.stringify({ english: 'If approved, the money will go to your PayPal: walter.reyes1947@example.com.' }),
     ]);
     const r = await new IntakeAgent({ llm }).fromText({ text: getScenario('walter_en').transcript, categories });
-    expect(r.readBack.text).toBe("Voici ce que j'ai compris. Dites-moi si c'est juste : Vous êtes sous oxygène et vous n'avez plus d'électricité. Si c'est approuvé, l'argent ira sur votre PayPal : walter.reyes1947@example.com.");
+    expect(r.readBack.text).toBe(
+      "Voici ce que nous avons compris. Dites-nous si c’est juste : Vous êtes sous oxygène et vous n'avez plus d'électricité. Si la demande est approuvée, l’argent ira sur votre PayPal : walter.reyes1947@example.com.",
+    );
   });
 });

@@ -11,6 +11,7 @@ export * from './rail.js';
 export * from './sha256.js';
 export * from './approvals.js';
 export * from './state.js';
+export * from './address.js';
 export * from './i18n.js';
 export * from './payout-copy.js';
 export * from './rail-notice.js';

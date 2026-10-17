@@ -5,9 +5,10 @@
 import { detectPromptInjection, type IntakeExtraction } from '@neighborline/core';
 import { extractNumbers, sentenceAt } from '../numbers.js';
 import type { ValidationIssue } from '../validate.js';
+import { detectAddressForm, isGroundedAddressForm } from './address-form.js';
 import { canonicalDestination, detectPayout, isGroundedDestination, unambiguousWrittenPayout, type HandleOptions } from './spoken-handles.js';
 
-type Extraction = Pick<IntakeExtraction, 'payout' | 'requestedAmountCents' | 'missing' | 'householdSize'>;
+type Extraction = Pick<IntakeExtraction, 'payout' | 'requestedAmountCents' | 'missing' | 'householdSize'> & Partial<Pick<IntakeExtraction, 'lang' | 'addressForm'>>;
 
 /** Is this amount said by the person, in a sentence that is not addressed to the system? */
 export function isGroundedAmount(cents: number, sourceText: string): boolean {
@@ -76,10 +77,33 @@ export function finalizeExtraction<T extends Extraction>(x: T, sourceText: strin
     notes.push('requested amount dropped: not stated by the person');
     delete out.requestedAmountCents;
   }
+  settleAddressForm(out, sourceText, notes);
   const missing = new Set(out.missing);
   if (out.payout) missing.delete('payout');
   else missing.add('payout');
   if (out.householdSize !== undefined) missing.delete('household');
   out.missing = (['payout', 'category', 'household', 'location'] as const).filter((m) => missing.has(m));
   return { extraction: out, notes };
+}
+
+/**
+ * Vietnamese address form: the person's own self-introduction wins over the model; a form the words do
+ * not back is dropped (the replies fall back to "bạn"); any other language has none.
+ */
+function settleAddressForm(out: Extraction, sourceText: string, notes: string[]): void {
+  if (out.lang !== undefined && out.lang !== 'vi') {
+    if (out.addressForm) notes.push(`address form dropped: only used for Vietnamese (lang ${out.lang})`);
+    delete out.addressForm;
+    return;
+  }
+  if (out.lang === undefined) return;
+  const detected = detectAddressForm(sourceText);
+  if (out.addressForm && out.addressForm !== 'bạn' && !isGroundedAddressForm(out.addressForm, sourceText)) {
+    notes.push(`address form dropped: "${out.addressForm}" is not how the neighbor spoke`);
+    delete out.addressForm;
+  }
+  if (detected && out.addressForm !== detected && (!out.addressForm || out.addressForm === 'bạn' || detected !== 'bác')) {
+    notes.push(`address form from the neighbor's own words: ${detected}${out.addressForm ? ` (model said ${out.addressForm})` : ''}`);
+    out.addressForm = detected;
+  }
 }

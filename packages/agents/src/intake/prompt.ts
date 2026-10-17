@@ -16,7 +16,7 @@ export function intakeModelSchema(categoryKeys: readonly string[]) {
   return IntakeExtraction.extend({
     lang: S.lang.describe('Language the person spoke (ISO 639-1).'),
     summaryEn: S.summaryEn.describe('1–2 plain English sentences for volunteers: the need, context, household size. No judgments.'),
-    summaryNative: S.summaryNative.describe("Same summary in the person's language, addressed to them as \"you\", warm and simple, max 2 sentences. Read back to them aloud."),
+    summaryNative: S.summaryNative.describe("Same summary in the person's language, addressed to them as \"you\", warm and simple, max 2 sentences. Read back to them aloud. In Vietnamese, call them by addressForm (\"Nhà bà…\", \"Bà cần…\"), or \"bạn\" when it is unknown."),
     category: z.enum(keys).describe('Exactly one policy category key; "other" if none fits.'),
     householdSize: S.householdSize.describe('People in the household including the person, only if stated or clearly implied.'),
     urgency: S.urgency.describe('"today" if they need help today / right now / for safety.'),
@@ -25,6 +25,7 @@ export function intakeModelSchema(categoryKeys: readonly string[]) {
     payout: S.payout.describe('Only if the person said a PayPal email, Venmo username or phone number. Normalized, never invented.'),
     missing: S.missing.describe('Required info not given: payout, category, household, location.'),
     confidence: S.confidence.describe('0..1: how sure you are the request is coherent and understood. Below 0.6 if garbled or ambiguous.'),
+    addressForm: S.addressForm.describe('Vietnamese only: how to address the person, from how THEY refer to themselves ("tôi là bà Lan" → "bà"; "em là Hoa" → "em"). Someone who calls the volunteers "các cháu"/"con" but never names their own form → "bác". Never from words about other people ("ông nhà tôi" is her husband). Omit if not said, or for any other language.'),
     englishText: z.string().min(1).max(4000).describe('Faithful full English translation of request_text (copy if already English).'),
   });
 }
@@ -43,6 +44,7 @@ export function intakeSystemPrompt(groupName: string): string {
     '5. missing: payout (no destination given), category (need unclear), household (household size not said), location (no neighborhood or street when it matters).',
     '6. summaryNative is read back to the person: second person, plain words, no amount they did not say, no payout destination (it is read back separately).',
     '7. Be respectful. Describe needs, not people. No diagnoses, no speculation.',
+    '8. addressForm (Vietnamese only) comes from how the person refers to themselves or to the volunteers, never from age or gender guesses. When unsure, omit it: the reply then uses the neutral "bạn".',
   ].join('\n');
 }
 

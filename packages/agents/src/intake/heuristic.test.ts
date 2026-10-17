@@ -71,9 +71,9 @@ describe('heuristicExtract (offline fixture extractor)', () => {
   });
 
   it.each([
-    ['ko', '이틀째 정전이에요. 히터가 필요해요.', '돈을 어디로 보내 드릴까요?', '제가 이해한 내용은'],
-    ['ru', 'У нас уже два дня нет света, нужен обогреватель.', 'Куда отправить деньги?', 'Вот как мы поняли'],
-  ])('%s (outside the vetted catalog): the read-back and the question come back in that language', async (_lang, text, question, intro) => {
+    ['ko', '이틀째 정전이에요. 히터가 필요해요.', '돈을 어디로 보내 드릴까요?', '저희가 이해한 내용은'],
+    ['ru', 'У нас уже два дня нет света, нужен обогреватель.', 'Куда отправить деньги?', 'Вот как мы вас поняли'],
+  ])('%s: the read-back and the question come back in that language (vetted catalog)', async (_lang, text, question, intro) => {
     const agent = new IntakeAgent({ llm: createFixtureLLM() });
     const r = await agent.fromText({ text, categories: CATS });
     expect(r.clarifyingQuestion?.key).toBe('ask_payout');
