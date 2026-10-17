@@ -8,6 +8,7 @@ import { RateLimiter, clientIp, enforceLimit, limiter } from '../lib/server/secu
 import { redactRequestView, redactText, streamMessageFor, viewsFor } from '../lib/server/security/redact';
 import { accessTo, ownsAll, payoutActorOf, type Viewer } from '../lib/server/security/viewer';
 import { demoDisclosure } from '../lib/server/security/demo-disclosure';
+import { wantsScriptedSecond } from '../lib/server/engine/demo-second';
 import { decodeVisitor, demoRunId, encodeVisitor, ownerTagOf, visitorRequestId, visitorTag } from '../lib/server/security/visitor';
 import type { RequestView, StreamMessage } from '../lib/types';
 import { startHarness, waitFor, type Harness } from './harness';
@@ -141,6 +142,22 @@ describe('redacted views (redact.ts)', () => {
   });
 });
 
+describe('scripted second signature on /call (demo-second.ts)', () => {
+  const base = { demoMode: true, requestIds: ['req_v_0123456789ab_00ff00ff'], signer: { organizerId: 'org_marcus', kind: 'demo_key' as const }, count: 1, executed: false, appealed: false };
+  it('only for the visitor’s demo-key tap as Marcus, first signature, /call ids, demo mode on, never after an appeal', () => {
+    expect(wantsScriptedSecond(base)).toBe(true);
+    expect(wantsScriptedSecond({ ...base, demoMode: false })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, requestIds: ['req_seed_q_ana'] })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, requestIds: ['req_demo_0123456789ab_00ff00'] })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, requestIds: ['req_v_0123456789ab_00ff00ff', 'req_seed_q_ana'] })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, signer: { organizerId: 'org_marcus', kind: 'passkey' } })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, signer: { organizerId: 'org_dana', kind: 'demo_key' } })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, count: 2 })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, executed: true })).toBe(false);
+    expect(wantsScriptedSecond({ ...base, appealed: true })).toBe(false);
+  });
+});
+
 describe('/trust "In this demo" disclosure', () => {
   it('says exactly what is relaxed when demo mode is on, and that nothing is when it is off', () => {
     const on = demoDisclosure({}, 'fake');
@@ -212,6 +229,20 @@ describe('engine end to end', () => {
     expect(taps.filter((t) => t.status === 'rejected')).toEqual([]);
     const ids = new Set(taps.map((t) => (t as PromiseFulfilledResult<{ batchId?: string }>).value.batchId));
     expect(ids.size).toBe(1);
+  });
+
+  it('DEMO_MODE: a visitor who approves their own /call request as Marcus gets Dana’s scripted second signature (QA-2 P1-1)', async () => {
+    const id = visitorRequestId(me.tag);
+    await h.engine.startIntake({ groupSlug: 'eastside', channel: 'web_text', id });
+    await h.engine.submitText(id, { text: 'Power is out since the storm, I need a space heater. We are 2 people. My Venmo is @qa2-second1', lang: 'en' });
+    await h.engine.confirmIntake(id, { confirmed: true });
+    const first = await h.engine.approve({ requestIds: [id], organizerId: 'org_marcus', signer: { kind: 'demo_key' } });
+    expect(first).toMatchObject({ count: 1, executed: false });
+    await waitFor(async () => (await h.engine.getRequest(id))?.approvals.length === 2, 15_000, 'Dana, scripted');
+    const v = (await h.engine.getRequest(id))!;
+    expect(v.approvals.map((a) => a.organizerId).sort()).toEqual(['org_dana', 'org_marcus']);
+    expect(v.approvals.every((a) => a.signer?.kind === 'demo_key')).toBe(true);
+    await waitFor(async () => (await h.engine.getRequest(id))?.payout?.item?.status === 'SUCCESS', 20_000, 'paid');
   });
 
   it('the trust view carries the disclosure', async () => {

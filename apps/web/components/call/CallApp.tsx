@@ -283,7 +283,7 @@ export function CallApp({ samples }: { samples: SampleVoiceNote[] }) {
           )}
           {status === 'awaiting_approval' && (
             <p className="mx-4 mb-4 text-center text-[0.8rem] text-ink-3" lang="en" dir="ltr">
-              Trying the demo on your own? <a className="font-semibold text-ink underline underline-offset-4" href="/organizer" target="_blank" rel="noreferrer">Open the organizer queue</a> and approve it as two organizers.
+              Trying the demo on your own? <a className="font-semibold text-ink underline underline-offset-4" href="/organizer" target="_blank" rel="noreferrer">Open the organizer queue</a> and approve it as Marcus. Dana’s scripted demo key signs second, as on the live demo.
             </p>
           )}
           <ReplyDock

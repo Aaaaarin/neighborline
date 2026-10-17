@@ -18,6 +18,7 @@ import type {
   PlayMode,
   RuntimeModes,
   ScenarioId,
+  SignerKind,
   StreamMessage,
 } from '../../types';
 import { ApprovalService, type SentBatch } from '../approval-service';
@@ -48,6 +49,7 @@ import { localizeDeclineNote } from './decline-note';
 import * as rail from './rail';
 import { buildTrust } from './report';
 import { playScenario } from './scenario-runner';
+import { SCRIPTED_SECOND, SCRIPTED_SECOND_MS, wantsScriptedSecond } from './demo-second';
 import { applyItemStatus } from './settle';
 import { getRequestView, getThread, groupView, listRequestViews } from './views';
 import { handleWebhook } from './webhooks';
@@ -222,7 +224,20 @@ export class Engine implements Services {
     }
     const { sent, ...result } = outcome;
     if (sent) await this.afterSent(ctx, sent);
-    return { ...result, signer: { organizerId: signed.organizerId, kind: signed.assertion.kind, deviceLabel } };
+    const signer = { organizerId: signed.organizerId, kind: signed.assertion.kind, deviceLabel };
+    await this.scheduleScriptedSecond(ctx, input.requestIds, signer, result);
+    return { ...result, signer };
+  }
+
+  /** DEMO_MODE: Dana's scripted second signature on a visitor's own /call request (demo-second.ts). */
+  private async scheduleScriptedSecond(ctx: Ctx, requestIds: string[], signer: { organizerId: string; kind: SignerKind }, result: { count: number; executed: boolean }) {
+    if (!wantsScriptedSecond({ demoMode: demoModeOn(this.env), requestIds, signer, ...result, appealed: false })) return;
+    const base = await this.base();
+    const views = await Promise.all(requestIds.map((id) => getRequestView(base, id)));
+    if (views.some((v) => !v || v.appeal)) return;
+    ctx.later(SCRIPTED_SECOND_MS, () =>
+      this.approve({ requestIds, organizerId: SCRIPTED_SECOND, signer: { kind: 'demo_key' } }).catch((err) => log.warn('demo.scripted_second_failed', { error: errorText(err) })),
+    );
   }
 
   /* ---------------- organizer passkeys ---------------- */

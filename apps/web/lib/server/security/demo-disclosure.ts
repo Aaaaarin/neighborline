@@ -25,7 +25,7 @@ export function demoDisclosure(env: Record<string, string | undefined>, paypalMo
   }
   const money = paypalMode === 'fake' ? 'This demo runs on a local fake PayPal, so no real money moves.' : 'This demo runs on the PayPal sandbox, so no real money moves.';
   const relaxed = [
-    'Dana’s approval in /demo is scripted and signed with a demo key this server holds. No person unlocks it, and every card it signs says “demo key”.',
+    'Dana’s approval is scripted and signed with a demo key this server holds: in /demo, and on a request you send yourself from /call once you approve it as Marcus. No person unlocks it, and every card it signs says “demo key”.',
     'You play Marcus. You can sign as him with his demo key, or with a passkey on your own device that this server ties to your browser. Either one signs only the runs you started yourself: never the shared queue, a rules change or a sign-in.',
     'Your demo runs don’t count against a household’s monthly limit or the daily budget, and other visitors can’t see them.',
   ];
