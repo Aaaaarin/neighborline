@@ -118,6 +118,19 @@ test('approvals are idempotent, need two different organizers, and a visitor onl
   expect(bodies[0].senderBatchId).toMatch(/^nl_[0-9a-f]{24}$/);
 });
 
+test('a request a visitor sends from /call is paid once they approve it as Marcus (Dana’s scripted key signs second)', async ({ request }) => {
+  const { requestId } = await (await request.post('/api/intake/start', { data: { groupSlug: 'eastside', channel: 'web_text' } })).json();
+  await request.post(`/api/intake/${requestId}/text`, { data: { text: 'Power is out since the storm, I need a space heater. We are 2 people. My Venmo is @e2e-second2' } });
+  expect((await request.post(`/api/intake/${requestId}/confirm`, { data: { confirmed: true } })).status()).toBe(200);
+  const tap = await request.post('/api/approvals', { data: { requestIds: [requestId], organizerId: 'org_marcus', signer: { kind: 'demo_key' } } });
+  expect(await tap.json()).toMatchObject({ count: 1, executed: false });
+  await expect
+    .poll(async () => (await (await request.get(`/api/requests/${requestId}`)).json()).payout?.item?.status, { timeout: 30_000 })
+    .toBe('SUCCESS');
+  const view = await (await request.get(`/api/requests/${requestId}`)).json();
+  expect(view.approvals.map((a: { organizerId: string }) => a.organizerId).sort()).toEqual(['org_dana', 'org_marcus']);
+});
+
 test('judges are isolated: another visitor cannot see, approve or reset my run', async ({ request, playwright, baseURL }) => {
   const run = await (await request.post('/api/demo/play', { data: { scenario: 'walter', mode: 'manual', speed: 20 } })).json();
   const other = await playwright.request.newContext({ baseURL });
