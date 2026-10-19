@@ -14,7 +14,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.3.0",
+    "@electric-sql/pglite": "^0.5.10",
     "@neighborline/core": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "postgres": "^3.4.9",
