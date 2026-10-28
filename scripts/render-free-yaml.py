@@ -15,6 +15,7 @@ def build() -> str:
     d["databases"][0].pop("diskSizeGB", None)
     web = [s for s in d["services"] if s["type"] == "web"]
     web[0]["plan"] = "free"
+    web[0].pop("maxShutdownDelaySeconds", None)  # Render: "max shutdown delay is not supported for free tier services"
     d["services"] = web
     return HEADER + "\n" + yaml.safe_dump(d, sort_keys=False, width=200)
 

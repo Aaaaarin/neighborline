@@ -43,7 +43,6 @@ services:
   startCommand: bash scripts/render-start.sh
   healthCheckPath: /api/health
   autoDeployTrigger: commit
-  maxShutdownDelaySeconds: 30
   buildFilter:
     paths:
     - apps/web/**
