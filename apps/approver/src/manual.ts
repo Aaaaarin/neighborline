@@ -67,7 +67,7 @@ export async function recordManualPayout(c: ManualCtx, batchId: string, req: Rec
   if (!(await manualFallbackOn(db, rowA.groupId))) return refuse(409, 'manual_not_allowed', 'This group has not turned on manual recording for when PayPal is unavailable.');
   if (!(await listOrganizers(db, rowA.groupId)).some((o) => o.id === req.organizerId)) return refuse(403, 'unauthorized', 'Only an organizer of this group can record a manual payout');
 
-  const v = await verifyApprovalRecord(db, { approval, groupId: rowA.groupId, hash: approval.hash, demoMode: c.deps.config.demoMode, env: c.deps.env, now: c.now });
+  const v = await verifyApprovalRecord(db, { approval, groupId: rowA.groupId, hash: approval.hash, demoMode: c.deps.config.demoMode, standInReceiver: c.deps.config.standInReceiver, env: c.deps.env, now: c.now });
   if (!v.ok) return refuse(v.status, v.code, v.message);
   let result;
   try {

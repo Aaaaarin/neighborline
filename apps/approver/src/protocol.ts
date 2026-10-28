@@ -269,6 +269,14 @@ export interface ApproverHealth {
   demoMode: boolean;
 }
 
+/** Organizer-facing: why a sandbox approval with a Venmo destination is not sent (code `wallet_unsupported`). */
+export const SANDBOX_VENMO_REFUSAL =
+  'PayPal’s sandbox can’t pay Venmo: it refuses the whole batch (“Recipient wallet not supported in sandbox”). Nothing was sent. ' +
+  'Ask the neighbor for a PayPal email instead, or run the demo with DEMO_MODE on and SANDBOX_DEMO_RECEIVER_EMAIL set so a labelled sandbox account stands in for the Venmo handle.';
+
+/** Organizer-facing: PayPal's cancel endpoint failed ambiguously (observed: sandbox 500 INTERNAL_SERVICE_ERROR twice). */
+export const CANCEL_RETRY_MESSAGE = 'PayPal couldn’t cancel right now; try again in a minute. Trying again is safe: a payout can only be cancelled once.';
+
 /** Error body for every non-2xx response. `code` is stable; `message` is safe to show an organizer. */
 export interface ApproverError {
   error: string;
@@ -289,6 +297,8 @@ export interface ApproverError {
     | 'policy_violation'
     | 'not_executable'
     | 'not_cancellable'
+    /** PAYPAL_MODE=sandbox: the batch has a Venmo item, which the real sandbox refuses (the whole batch). Nothing was sent. */
+    | 'wallet_unsupported'
     | 'paypal_error'
     /** PayPal may or may not have accepted the batch (timeout / network / 5xx). Batch is UNKNOWN; re-execute resolves it. */
     | 'paypal_unknown'

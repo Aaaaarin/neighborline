@@ -50,7 +50,7 @@ const webEnv = Object.fromEntries(Object.entries(env).filter(([k]) => !PAYOUTS_O
 /** The approver gets what it needs and nothing else (no AI keys, no donor/webhook keys of the main app). */
 const APPROVER_KEYS = [
   'PATH', 'HOME', 'NODE_ENV', 'TMPDIR', 'PAYPAL_MODE', 'PAYPAL_BASE_URL', 'FAKE_PAYPAL_URL', 'DATABASE_URL', 'DEMO_MODE',
-  'NEIGHBORLINE_APPROVER_SECRET', 'WEBAUTHN_ORIGIN', 'WEBAUTHN_RP_ID', 'APP_BASE_URL',
+  'NEIGHBORLINE_APPROVER_SECRET', 'WEBAUTHN_ORIGIN', 'WEBAUTHN_RP_ID', 'APP_BASE_URL', 'SANDBOX_DEMO_RECEIVER_EMAIL',
   ...PAYOUTS_ONLY,
 ];
 const TOOLING = /^(PNPM_|COREPACK_|npm_config_|XDG_|LANG$|LC_|SHELL$|USER$)/;

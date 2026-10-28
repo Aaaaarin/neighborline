@@ -9,6 +9,9 @@
  *   NEIGHBORLINE_APPROVER_SECRET     HMAC key shared with the web app (≥ 32 chars)
  *   DATABASE_URL                     Postgres (production) or the local dev database (tools/dev-db)
  *   APPROVER_PORT / APPROVER_HOST    default 4020 / 127.0.0.1
+ *   SANDBOX_DEMO_RECEIVER_EMAIL      sandbox + DEMO_MODE only: the sandbox account the web app pays instead of a Venmo
+ *                                    destination (apps/web .../sandbox-standin.ts). Payouts to it are not counted
+ *                                    against each other's household caps (one shared demo account).
  *   DEMO_MODE                        true → demo rehearsals (req_demo_*) excluded from caps, demo keys and
  *                                    demo-visitor passkeys accepted. Default: on only when PAYPAL_MODE=fake;
  *                                    refused outright with PAYPAL_MODE=live.
@@ -36,6 +39,8 @@ export interface ApproverConfig {
   };
   requirePasskeys: boolean;
   demoMode: boolean;
+  /** PAYPAL_MODE=sandbox with DEMO_MODE on: the shared sandbox stand-in account (SANDBOX_DEMO_RECEIVER_EMAIL), else undefined. */
+  standInReceiver: string | undefined;
   version: string | undefined;
   warnings: string[];
 }
@@ -104,6 +109,8 @@ export function readConfig(env: Env = process.env): ApproverConfig {
   if (demoMode && mode === 'live') throw new ConfigError('DEMO_MODE=true is not allowed with PAYPAL_MODE=live: demo keys would count as organizers for real money.');
   if (demoMode && mode !== 'fake') warnings.push(`DEMO_MODE is on with PAYPAL_MODE=${mode}: labelled demo keys count as organizer signatures. Set DEMO_MODE=false for anything but a demo.`);
   const requirePasskeys = true;
+  const standIn = (env.SANDBOX_DEMO_RECEIVER_EMAIL ?? '').trim();
+  const standInReceiver = mode === 'sandbox' && demoMode && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(standIn) ? standIn : undefined;
 
   return {
     port,
@@ -120,6 +127,7 @@ export function readConfig(env: Env = process.env): ApproverConfig {
     },
     requirePasskeys,
     demoMode,
+    standInReceiver,
     version: env.RENDER_GIT_COMMIT || env.NEIGHBORLINE_VERSION || undefined,
     warnings,
   };

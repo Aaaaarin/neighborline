@@ -46,7 +46,7 @@ const running = await startApproverServer({
   db: () => handle.db,
   payouts: new PayoutsApi(client),
   webhooks: new WebhooksApi(client),
-  config: { requirePasskeys: cfg.requirePasskeys, demoMode: cfg.demoMode, webhookId: cfg.paypal.webhookId },
+  config: { requirePasskeys: cfg.requirePasskeys, demoMode: cfg.demoMode, webhookId: cfg.paypal.webhookId, paypalMode: cfg.paypal.mode, standInReceiver: cfg.standInReceiver },
   env,
   log: jsonLogger,
   secret: cfg.secret,

@@ -33,7 +33,18 @@ export interface RecheckInput {
   /** The approval's requests as stored (amounts are requests.computed.amountCents). */
   requests: HelpRequest[];
   demoMode: boolean;
+  /**
+   * PAYPAL_MODE=sandbox + DEMO_MODE: the one sandbox account that stands in for every Venmo destination
+   * (SANDBOX_DEMO_RECEIVER_EMAIL). Earlier payouts to it belong to other people's demo requests, so they do not
+   * count toward this request's household cap or velocity (the daily budget still applies).
+   */
+  standInReceiver?: string | undefined;
   now?: Date;
+}
+
+/** Is this the sandbox stand-in account? (PayPal wallet, same email, case-insensitive.) */
+export function isStandInDestination(dest: { wallet: string; value: string }, receiver: string | undefined): boolean {
+  return !!receiver && dest.wallet === 'PAYPAL' && dest.value.trim().toLowerCase() === receiver.trim().toLowerCase();
 }
 
 export interface RecheckItem {
@@ -97,7 +108,11 @@ export async function recheckPolicy(db: Db, input: RecheckInput): Promise<Rechec
     const stored = await getHistoryForDestination(db, dest, 30, { groupId: r.groupId, ...(phone ? { phone } : {}), now });
     const history = [
       ...stored.filter(
-        (h) => !batchIds.includes(h.requestId) && h.createdAt < r.createdAt && !(input.demoMode && h.requestId.startsWith(DEMO_PREFIX)),
+        (h) =>
+          !batchIds.includes(h.requestId) &&
+          h.createdAt < r.createdAt &&
+          !(input.demoMode && h.requestId.startsWith(DEMO_PREFIX)) &&
+          !(input.demoMode && isStandInDestination(h.destination, input.standInReceiver)),
       ),
       ...earlier,
     ];

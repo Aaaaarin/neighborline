@@ -26,6 +26,8 @@ export async function verifyApprovalRecord(
     /** The approvers the web app claimed (execute only); must match the record. */
     claimedApprovers?: readonly string[];
     demoMode: boolean;
+    /** The sandbox stand-in account (config.standInReceiver): not capped against itself. */
+    standInReceiver?: string | undefined;
     env: Env;
     now: Date;
   },
@@ -68,7 +70,7 @@ export async function verifyApprovalRecord(
 
   // 5. Policy re-check from first principles (the batch's own requests are excluded from history and
   // today's spend, so a retry or a manual record is judged exactly like the first attempt).
-  const re = await recheckPolicy(db, { group, policyVersionId: approval.policyVersionId, requests, demoMode: input.demoMode, now: input.now });
+  const re = await recheckPolicy(db, { group, policyVersionId: approval.policyVersionId, requests, demoMode: input.demoMode, standInReceiver: input.standInReceiver, now: input.now });
   if (!re.ok) return no(409, 'policy_violation', re.problems.join('; '));
   return { ok: true, group, requests, sigs };
 }

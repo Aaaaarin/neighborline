@@ -38,17 +38,29 @@ export interface Fixture {
   close(): Promise<void>;
 }
 
-export async function startFixture(opts: { requirePasskeys?: boolean; demoMode?: boolean; unclaimed?: string[]; wrapPayouts?: (p: PayoutsApi) => PayoutsApi } = {}): Promise<Fixture> {
+export async function startFixture(
+  opts: {
+    requirePasskeys?: boolean;
+    demoMode?: boolean;
+    unclaimed?: string[];
+    wrapPayouts?: (p: PayoutsApi) => PayoutsApi;
+    /** The approver's PAYPAL_MODE (default fake) and sandbox stand-in account. */
+    paypalMode?: 'fake' | 'sandbox' | 'live';
+    standInReceiver?: string;
+    /** Fake PayPal's sandboxRealism (any Venmo item fails the whole batch). */
+    sandboxRealism?: boolean;
+  } = {},
+): Promise<Fixture> {
   const handle = createDb({ memory: true });
   await migrate(handle.db);
   const { group } = await seedDemo(handle.db);
-  const fake = await createFakePayPal({ processingDelayMs: 50, ...(opts.unclaimed ? { unclaimedReceivers: opts.unclaimed } : {}) });
+  const fake = await createFakePayPal({ processingDelayMs: 50, ...(opts.unclaimed ? { unclaimedReceivers: opts.unclaimed } : {}), ...(opts.sandboxRealism ? { sandboxRealism: true } : {}) });
   const client = new PayPalClient({ clientId: 'fake-client-id', clientSecret: 'fake-client-secret', baseUrl: fake.url });
   const approver = await startApproverServer({
     db: () => handle.db,
     payouts: opts.wrapPayouts ? opts.wrapPayouts(new PayoutsApi(client)) : new PayoutsApi(client),
     webhooks: new WebhooksApi(client),
-    config: { requirePasskeys: true, demoMode: opts.demoMode ?? true, webhookId: fake.config.webhookId },
+    config: { requirePasskeys: true, demoMode: opts.demoMode ?? true, webhookId: fake.config.webhookId, ...(opts.paypalMode ? { paypalMode: opts.paypalMode } : {}), ...(opts.standInReceiver ? { standInReceiver: opts.standInReceiver } : {}) },
     env: { DEMO_MODE: String(opts.demoMode ?? true) },
     log: silentLogger,
     secret: SECRET,

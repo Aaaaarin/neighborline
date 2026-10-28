@@ -41,10 +41,12 @@ import {
   type BatchWithItems,
   type Db,
 } from '@neighborline/db';
-import { isAmbiguousPayPalError, type PayoutsApi, type WebhooksApi } from '@neighborline/paypal';
+import { PayPalApiError, isAmbiguousPayPalError, type PayoutsApi, type WebhooksApi } from '@neighborline/paypal';
 import type { ApproverConfig, Env } from './config.js';
 import type { Logger } from './log.js';
 import {
+  CANCEL_RETRY_MESSAGE,
+  SANDBOX_VENMO_REFUSAL,
   type ApproverError,
   type CancelUnclaimedRequest,
   type CancelUnclaimedResponse,
@@ -83,7 +85,12 @@ export interface ApproverDeps {
   rail?: PayoutRail;
   /** WebhooksApi on the Payouts app's credentials (for /v1/verify-webhook). */
   webhooks?: WebhooksApi;
-  config: Pick<ApproverConfig, 'requirePasskeys' | 'demoMode'> & { webhookId?: string | undefined };
+  config: Pick<ApproverConfig, 'requirePasskeys' | 'demoMode'> & {
+    webhookId?: string | undefined;
+    /** sandbox: Venmo items are refused before PayPal is called (the real sandbox refuses the whole batch). */
+    paypalMode?: ApproverConfig['paypal']['mode'];
+    standInReceiver?: string | undefined;
+  };
   /** Read for WebAuthn origin rules (WEBAUTHN_ORIGIN, WEBAUTHN_RP_ID, APP_BASE_URL, DEMO_MODE). */
   env: Env;
   log: Logger;
@@ -177,11 +184,16 @@ export class Approver {
       hash,
       claimedApprovers: req.approvers.map((a) => a.organizerId),
       demoMode: this.deps.config.demoMode,
+      standInReceiver: this.deps.config.standInReceiver,
       env: this.deps.env,
       now: this.now(),
     });
     if (!v.ok) return fail(v.status, v.code, v.message);
     const { group, requests, sigs } = v;
+    // The real sandbox refuses a whole batch with any Venmo item ("Recipient wallet not supported in sandbox",
+    // observed 2026-10-28): refuse up front, with no PayPal call and no batch row (docs/PAYPAL.md).
+    const venmo = this.deps.config.paypalMode === 'sandbox' ? requests.filter((r) => r.payoutDestination?.wallet === 'VENMO') : [];
+    if (venmo.length) return fail(422, 'wallet_unsupported', SANDBOX_VENMO_REFUSAL);
     if (existing) this.deps.log('info', 'execute.resend', { approvalId: approval.id, batchId: existing.id, senderBatchId: existing.senderBatchId, previousStatus: existing.status });
 
     // 6. Batch row (idempotent, re-checks canExecute under locks) → PayPal.
@@ -344,7 +356,18 @@ export class Approver {
     try {
       await this.deps.payouts.cancelUnclaimedItem(item.paypalItemId);
     } catch (err) {
-      throw new ApproverFailure(502, 'paypal_error', `PayPal refused the cancel: ${err instanceof Error ? err.message : err}`);
+      // A retry after an earlier attempt that did land: PayPal says it is already cancelled. That is the outcome we wanted.
+      if (err instanceof PayPalApiError && err.hasIssue('ITEM_ALREADY_CANCELLED')) {
+        this.deps.log('info', 'cancel.already_cancelled', { itemId: item.id, paypalItemId: item.paypalItemId });
+      } else if (isAmbiguousPayPalError(err)) {
+        // 5xx / timeout: the cancel may or may not have happened. Not a failure; the item stays UNCLAIMED here until a retry or the webhook.
+        this.deps.log('warn', 'cancel.paypal_unknown', { itemId: item.id, paypalItemId: item.paypalItemId, error: err instanceof Error ? err.message : String(err) });
+        throw new ApproverFailure(503, 'paypal_unknown', CANCEL_RETRY_MESSAGE);
+      } else if (err instanceof PayPalApiError && err.hasIssue('ITEM_INCORRECT_STATUS')) {
+        throw new ApproverFailure(409, 'not_cancellable', 'PayPal says this payout is no longer unclaimed (it may have just been claimed or returned), so it can’t be cancelled.');
+      } else {
+        throw new ApproverFailure(502, 'paypal_error', `PayPal refused the cancel: ${err instanceof Error ? err.message : err}`);
+      }
     }
     await appendAudit(db, { actor: req.organizerId ?? `demo visitor ${req.demoVisitorTag}`, action: 'approver.cancel_unclaimed', entityType: 'payout_item', entityId: item.id, data: { paypalItemId: item.paypalItemId, amountCents: item.amountCents, ...(req.demoVisitorTag ? { demoVisitorTag: req.demoVisitorTag } : {}) } });
     this.deps.log('info', 'cancel.sent', { itemId: item.id, paypalItemId: item.paypalItemId });
