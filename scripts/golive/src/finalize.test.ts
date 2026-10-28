@@ -84,9 +84,12 @@ describe('finalize-docs', () => {
     const out = tmp();
     seed(out, 'fake');
     const before = readFileSync(join(repo, 'README.md'), 'utf8');
+    const evidence = join(repo, 'docs/SANDBOX_EVIDENCE.md'); // tracked since the real sandbox run of 2026-10-28
+    const evidenceBefore = existsSync(evidence) ? readFileSync(evidence, 'utf8') : null;
     await runGolive({ repo, out, steps: [finalizeDocs], processEnv: {}, run: fakeRunner().run, fetch: ok200, quiet: true });
     expect(readFileSync(join(repo, 'README.md'), 'utf8')).toBe(before);
-    expect(existsSync(join(repo, 'docs/SANDBOX_EVIDENCE.md'))).toBe(false);
+    expect(existsSync(evidence) ? readFileSync(evidence, 'utf8') : null).toBe(evidenceBefore);
+    if (evidenceBefore) expect(evidenceBefore).not.toContain('Not sandbox evidence');
   }, 60_000);
 });
 
