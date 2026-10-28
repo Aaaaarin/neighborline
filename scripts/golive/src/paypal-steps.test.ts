@@ -16,7 +16,8 @@ import { fakePaypalEnv, fakeRunner, freePort, tmp } from './test-helpers.js';
 
 let fake: FakePayPal;
 beforeAll(async () => {
-  fake = await createFakePayPal({ processingDelayMs: 30 });
+  // sandboxRealism: behave like the real sandbox did on 2026-10-28 (Venmo batches refused, webhook-events time format).
+  fake = await createFakePayPal({ processingDelayMs: 30, sandboxRealism: true });
 });
 afterAll(async () => {
   await fake.close();
@@ -54,7 +55,7 @@ describe('PayPal steps against the fake', () => {
     const spike = JSON.parse(readFileSync(join(out, 'sandbox-spike.json'), 'utf8'));
     expect(spike.target).toBe('fake');
     const items = spike.batches[0].items as Array<{ senderItemId: string; status: string; wallet: string }>;
-    expect(Object.fromEntries(items.map((i) => [i.senderItemId.split('_a_')[1], i.status]))).toEqual({ paypal: 'SUCCESS', venmo_handle: 'SUCCESS', venmo_email: 'SUCCESS', unregistered: 'RETURNED' });
+    expect(Object.fromEntries(items.map((i) => [i.senderItemId.split('_a_')[1], i.status]))).toEqual({ paypal: 'SUCCESS', unregistered: 'RETURNED' });
     expect(spike.cancel).toMatchObject({ before: 'UNCLAIMED', after: 'RETURNED' });
     expect(spike.duplicate).toMatchObject({ ok: true, detectedAsDuplicate: true, linkMatchesOriginal: true, reused: { status: 400, name: 'USER_BUSINESS_ERROR', linkPaths: ['details[0].link[0].href'] } });
     expect(spike.duplicate.replay.batchId).toBe(spike.batches[0].batchId);
@@ -66,12 +67,16 @@ describe('PayPal steps against the fake', () => {
     expect(spike.orders.declined.error.issue).toBe('INSTRUMENT_DECLINED');
     expect(spike.capture).toMatchObject({ verification: 'SUCCESS', tamperedVerification: 'FAILURE', cleanedUp: true, status: 'ok' });
     expect(spike.reconcile.status, JSON.stringify(spike.reconcile)).toBe('ok');
-    expect(spike.reconcile.matched.length).toBeGreaterThanOrEqual(4);
+    expect(spike.reconcile.matched.length).toBeGreaterThanOrEqual(2); // batch A is PayPal-wallet only
+    // Batch B (Venmo by handle, @handle and email) is refused as a whole, as the real sandbox did on 2026-10-28.
+    expect(spike.batches[1].createError).toMatchObject({ status: 400, name: 'VALIDATION_ERROR' });
+    expect(JSON.stringify(spike.batches[1].createError)).toContain('Recipient wallet not supported in sandbox.');
     expect(spike.events.length).toBeGreaterThan(0);
 
     const md = readFileSync(join(out, 'SANDBOX_EVIDENCE.md'), 'utf8');
     if (process.env.GOLIVE_PRINT_EVIDENCE) writeFileSync(process.env.GOLIVE_PRINT_EVIDENCE, md);
     expect(md).toContain('Not sandbox evidence');
+    expect(md).toContain('**refused**: the sandbox rejects the whole batch when any item is Venmo');
     expect(md).toContain(spike.batches[0].batchId);
     expect(md).toContain('sb-la…@personal.example.com');
     expect(md).not.toContain('sb-lan47@');
@@ -121,6 +126,26 @@ describe('PayPal steps against the fake', () => {
       expect(r.next).toContain('main app: OAuth failed');
     } finally {
       await strict.close();
+    }
+  });
+});
+
+describe('Transaction Search on a brand-new account (observed 2026-10-28)', () => {
+  it('404 "Data for the given start date is not available." is pending (reporting lag), not failed', async () => {
+    const { createPayPal } = await import('@neighborline/paypal');
+    const { probeReconcile } = await import('./lib/spike/reconcile.js');
+    const pp = createPayPal({ clientId: 'c', clientSecret: 's', baseUrl: fake.url });
+    fake.config.reportingNotReady = true;
+    try {
+      const now = new Date();
+      const batch = { label: 'A', senderBatchId: 'x', createdAt: now.toISOString(), plan: [], items: [{ senderItemId: 'x_a_paypal', payoutItemId: 'ITEM1', transactionId: 'TX1', status: 'SUCCESS', wallet: 'PAYPAL', recipientType: 'EMAIL', amountCents: 101 }] };
+      const r = await probeReconcile(pp, [batch as never], now);
+      expect(r.status).toBe('pending');
+      expect(r.pendingLag).toEqual(['ITEM1']);
+      expect(r.summary).toContain("PayPal's reporting isn't ready yet");
+      expect(r.error).toMatchObject({ status: 404, name: 'INVALID_REQUEST' });
+    } finally {
+      fake.config.reportingNotReady = false;
     }
   });
 });

@@ -32,7 +32,7 @@ export function gatherFacts(ctx: Pick<Ctx, 'env' | 'state'>): Facts & { notes: s
   else notes.push('no JUDGE_SANDBOX_BUYER_EMAIL/PASSWORD (a sandbox buyer judges may use on /donate)');
   if (spike.runId && spike.target === 'sandbox' && spike.batches?.[0]?.batchId) {
     const e = evidenceFacts(spike);
-    f.sandbox = { date: e.date, paypalSuccess: e.paypalSuccess, venmoStatuses: e.venmoStatuses, unclaimed: e.unclaimed, duplicateOk: e.duplicateOk, reconciled: e.reconciled, ...(e.batchId ? { batchId: e.batchId } : {}), ...(e.verifiedEventId ? { verifiedEventId: e.verifiedEventId } : {}), ...(e.captureId ? { captureId: e.captureId } : {}) };
+    f.sandbox = { date: e.date, paypalSuccess: e.paypalSuccess, venmoStatuses: e.venmoStatuses, venmoRefused: e.venmoRefused, venmoMockAccepted: e.venmoMockAccepted, unclaimed: e.unclaimed, duplicateOk: e.duplicateOk, reconciled: e.reconciled, ...(e.batchId ? { batchId: e.batchId } : {}), ...(e.verifiedEventId ? { verifiedEventId: e.verifiedEventId } : {}), ...(e.captureId ? { captureId: e.captureId } : {}) };
   } else if (spike.runId && spike.target !== 'sandbox') notes.push('the sandbox spike ran against a fake PayPal: nothing published as sandbox evidence');
   else notes.push('no sandbox spike yet');
   if (deploy.hosted) f.hosted = deploy.hosted;

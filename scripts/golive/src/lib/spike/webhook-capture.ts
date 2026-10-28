@@ -86,8 +86,8 @@ export async function verifyCaptured(pp: PayPal, rx: Receiver, opts: { url: stri
   if (!d) {
     // The payouts happened in an earlier run (or before the subscription existed): resend one of their events.
     try {
-      const list = await pp.client.request<{ events?: Array<{ id: string; event_type: string; resource?: unknown }> }>({ path: '/v1/notifications/webhooks-events', query: { start_time: opts.sinceIso, page_size: 50 } });
-      const ev = (list.data.events ?? []).find((e) => e.event_type.startsWith('PAYMENT.PAYOUTS') && opts.batchIds.some((b) => JSON.stringify(e.resource ?? {}).includes(b)));
+      const list = await pp.webhooks.listEvents({ startTime: opts.sinceIso, endTime: new Date(Date.now() + 60_000), pageSize: 50 });
+      const ev = list.find((e) => e.eventType.startsWith('PAYMENT.PAYOUTS') && opts.batchIds.some((b) => JSON.stringify(e.resource ?? {}).includes(b)));
       if (ev) {
         await pp.client.request({ method: 'POST', path: `/v1/notifications/webhooks-events/${encodeURIComponent(ev.id)}/resend`, body: { webhook_ids: [opts.webhookId] } });
         probe.resentFrom = ev.id;

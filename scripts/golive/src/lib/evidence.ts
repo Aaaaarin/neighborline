@@ -52,8 +52,15 @@ const usd = (cents: number | undefined) => (cents === undefined ? '' : `$${(cent
 const code = (s: string | undefined) => (s ? `\`${s}\`` : '');
 const cell = (s: unknown) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
+/** The real sandbox refused a whole batch because it held a Venmo item (observed 2026-10-28). */
+export function venmoRefusal(batches: BatchRecord[]): BatchRecord['createError'] | undefined {
+  return batches.find((b) => b.createError && /Recipient wallet not supported/i.test(JSON.stringify(b.createError)))?.createError;
+}
+
 function venmoAnswer(batches: BatchRecord[]): string {
   const venmo = batches.flatMap((b) => b.items ?? []).filter((i) => i.wallet === 'VENMO');
+  const refused = venmoRefusal(batches);
+  if (!venmo.length && refused) return `**refused**: the sandbox rejects the whole batch when any item is Venmo (by handle, "@"handle or email): ${refused.status} ${refused.name}, "Recipient wallet not supported in sandbox." Only the documented mock note \`POSPYO003\` is accepted`;
   if (!venmo.length) return 'not observed (no Venmo item was created)';
   return venmo.map((i) => `${i.recipientType} ${code(maskReceiver(i.receiver))} → **${i.status}**${i.errorName ? ` (${i.errorName})` : ''}`).join('; ');
 }
@@ -63,6 +70,7 @@ function atAnswer(batches: BatchRecord[]): string {
   const plain = items.find(({ i }) => i.wallet === 'VENMO' && i.recipientType === 'USER_HANDLE' && !i.receiver.startsWith('@'));
   const at = items.find(({ i }) => i.wallet === 'VENMO' && i.receiver.startsWith('@'));
   const atBatch = batches.find((b) => b.senderBatchId.endsWith('_b'));
+  if (venmoRefusal(batches) && !plain && !at) return 'not observable: the sandbox refuses every Venmo batch ("Recipient wallet not supported in sandbox."), with or without "@"';
   if (atBatch?.createError) return `with "@": batch refused (${atBatch.createError.status} ${atBatch.createError.name}${atBatch.createError.issue ? `, ${atBatch.createError.issue}` : ''}); without "@": ${plain ? `**${plain.i.status}**` : 'n/a'}. **Strip the "@".**`;
   if (!plain || !at) return 'not observed';
   return plain.i.status === at.i.status ? `same outcome with and without "@" (**${at.i.status}**); stripping it is harmless` : `without "@": **${plain.i.status}**; with "@": **${at.i.status}**${at.i.errorName ? ` (${at.i.errorName})` : ''}`;
@@ -158,6 +166,8 @@ export function evidenceFacts(d: SpikeData) {
     batchId: batchA?.batchId,
     paypalSuccess: Boolean(paypalOk),
     venmoStatuses: [...new Set(venmo.map((i) => i.status))],
+    venmoRefused: Boolean(venmoRefusal(d.batches ?? [])),
+    venmoMockAccepted: (d.negative ?? []).some((n) => n.code === 'POSPYO003' && n.status === 201),
     unclaimed: items.some((i) => i.status === 'UNCLAIMED') || d.cancel?.before === 'UNCLAIMED',
     verifiedEventId: event,
     duplicateOk: d.duplicate?.ok ?? null,

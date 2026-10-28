@@ -31,33 +31,39 @@ export function planBatches(env: Env, runId: string): PlannedBatch[] {
   const handle = (env.SANDBOX_VENMO_HANDLE || DEFAULT_VENMO_HANDLE).replace(/^@/, '');
   const id = (b: string, i: string) => `golive_${runId}_${b}_${i}`;
   const note = (what: string) => `Neighborline sandbox test (${what}). Not real money.`;
+  // Batch A is PayPal-wallet only: the real sandbox refuses a whole batch that contains any Venmo item
+  // ("Recipient wallet not supported in sandbox", observed 2026-10-28), so Venmo is probed separately in batch B.
   const a: PlannedBatch = {
-    label: 'A: PayPal + Venmo + unregistered',
+    label: 'A: PayPal wallet + unregistered',
     input: {
       senderBatchId: `golive_${runId}_a`,
       emailSubject: 'Neighborline sandbox test payout',
       emailMessage: 'This is a PayPal sandbox test from Neighborline. No real money moves.',
       items: [
         { senderItemId: id('a', 'paypal'), amountCents: 101, receiver: personal || unregisteredEmail(`${runId}-p`), recipientType: 'EMAIL', wallet: 'PAYPAL', note: note('PayPal wallet'), purpose: 'DONATIONS', notificationLanguage: 'en-US' },
-        { senderItemId: id('a', 'venmo_handle'), amountCents: 102, receiver: handle, recipientType: 'USER_HANDLE', wallet: 'VENMO', note: note('Venmo by username'), purpose: 'NON_GOODS_OR_SERVICES', socialFeedPrivacy: 'PRIVATE' },
-        ...(personal ? [{ senderItemId: id('a', 'venmo_email'), amountCents: 103, receiver: personal, recipientType: 'EMAIL' as const, wallet: 'VENMO' as const, note: note('Venmo by email'), purpose: 'NON_GOODS_OR_SERVICES' as const, socialFeedPrivacy: 'PRIVATE' as const }] : []),
         { senderItemId: id('a', 'unregistered'), amountCents: 104, receiver: unregisteredEmail(runId), recipientType: 'EMAIL', wallet: 'PAYPAL', note: note('unregistered email'), purpose: 'NON_GOODS_OR_SERVICES', notificationLanguage: 'es-US' },
       ],
     },
     items: [
       { key: 'paypal', label: personal ? 'PayPal wallet, sandbox personal account' : 'PayPal wallet (no SANDBOX_PERSONAL_EMAIL: unregistered)', expect: personal ? 'SUCCESS' : 'UNCLAIMED' },
-      { key: 'venmo_handle', label: `Venmo, USER_HANDLE "${handle}" (no @)`, expect: 'unknown: PayPal does not document sandbox Venmo settlement' },
-      ...(personal ? [{ key: 'venmo_email', label: 'Venmo, EMAIL of the sandbox personal account', expect: 'unknown' }] : []),
       { key: 'unregistered', label: 'PayPal wallet, unregistered email', expect: 'UNCLAIMED (RECEIVER_UNREGISTERED)' },
     ],
   };
   const b: PlannedBatch = {
-    label: 'B: Venmo handle with "@"',
+    label: 'B: Venmo probe (handle, @handle, email)',
     input: {
       senderBatchId: `golive_${runId}_b`,
-      items: [{ senderItemId: id('b', 'venmo_at'), amountCents: 105, receiver: `@${handle}`, recipientType: 'USER_HANDLE', wallet: 'VENMO', note: note('Venmo by @username'), purpose: 'NON_GOODS_OR_SERVICES', socialFeedPrivacy: 'PRIVATE' }],
+      items: [
+        { senderItemId: id('b', 'venmo_handle'), amountCents: 102, receiver: handle, recipientType: 'USER_HANDLE', wallet: 'VENMO', note: note('Venmo by username'), purpose: 'NON_GOODS_OR_SERVICES', socialFeedPrivacy: 'PRIVATE' },
+        { senderItemId: id('b', 'venmo_at'), amountCents: 105, receiver: `@${handle}`, recipientType: 'USER_HANDLE', wallet: 'VENMO', note: note('Venmo by @username'), purpose: 'NON_GOODS_OR_SERVICES', socialFeedPrivacy: 'PRIVATE' },
+        ...(personal ? [{ senderItemId: id('b', 'venmo_email'), amountCents: 103, receiver: personal, recipientType: 'EMAIL' as const, wallet: 'VENMO' as const, note: note('Venmo by email'), purpose: 'NON_GOODS_OR_SERVICES' as const, socialFeedPrivacy: 'PRIVATE' as const }] : []),
+      ],
     },
-    items: [{ key: 'venmo_at', label: `Venmo, USER_HANDLE "@${handle}"`, expect: 'compare with A: does the leading @ matter?' }],
+    items: [
+      { key: 'venmo_handle', label: `Venmo, USER_HANDLE "${handle}" (no @)`, expect: 'refused in sandbox ("Recipient wallet not supported in sandbox")' },
+      { key: 'venmo_at', label: `Venmo, USER_HANDLE "@${handle}"`, expect: 'refused in sandbox' },
+      ...(personal ? [{ key: 'venmo_email', label: 'Venmo, EMAIL of the sandbox personal account', expect: 'refused in sandbox' }] : []),
+    ],
   };
   return [a, b];
 }

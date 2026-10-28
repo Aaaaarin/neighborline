@@ -62,12 +62,13 @@ describe('cli and steps', () => {
 });
 
 describe('spike planning', () => {
-  it('derives every sender_batch_id from the run id and strips "@" only in batch A', () => {
+  it('derives every sender_batch_id from the run id; batch A is PayPal-only, Venmo is probed in batch B', () => {
     const [a, b] = planBatches({ SANDBOX_PERSONAL_EMAIL: 'sb-x@personal.example.com', SANDBOX_VENMO_HANDLE: '@lan-test' }, 'r1');
     expect(a!.input.senderBatchId).toBe('golive_r1_a');
-    expect(a!.input.items.map((i) => `${i.wallet}:${i.recipientType}:${i.receiver}`)).toEqual(['PAYPAL:EMAIL:sb-x@personal.example.com', 'VENMO:USER_HANDLE:lan-test', 'VENMO:EMAIL:sb-x@personal.example.com', 'PAYPAL:EMAIL:neighborline-unclaimed-r1@example.com']);
-    expect(b!.input.items[0]!.receiver).toBe('@lan-test');
-    expect(a!.input.items.filter((i) => i.wallet === 'VENMO').every((i) => i.note && i.socialFeedPrivacy === 'PRIVATE')).toBe(true);
+    expect(a!.input.items.map((i) => `${i.wallet}:${i.recipientType}:${i.receiver}`)).toEqual(['PAYPAL:EMAIL:sb-x@personal.example.com', 'PAYPAL:EMAIL:neighborline-unclaimed-r1@example.com']);
+    expect(b!.input.senderBatchId).toBe('golive_r1_b');
+    expect(b!.input.items.map((i) => `${i.wallet}:${i.recipientType}:${i.receiver}`)).toEqual(['VENMO:USER_HANDLE:lan-test', 'VENMO:USER_HANDLE:@lan-test', 'VENMO:EMAIL:sb-x@personal.example.com']);
+    expect(b!.input.items.every((i) => i.note && i.socialFeedPrivacy === 'PRIVATE')).toBe(true);
   });
   it('finds where the duplicate error keeps its batch link', () => {
     expect(batchLinkPaths({ details: [{ link: [{ href: 'https://api.sandbox.paypal.com/v1/payments/payouts/ABC' }] }], links: [{ href: 'https://x/v1/payments/payouts/DEF' }] })).toEqual(['details[0].link[0].href', 'links[0].href']);
@@ -113,6 +114,11 @@ describe('doc edits', () => {
     expect(all.text).toContain('**Run on 2026-11-10**');
     expect(all.text).toContain('webhook `WH-1` verified');
     expect(all.text).toContain('| Venmo payouts in sandbox | Observed on 2026-11-10: SUCCESS');
+    // What the real sandbox did on 2026-10-28: every Venmo batch refused, the POSPYO003 mock accepted.
+    const refused = readmeEdits(readme, { sandbox: { ...sandbox, venmoStatuses: [], venmoRefused: true, venmoMockAccepted: true } }).text;
+    expect(refused).toContain('| Venmo payouts in sandbox | **The real sandbox refuses Venmo** (2026-11-10)');
+    expect(refused).toContain('"Recipient wallet not supported in sandbox."; PayPal\'s documented mock note `POSPYO003` is accepted (201 `PENDING`)');
+    expect(refused).toContain('standing in for the Venmo handle, labelled');
     expect(all.text).toContain('3/3 voice notes');
     expect(readmeEdits(all.text, { host: 'nl.onrender.com', sandbox, liveAi: { date: '2026-11-10', intakesOk: 3, intakes: 3, evalProviders: [] } }).text).toBe(all.text);
     expect(replaceRow('| A | b |', 'Z', '| Z | c |').applied).toBe(false);

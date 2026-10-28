@@ -54,6 +54,9 @@ export interface Facts {
     batchId?: string;
     paypalSuccess: boolean;
     venmoStatuses: string[];
+    /** Every Venmo batch was refused ("Recipient wallet not supported in sandbox.") and the POSPYO003 mock accepted. */
+    venmoRefused?: boolean;
+    venmoMockAccepted?: boolean;
     unclaimed: boolean;
     verifiedEventId?: string;
     duplicateOk: boolean | null;
@@ -93,7 +96,11 @@ export function readmeEdits(text: string, f: Facts): { text: string; edits: Arra
     const r1 = replaceRow(t, 'Real PayPal sandbox', `| Real PayPal sandbox | **Run on ${s.date}** with \`PAYPAL_MODE=sandbox\` credentials: ${parts.join('; ')}. Ids, timestamps and statuses: [docs/SANDBOX_EVIDENCE.md](docs/SANDBOX_EVIDENCE.md) |`);
     t = r1.text;
     edits.push({ rule: 'README Sandbox reality: Real PayPal sandbox row', applied: r1.applied });
-    const venmo = s.venmoStatuses.length ? `Observed on ${s.date}: ${s.venmoStatuses.join(' / ')} ([evidence](docs/SANDBOX_EVIDENCE.md))` : 'Not observed in the sandbox run';
+    const venmo = s.venmoRefused
+      ? `**The real sandbox refuses Venmo** (${s.date}): a batch with any Venmo item (by handle, \`@\`handle or email) is refused as a whole, 400 \`VALIDATION_ERROR\` "Recipient wallet not supported in sandbox."${s.venmoMockAccepted ? '; PayPal\'s documented mock note `POSPYO003` is accepted (201 `PENDING`)' : ''}. So in sandbox the demo pays a PayPal sandbox account standing in for the Venmo handle, labelled on every screen, and the approver refuses Venmo up front when no stand-in is set ([evidence](docs/SANDBOX_EVIDENCE.md))`
+      : s.venmoStatuses.length
+        ? `Observed on ${s.date}: ${s.venmoStatuses.join(' / ')} ([evidence](docs/SANDBOX_EVIDENCE.md))`
+        : 'Not observed in the sandbox run';
     const r2 = replaceRow(t, 'Venmo payouts in sandbox', `| Venmo payouts in sandbox | ${venmo}. Sandbox also rejects \`recipient_type: PHONE\` |`);
     t = r2.text;
     edits.push({ rule: 'README Sandbox reality: Venmo row', applied: r2.applied });

@@ -158,8 +158,9 @@ export const sandboxSpike: Step = {
         mark('webhook-capture', d.capture.status, d.capture.verification ? `${d.capture.verification}/${d.capture.tamperedVerification}` : 'no delivery');
       }
       try {
-        const list = await pp.client.request<{ events?: Array<{ id: string; event_type: string; create_time: string; resource?: unknown }> }>({ path: '/v1/notifications/webhooks-events', query: { start_time: new Date(Date.parse(d.startedAt) - 60_000).toISOString(), page_size: 100 } });
-        d.events = (list.data.events ?? []).filter((e) => batchIds.some((b) => JSON.stringify(e.resource ?? {}).includes(b))).map((e) => ({ id: e.id, type: e.event_type, createTime: e.create_time }));
+        // Second-precision start_time AND end_time: the sandbox refused toISOString() milliseconds without end_time (2026-10-28).
+        const list = await pp.webhooks.listEvents({ startTime: new Date(Date.parse(d.startedAt) - 60_000), endTime: new Date(Date.now() + 60_000), pageSize: 100 });
+        d.events = list.filter((e) => batchIds.some((b) => JSON.stringify(e.resource ?? {}).includes(b))).map((e) => ({ id: e.id, type: e.eventType, createTime: e.createTime ?? '' }));
         mark('webhook-events', 'ok', `${d.events.length} events`);
       } catch (err) {
         mark('webhook-events', 'warn', errorShape(err).name);
@@ -173,7 +174,7 @@ export const sandboxSpike: Step = {
         if (ctx.now().getTime() - newest < 1_500) await ctx.sleep(1_500);
         d.reconcile = await probeReconcile(rp, d.batches ?? [], ctx.now(), d.reconcile);
         ctx.log(`  reconcile: ${d.reconcile.summary || d.reconcile.status}`);
-        mark('reconcile', d.reconcile.status, d.reconcile.status === 'pending' ? `${d.reconcile.pendingLag.length} item(s) inside PayPal's 3 h Transaction Search lag; re-run later` : d.reconcile.error?.name);
+        mark('reconcile', d.reconcile.status, d.reconcile.status === 'pending' ? `${d.reconcile.pendingLag.length} item(s) ${d.reconcile.error ? "pending: PayPal's reporting isn't ready yet" : "inside PayPal's 3 h Transaction Search lag"}; re-run later` : d.reconcile.error?.name);
       }
     } finally {
       await rx?.close();

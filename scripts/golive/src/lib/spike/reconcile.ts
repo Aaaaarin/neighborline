@@ -1,9 +1,10 @@
 /**
  * Transaction Search against the spike's payouts: does each item's transaction_id appear, with the same amount and a
  * consistent status, and how long after time_processed did it show up? PayPal documents "up to 3 hours", so a miss on
- * young items is `pending` (re-run `pnpm golive --only sandbox-spike` later), not a failure.
+ * young items is `pending` (re-run `pnpm golive --only sandbox-spike` later), not a failure. So is a brand-new account's
+ * 404 "Data for the given start date is not available." (isReportingNotReady).
  */
-import { mapTransactionStatus, reconcile, TRANSACTION_SEARCH_LAG_MS, type LocalPayoutItem, type PayPal } from '@neighborline/paypal';
+import { isReportingNotReady, mapTransactionStatus, reconcile, TRANSACTION_SEARCH_LAG_MS, type LocalPayoutItem, type PayPal } from '@neighborline/paypal';
 import { errorShape } from '../paypal-admin.js';
 import type { BatchRecord } from './payouts.js';
 
@@ -30,6 +31,11 @@ export async function probeReconcile(pp: PayPal, batches: BatchRecord[], now: Da
   try {
     txns = await pp.reporting.searchTransactions({ startDate: window.start, endDate: window.end });
   } catch (err) {
+    // A brand-new account: 404 "Data for the given start date is not available." (observed 2026-10-28). Reporting lag, not failure.
+    if (isReportingNotReady(err)) {
+      const ids = items.map(({ i }) => i.payoutItemId);
+      return { ...base, error: errorShape(err), pendingLag: ids, status: 'pending', summary: `PayPal's reporting isn't ready yet (Transaction Search: "Data for the given start date is not available."); ${ids.length} item(s) pending, try again later` };
+    }
     return { ...base, error: errorShape(err), status: 'failed', summary: `Transaction Search failed: ${(err as Error).message}` };
   }
   const local: LocalPayoutItem[] = items.map(({ i, created }) => ({

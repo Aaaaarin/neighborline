@@ -46,7 +46,7 @@ let bundleBytes: number;
 let browser: Awaited<ReturnType<Chromium['launch']>> | null = null;
 
 beforeAll(async () => {
-  fake = await createFakePayPal({ cors: true, processingDelayMs: 200 });
+  fake = await createFakePayPal({ cors: true, processingDelayMs: 200, sandboxRealism: true });
   page = createServer((_req, res) => void res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><title>developer.paypal.com stand-in</title><p>tab'));
   await new Promise<void>((r) => page.listen(0, '127.0.0.1', () => r()));
   pageUrl = `http://localhost:${(page.address() as { port: number }).port}/`;
@@ -90,8 +90,10 @@ describe('browser spike bundle', () => {
     expect(d.runId).toMatch(/^\d{8}t\d{6}$/);
     expect(Object.keys(d.parts)).toEqual(['payouts', 'phone', 'poll', 'cancel-unclaimed', 'duplicate', 'negative', 'orders', 'webhook-events', 'reconcile']);
     const items = d.batches!.flatMap((b) => b.items ?? []);
-    expect(Object.fromEntries(items.filter((i) => i.senderItemId?.includes('_a_')).map((i) => [i.senderItemId!.split('_a_')[1], i.status]))).toEqual({ paypal: 'SUCCESS', venmo_handle: 'SUCCESS', venmo_email: 'SUCCESS', unregistered: 'RETURNED' });
+    expect(Object.fromEntries(items.filter((i) => i.senderItemId?.includes('_a_')).map((i) => [i.senderItemId!.split('_a_')[1], i.status]))).toEqual({ paypal: 'SUCCESS', unregistered: 'RETURNED' });
     expect(d.duplicate!.ok).toBe(true);
+    // The fake enforces the sandbox's webhooks-events time format (second-precision start_time AND end_time).
+    expect(d.parts['webhook-events']!.status).toBe('ok');
     expect(d.negative!.length).toBe(25);
     expect(d.orders!.approval).toMatchObject({ strategy: 'manual', ok: false });
     expect(d.parts.orders!.status).toBe('warn');

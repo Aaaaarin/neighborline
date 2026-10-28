@@ -174,8 +174,9 @@ export async function run(opts: RunOpts): Promise<SpikeData> {
   // 7. Webhooks: list what PayPal emitted for these batches.
   const batchIds = d.batches.map((r) => r.batchId).filter((x): x is string => Boolean(x));
   try {
-    const list = await pp.client.request<{ events?: Array<{ id: string; event_type: string; create_time: string; resource?: unknown }> }>({ path: '/v1/notifications/webhooks-events', query: { start_time: new Date(Date.parse(d.startedAt) - 60_000).toISOString(), page_size: 100 } });
-    d.events = (list.data.events ?? []).filter((e) => batchIds.some((b) => JSON.stringify(e.resource ?? {}).includes(b))).map((e) => ({ id: e.id, type: e.event_type, createTime: e.create_time }));
+    // Second-precision start_time AND end_time: the sandbox refused toISOString() milliseconds without end_time (2026-10-28).
+    const list = await pp.webhooks.listEvents({ startTime: new Date(Date.parse(d.startedAt) - 60_000), endTime: new Date(Date.now() + 60_000), pageSize: 100 });
+    d.events = list.filter((e) => batchIds.some((b) => JSON.stringify(e.resource ?? {}).includes(b))).map((e) => ({ id: e.id, type: e.eventType, createTime: e.createTime ?? '' }));
     mark('webhook-events', 'ok', `${d.events.length} events`);
   } catch (err) {
     mark('webhook-events', 'warn', errorShape(err).name);
@@ -192,7 +193,7 @@ export async function run(opts: RunOpts): Promise<SpikeData> {
 async function reconcileInto(d: SpikeData, rp: PayPal, log: (s: string) => void, mark: (part: string, status: string, note?: string) => void) {
   d.reconcile = await probeReconcile(rp, d.batches ?? [], new Date(), d.reconcile);
   log(`reconcile: ${d.reconcile.summary || d.reconcile.status}`);
-  mark('reconcile', d.reconcile.status, d.reconcile.status === 'pending' ? `${d.reconcile.pendingLag.length} item(s) inside PayPal's 3 h Transaction Search lag; NLSpike.reconcileAgain(d) later` : d.reconcile.error?.name);
+  mark('reconcile', d.reconcile.status, d.reconcile.status === 'pending' ? `${d.reconcile.pendingLag.length} item(s) ${d.reconcile.error ? "pending: PayPal's reporting isn't ready yet" : "inside PayPal's 3 h Transaction Search lag"}; NLSpike.reconcileAgain(d) later` : d.reconcile.error?.name);
 }
 
 function checkPrev(prev: SpikeData): void {
