@@ -17,7 +17,7 @@ export interface DemoDisclosure {
 
 /** Shown only with PAYPAL_MODE=sandbox and SANDBOX_DEMO_RECEIVER_EMAIL set (engine/sandbox-standin.ts). */
 export const SANDBOX_STAND_IN =
-  'In the PayPal sandbox, /demo payouts go to stand-ins, because sandbox Venmo payouts don’t settle and the neighbors’ addresses are fictional: Lan’s, Jean’s and Walter’s go to one PayPal sandbox test account, and Rosa’s goes to a fresh unregistered address, so it really stays unclaimed until an organizer cancels it. Rail checks run on the scripted address first, and every screen of that run says so.';
+  'In the PayPal sandbox, /demo payouts go to stand-ins, because PayPal’s sandbox refuses Venmo payouts and the neighbors’ addresses are fictional: Lan’s, Jean’s and Walter’s go to one PayPal sandbox test account (so does any other request with a Venmo destination, /call included), and Rosa’s goes to a fresh unregistered address, so it really stays unclaimed until an organizer cancels it. Rail checks run on the scripted address first, and every screen of that run says so.';
 
 export function demoDisclosure(env: Record<string, string | undefined>, paypalMode: 'fake' | 'sandbox' | 'live'): DemoDisclosure {
   if (!demoModeOn(env)) {

@@ -97,8 +97,11 @@ Unclaimed items return automatically after 30 days. Sources:
 
 - `recipient_wallet: "VENMO"`; recipients can be a US mobile number, an email or a Venmo username. US only.
 - A note is required. The sandbox test value `ERRPYO013` in `sender_batch_id` simulates the "note missing" error.
-- `POSPYO003` in `items[0].note` simulates a 201 for Venmo. **Whether a real sandbox Venmo payout settles is not
-  documented**, and we have not verified it yet.
+- `POSPYO003` in `items[0].note` simulates a 201 for Venmo.
+- **The real sandbox refuses Venmo** (observed 2026-10-28): a batch with any Venmo item is refused as a whole, 400
+  `VALIDATION_ERROR` "Recipient wallet not supported in sandbox."; only the `POSPYO003` mock is accepted. So in
+  sandbox the approver never sends a Venmo item, and the demo pays a labelled PayPal stand-in
+  ([Observed in the sandbox](#observed-in-the-sandbox-2026-10-28)).
 
 Sources: [Venmo payouts](https://developer.paypal.com/payouts/use-payouts/venmo.md),
 [test and go live](https://docs.paypal.ai/send/test-go-live).
@@ -164,6 +167,9 @@ Sources: [create order](https://docs.paypal.ai/reference/api/rest/orders/create-
   query. `searchTransactions` splits longer ranges and follows pages (`page_size` up to 500).
 - Data appears **up to 3 hours** after execution. `reconcile()` puts items younger than that in `pendingLag`,
   never in `missingAtPayPal`.
+- On a brand-new account Transaction Search answers 404 `INVALID_REQUEST` "Data for the given start date is not
+  available." (observed 2026-10-28). `isReportingNotReady(err)` recognises it; every caller treats it as reporting
+  lag (all items pending), not as a failure.
 - Event codes: payouts `T0001` (reversal `T1114`, refund `T1115`), checkout `T0006`, donations `T0013`,
   subscriptions `T0002`.
 - The REST app needs the Transaction Search permission.
@@ -215,6 +221,21 @@ and the reason for each mismatch (`reconcileDetail`) even after a restart. Again
 - **`neighborline-payouts-mcp`**: the Payouts tools the toolkit lacks, with money movement gated by a two-person
   approval token. See the [README](../README.md#the-mcp-server-payouts-for-agents-with-two-humans-in-the-loop) and
   [`packages/paypal/README.md`](../packages/paypal/README.md).
+
+## Observed in the sandbox (2026-10-28)
+
+The golive spike against the **real** PayPal sandbox (US business sender, US personal receiver), run from a browser
+tab. Raw result: [`docs/evidence/raw/sandbox-spike-20261028t090256.json`](../docs/evidence/raw/sandbox-spike-20261028t090256.json).
+
+| # | What we did | What PayPal answered | What the code does now |
+|---|---|---|---|
+| 1 | A payout batch with **any** Venmo item (`USER_HANDLE` with or without `@`, or `EMAIL`) | The **whole batch** refused: 400 `VALIDATION_ERROR`, details "Recipient wallet not supported in sandbox." The documented test note `POSPYO003` on a Venmo item: **201 `PENDING`** (accepted) | `PAYPAL_MODE=sandbox`: the approver refuses Venmo items up front, no PayPal call (code `wallet_unsupported`). With `DEMO_MODE` on and `SANDBOX_DEMO_RECEIVER_EMAIL` set, every request with a Venmo destination (scripted runs, `/call` requests `req_v_*`) is paid to that PayPal sandbox account instead, labelled "Sandbox: PayPal's sandbox can't pay Venmo, so this goes to a PayPal sandbox account standing in for @handle". Live mode unchanged. `tools/fake-paypal` mimics it with `sandboxRealism` |
+| 2 | PayPal-wallet items, batch `CACL6XH7HDM72` | Batch `PENDING` → `PROCESSING` → `SUCCESS`; the item to the sandbox personal email `SUCCESS`; the item to an unregistered email `UNCLAIMED` | As designed |
+| 3 | The same `sender_batch_id` again | 400 `USER_BUSINESS_ERROR`; our client detected it and resolved it to the original batch id | As designed |
+| 4 | Cancel the `UNCLAIMED` item (`POST /v1/payments/payouts-item/{id}/cancel`) | 500 `INTERNAL_SERVICE_ERROR`, **twice** (on PayPal's side) | Ambiguous, not a failure: the approver answers 503 `paypal_unknown` and the stage says "PayPal couldn't cancel right now; try again". A retry that finds the item already cancelled (`ITEM_ALREADY_CANCELLED`) counts as success |
+| 5 | Transaction Search on the brand-new account | 404 `INVALID_REQUEST` "Data for the given start date is not available." | Reporting lag, not failure (`isReportingNotReady`): `/ledger` says "PayPal's reporting isn't ready yet; try again later", `/api/internal/reconcile` returns every item as `pendingLag` with `reportingNotReady`, the nightly workflow alerts nobody, the golive spike marks reconcile `pending` |
+| 6 | `GET /v1/notifications/webhooks-events` with `start_time` from `toISOString()` (milliseconds) and no `end_time` | 400 `VALIDATION_ERROR`. With second-precision UTC `YYYY-MM-DDTHH:MM:SSZ` `start_time` **and** `end_time`: 200 | `WebhooksApi.listEvents` always sends both, second precision; the golive spike uses it |
+| 7 | Negative-testing values | `POSPYO003` (Venmo) → 201 `PENDING`; `ERRPYO013` (Venmo) → 400 `VALIDATION_ERROR` "Recipient wallet not supported in sandbox."; `ERRPYOB001`–`004` (GET batch) → `SUCCESS` / `PENDING` / `PROCESSING` / `DENIED`; `ERRPYO047` (item) → `UNCLAIMED`; `ERRPYO052` → `FAILED`; `ERRPYO007` (cancel) → 400 `ITEM_ALREADY_CANCELLED`; `ERRPYO009` (cancel) → 400 `ITEM_INCORRECT_STATUS` (likely) | The fake answers the same; the approver treats `ITEM_ALREADY_CANCELLED` as done and `ITEM_INCORRECT_STATUS` as "no longer unclaimed" |
 
 ## To verify in the real sandbox
 

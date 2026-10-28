@@ -10,13 +10,16 @@ Everything here works with zero credentials: `pnpm i && pnpm dev`, then open `ht
 ### In the real PayPal sandbox
 
 With `PAYPAL_MODE=sandbox` (the hosted demo, set up by [`pnpm golive`](GOLIVE.md)) the payouts are real sandbox
-payouts. The neighbors' Venmo handles and emails are fictional, and PayPal documents no way to make a sandbox Venmo
-payout settle, so when `SANDBOX_DEMO_RECEIVER_EMAIL` names a sandbox **Personal** account (and `DEMO_MODE` is on):
+payouts. The neighbors' Venmo handles and emails are fictional, and the real sandbox refuses any payout batch with a
+Venmo item ("Recipient wallet not supported in sandbox.", observed 2026-10-28), so when `SANDBOX_DEMO_RECEIVER_EMAIL` names a sandbox **Personal** account (and `DEMO_MODE` is on):
 
 - **Lan, Jean, Walter:** after the rail checks pass on the scripted handle or email, the payout is filed to that
   account's PayPal wallet (by email). Organizers sign that destination, the approver pays it, and it really settles
-  (`SUCCESS`, verified webhook). The stage, the neighbor's phone and the organizer card say "Sandbox: paid to a PayPal
-  sandbox account standing in for Lan's Venmo"; the swap is in the audit log (`demo.sandbox_stand_in`).
+  (`SUCCESS`, verified webhook). The stage, the neighbor's phone and the organizer card say "Sandbox: PayPal's sandbox can't
+  pay Venmo, so this goes to a PayPal sandbox account standing in for Lan's Venmo @lan-nguyen54"; the swap is in the
+  audit log (`demo.sandbox_stand_in`). Any other request with a Venmo destination (a visitor's `/call`, a phone call)
+  is filed the same way, labelled "…standing in for @handle". Without `SANDBOX_DEMO_RECEIVER_EMAIL` the organizer
+  card warns that PayPal's sandbox can't pay Venmo, and the approver refuses it up front (`wallet_unsupported`).
 - **Rosa:** each run uses a fresh unregistered address (`neighborline-unclaimed-rosa-…@example.com`), so the item
   genuinely comes back `UNCLAIMED` and the Spanish claim help goes out. Nobody fakes her claim: the stage offers
   **Cancel unclaimed payout**, and the money returns to the fund (`CANCELED`).

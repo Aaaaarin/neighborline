@@ -215,7 +215,7 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
         label: 'Payouts to Venmo',
         status: 'simulated',
         detail: sandboxDemoReceiver(ctx.env, ctx.cfg.paypalMode)
-          ? 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. Sandbox Venmo payouts don’t settle, so on this server /demo runs pay a PayPal sandbox account standing in for the neighbor’s Venmo, and every screen of the run says so.'
+          ? 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. PayPal’s sandbox refuses any payout batch with a Venmo item, so on this server every request with a Venmo destination pays a PayPal sandbox account standing in for the neighbor’s Venmo, and every screen of the run says so.'
           : 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. Whether sandbox Venmo receivers settle is unverified, so SUCCESS for Venmo is simulated.',
       },
       {

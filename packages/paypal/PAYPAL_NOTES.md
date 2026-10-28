@@ -122,6 +122,9 @@ Scope: `https://uri.paypal.com/payments/payouts`.
   Venmo-specific page says only that the note "inherits the recipient's privacy settings".
 - Sandbox positive test value `POSPYO003` returns "201 for Venmo". Remember that sandbox rejects `PHONE`, so test
   Venmo with `EMAIL` or `USER_HANDLE`.
+- **Observed 2026-10-28:** the real sandbox refuses a whole batch with any Venmo item (`USER_HANDLE` with or without
+  `@`, or `EMAIL`): 400 `VALIDATION_ERROR` "Recipient wallet not supported in sandbox." Only `POSPYO003` is accepted
+  (201 `PENDING`). See "Observed in the sandbox" below.
 - Sources:
   - https://developer.paypal.com/payouts/use-payouts/venmo.md
   - https://docs.paypal.ai/send-payouts/send-money
@@ -247,6 +250,21 @@ Payouts does **not** use the `PayPal-Mock-Response` header. You put a test value
   - https://docs.paypal.ai/reference/api/rest/transactions/list-transactions.md
   - https://developer.paypal.com/reports/reference/t-codes
   - https://developer.paypal.com/payouts/use-payouts/view-transactions.md
+
+## Observed in the sandbox (2026-10-28)
+
+The golive spike against the **real** PayPal sandbox (US business sender, US personal receiver), run from a browser
+tab. Raw result: [`docs/evidence/raw/sandbox-spike-20261028t090256.json`](../../docs/evidence/raw/sandbox-spike-20261028t090256.json).
+
+| # | What we did | What PayPal answered | What the code does now |
+|---|---|---|---|
+| 1 | A payout batch with **any** Venmo item (`USER_HANDLE` with or without `@`, or `EMAIL`) | The **whole batch** refused: 400 `VALIDATION_ERROR`, details "Recipient wallet not supported in sandbox." The documented test note `POSPYO003` on a Venmo item: **201 `PENDING`** (accepted) | `PAYPAL_MODE=sandbox`: the approver refuses Venmo items up front, no PayPal call (code `wallet_unsupported`). With `DEMO_MODE` on and `SANDBOX_DEMO_RECEIVER_EMAIL` set, every request with a Venmo destination (scripted runs, `/call` requests `req_v_*`) is paid to that PayPal sandbox account instead, labelled "Sandbox: PayPal's sandbox can't pay Venmo, so this goes to a PayPal sandbox account standing in for @handle". Live mode unchanged. `tools/fake-paypal` mimics it with `sandboxRealism` |
+| 2 | PayPal-wallet items, batch `CACL6XH7HDM72` | Batch `PENDING` → `PROCESSING` → `SUCCESS`; the item to the sandbox personal email `SUCCESS`; the item to an unregistered email `UNCLAIMED` | As designed |
+| 3 | The same `sender_batch_id` again | 400 `USER_BUSINESS_ERROR`; our client detected it and resolved it to the original batch id | As designed |
+| 4 | Cancel the `UNCLAIMED` item (`POST /v1/payments/payouts-item/{id}/cancel`) | 500 `INTERNAL_SERVICE_ERROR`, **twice** (on PayPal's side) | Ambiguous, not a failure: the approver answers 503 `paypal_unknown` and the stage says "PayPal couldn't cancel right now; try again". A retry that finds the item already cancelled (`ITEM_ALREADY_CANCELLED`) counts as success |
+| 5 | Transaction Search on the brand-new account | 404 `INVALID_REQUEST` "Data for the given start date is not available." | Reporting lag, not failure (`isReportingNotReady`): `/ledger` says "PayPal's reporting isn't ready yet; try again later", `/api/internal/reconcile` returns every item as `pendingLag` with `reportingNotReady`, the nightly workflow alerts nobody, the golive spike marks reconcile `pending` |
+| 6 | `GET /v1/notifications/webhooks-events` with `start_time` from `toISOString()` (milliseconds) and no `end_time` | 400 `VALIDATION_ERROR`. With second-precision UTC `YYYY-MM-DDTHH:MM:SSZ` `start_time` **and** `end_time`: 200 | `WebhooksApi.listEvents` always sends both, second precision; the golive spike uses it |
+| 7 | Negative-testing values | `POSPYO003` (Venmo) → 201 `PENDING`; `ERRPYO013` (Venmo) → 400 `VALIDATION_ERROR` "Recipient wallet not supported in sandbox."; `ERRPYOB001`–`004` (GET batch) → `SUCCESS` / `PENDING` / `PROCESSING` / `DENIED`; `ERRPYO047` (item) → `UNCLAIMED`; `ERRPYO052` → `FAILED`; `ERRPYO007` (cancel) → 400 `ITEM_ALREADY_CANCELLED`; `ERRPYO009` (cancel) → 400 `ITEM_INCORRECT_STATUS` (likely) | The fake answers the same; the approver treats `ITEM_ALREADY_CANCELLED` as done and `ITEM_INCORRECT_STATUS` as "no longer unclaimed" |
 
 ## To verify in the real sandbox (Oct 21–24)
 1. The duplicate `sender_batch_id` error body: the exact name, status and link location. Our matcher is loose on
