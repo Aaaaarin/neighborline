@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { UnclaimedItem } from './contract.js';
-import { decideUnclaimed, dedupeMismatches, dueJobs, planLagRecheck, reconcileWindows } from './policy.js';
+import { decideUnclaimed, dedupeMismatches, dueJobs, lagRecheckPlan, planLagRecheck, reconcileWindows } from './policy.js';
 
 const H = 3_600_000;
 const D = 24 * H;
@@ -112,4 +112,14 @@ test('dueJobs: the hosted demo resets once a day only when an hour is configured
   const at11 = dueJobs(new Date('2026-11-20T11:05:00Z'), { reconcileHourUtc: 10, reportEveryNPayouts: 5, demoResetHourUtc: 11 });
   const reset = at11.find((j) => j.task === 'nightlyDemoReset')!;
   assert.equal(reset.idempotencyKey, 'demo-reset:2026-11-20');
+});
+
+test('lagRecheckPlan: windows where PayPal reporting is not ready yet (new account) stay pending and are not re-checked in 3 h', () => {
+  const a = { itemId: 'a', paidAt: '2026-10-28T08:00:00Z' };
+  const b = { itemId: 'b', paidAt: '2026-10-28T09:00:00Z' };
+  const c = { itemId: 'c', paidAt: '2026-10-27T09:00:00Z' };
+  const plan = lagRecheckPlan([{ pendingLag: [a] }, { pendingLag: [b, c], reportingNotReady: true }, { pendingLag: [] }]);
+  assert.deepEqual(plan.recheck, [a]);
+  assert.deepEqual(plan.notReady, [b, c]);
+  assert.deepEqual(lagRecheckPlan([]), { recheck: [], notReady: [] });
 });

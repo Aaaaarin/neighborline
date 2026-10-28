@@ -57,6 +57,20 @@ export function planLagRecheck(pending: Array<{ paidAt: string }>, lagHours: num
   };
 }
 
+/**
+ * Which pending items to re-check after the lag. Windows where Transaction Search had no data at all yet
+ * (`reportingNotReady`, a brand-new account) are not re-checked in 3 h: they stay pending until tomorrow's run,
+ * and are counted, never alerted on.
+ */
+export function lagRecheckPlan(results: ReadonlyArray<{ pendingLag: Array<{ itemId: string; paidAt: string }>; reportingNotReady?: true }>): {
+  recheck: Array<{ itemId: string; paidAt: string }>;
+  notReady: Array<{ itemId: string; paidAt: string }>;
+} {
+  const ready = results.filter((r) => !r.reportingNotReady);
+  const notReady = results.filter((r) => r.reportingNotReady);
+  return { recheck: ready.flatMap((r) => r.pendingLag), notReady: notReady.flatMap((r) => r.pendingLag) };
+}
+
 export function dedupeMismatches(...lists: ReconcileMismatch[][]): ReconcileMismatch[] {
   const seen = new Map<string, ReconcileMismatch>();
   for (const list of lists) for (const m of list) seen.set(`${m.itemId}:${m.kind}`, m);

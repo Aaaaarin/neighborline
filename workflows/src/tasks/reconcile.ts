@@ -6,10 +6,13 @@
  *     ├─ recheckAfterLag       (only if some items were too fresh for Transaction Search: waits out
  *     │    └─ reconcileWindow   PayPal's ≤3 h lag, then reconciles those items again)
  *     └─ alertOrganizers       (only if mismatches remain)
+ *
+ * A window where Transaction Search answers "Data for the given start date is not available." (a brand-new account,
+ * observed in the sandbox 2026-10-28) comes back as `reportingNotReady`: its items stay pending, nobody is alerted.
  */
 import { task, type TaskContext } from '@renderinc/sdk/workflows';
 import { ENDPOINTS, type ReconcileMismatch, type ReconcileRequest, type ReconcileResponse } from '../contract.js';
-import { dedupeMismatches, planLagRecheck, reconcileWindows, type ReconcileWindow } from '../policy.js';
+import { dedupeMismatches, lagRecheckPlan, planLagRecheck, reconcileWindows, type ReconcileWindow } from '../policy.js';
 import { alertOrganizers } from './alerts.js';
 import { connect, log, sleep } from './shared.js';
 
@@ -29,6 +32,8 @@ export const reconcileWindow = task(
       matched: res.matched,
       mismatches: res.mismatches.length,
       pendingLag: res.pendingLag.length,
+      // PayPal's reporting has no data for this window yet (new account): lag, not a failure.
+      ...(res.reportingNotReady ? { reportingNotReady: true } : {}),
     });
     return res;
   },
@@ -69,6 +74,8 @@ export interface NightlyReconcileSummary {
   mismatches: ReconcileMismatch[];
   rechecked: number;
   stillPendingLag: number;
+  /** Some window had no Transaction Search data yet (PayPal's reporting isn't ready): those items stay pending. */
+  reportingNotReady: boolean;
   alertId: string | null;
 }
 
@@ -87,7 +94,7 @@ export const nightlyReconcile = task(
     );
     const results = await Promise.all(windows.map((w) => ctx.run(reconcileWindow, w)));
 
-    const pending = results.flatMap((r) => r.pendingLag);
+    const { recheck: pending, notReady } = lagRecheckPlan(results);
     const recheck = pending.length > 0 ? await ctx.run(recheckAfterLag, pending) : null;
 
     const mismatches = dedupeMismatches(...results.map((r) => r.mismatches), recheck?.mismatches ?? []);
@@ -111,7 +118,8 @@ export const nightlyReconcile = task(
       matched: results.reduce((n, r) => n + r.matched, 0),
       mismatches,
       rechecked: pending.length,
-      stillPendingLag: recheck?.pendingLag.length ?? 0,
+      stillPendingLag: (recheck?.pendingLag.length ?? 0) + notReady.length,
+      reportingNotReady: notReady.length > 0 || results.some((r) => r.reportingNotReady === true) || recheck?.reportingNotReady === true,
       alertId,
     };
     log('nightly_reconcile_done', { ...summary, mismatches: mismatches.length });
