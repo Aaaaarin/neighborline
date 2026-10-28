@@ -92,8 +92,10 @@ services:
         value: live
       - key: AI_FALLBACK
         value: fixture
+      # One provider key for the hosted demo: OpenAI does extraction (LLM), speech-to-text and the read-back voice.
+      # Set LLM_PROVIDER=anthropic and add ANTHROPIC_API_KEY to use Claude for extraction instead.
       - key: LLM_PROVIDER
-        value: anthropic
+        value: openai
       # DEMO_MODE fails closed (unset = on only with PAYPAL_MODE=fake), so the hosted demo sets it explicitly.
       # What it relaxes, exactly (shown on /trust, "In this demo"): Dana's /demo taps are signed with a
       # labelled server-held demo key; a visitor plays Marcus (his demo key, or their own passkey bound to
