@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@electric-sql/pglite": "0.3.16"
+    "@electric-sql/pglite": "0.5.10"
   },
   "devDependencies": {
     "@neighborline/db": "workspace:*",
