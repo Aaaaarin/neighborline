@@ -1,0 +1,112 @@
+# Neighborline on Render: NO-CARD bootstrap Blueprint (free web + free Postgres).
+#
+# Same service and database names as render.yaml, so switching the Blueprint path to render.yaml later
+# (Blueprint → Settings → Blueprint path) upgrades these resources in place and adds Workflows + the cron job.
+# Generated from render.yaml by scripts/render-free-yaml.py; do not edit by hand.
+#
+# Differences from render.yaml:
+#   - web `neighborline` plan free: sleeps after 15 idle min (~1 min cold start), 0.1 CPU, 512 MB
+#   - `neighborline-db` plan free: EXPIRES 30 days after creation. Upgrade (render.yaml) before judging (Dec 1)
+#   - no `neighborline-workflows` / `neighborline-scheduler` (both need a payment method); the nightly
+#     reconcile and unclaimed follow-ups simply don't run. /ledger "Reconcile now" still works.
+
+previews:
+  generation: 'off'
+envVarGroups:
+- name: neighborline-internal
+  envVars:
+  - key: NEIGHBORLINE_INTERNAL_SECRET
+    generateValue: true
+  - key: PAYPAL_REPORTING_LAG_HOURS
+    value: '3'
+- name: neighborline-secrets
+  envVars:
+  - key: NEIGHBORLINE_APPROVAL_SECRET
+    generateValue: true
+  - key: NEIGHBORLINE_SESSION_SECRET
+    generateValue: true
+databases:
+- name: neighborline-db
+  databaseName: neighborline
+  user: neighborline
+  region: oregon
+  plan: free
+  postgresMajorVersion: '17'
+  ipAllowList: []
+services:
+- type: web
+  name: neighborline
+  runtime: node
+  region: oregon
+  plan: free
+  buildCommand: bash scripts/render-build.sh
+  startCommand: bash scripts/render-start.sh
+  healthCheckPath: /api/health
+  autoDeployTrigger: commit
+  maxShutdownDelaySeconds: 30
+  buildFilter:
+    paths:
+    - apps/web/**
+    - packages/**
+    - apps/approver/**
+    - tools/fake-paypal/**
+    - package.json
+    - pnpm-lock.yaml
+    - pnpm-workspace.yaml
+    - tsconfig.base.json
+    - scripts/render-build.sh
+    - scripts/render-start.sh
+    ignoredPaths:
+    - '**/*.test.ts'
+    - '**/*.md'
+    - apps/web/e2e/**
+    - apps/web/screenshots/**
+  envVars:
+  - key: NODE_VERSION
+    value: '22'
+  - key: PAYPAL_MODE
+    value: sandbox
+  - key: AI_MODE
+    value: live
+  - key: AI_FALLBACK
+    value: fixture
+  - key: LLM_PROVIDER
+    value: openai
+  - key: DEMO_MODE
+    value: 'true'
+  - key: RATE_LIMITS
+    value: 'on'
+  - key: TRUST_PROXY_HOPS
+    value: '1'
+  - key: NEIGHBORLINE_GROUP_SLUG
+    value: eastside
+  - key: PAYPAL_BASE_URL
+    value: https://api-m.sandbox.paypal.com
+  - key: FAKE_PAYPAL_URL
+    value: http://127.0.0.1:4010
+  - key: DATABASE_URL
+    fromDatabase:
+      name: neighborline-db
+      property: connectionString
+  - key: APP_BASE_URL
+    sync: false
+  - key: PAYPAL_CLIENT_ID
+    sync: false
+  - key: PAYPAL_CLIENT_SECRET
+    sync: false
+  - key: PAYPAL_WEBHOOK_ID
+    sync: false
+  - key: PAYPAL_PAYOUTS_CLIENT_ID
+    sync: false
+  - key: PAYPAL_PAYOUTS_CLIENT_SECRET
+    sync: false
+  - key: PAYPAL_PAYOUTS_WEBHOOK_ID
+    sync: false
+  - key: NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    sync: false
+  - key: ANTHROPIC_API_KEY
+    sync: false
+  - key: OPENAI_API_KEY
+    sync: false
+  - fromGroup: neighborline-secrets
+  - fromGroup: neighborline-internal
