@@ -114,8 +114,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Blocking for high/critical advisories in production dependencies. Two advisories inside
-    # @paypal/agent-toolkit's unused entry points are ignored by GHSA id in package.json
-    # (pnpm.auditConfig.ignoreGhsas); the reasoning for each is in THREAT_MODEL.md R5.
+    # @paypal/agent-toolkit's unused entry points and one zod advisory fixed only in zod 4 are
+    # ignored by GHSA id in package.json (pnpm.auditConfig.ignoreGhsas); the reasoning for each
+    # is in THREAT_MODEL.md R5.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
