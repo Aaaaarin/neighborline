@@ -1,0 +1,27 @@
+{
+  "runId": "20261028t090256",
+  "recordedAt": "2026-10-28T09:20:00Z",
+  "source": "PayPal sandbox (api-m.sandbox.paypal.com), called from a browser tab because the build container cannot reach PayPal",
+  "orderCapture": {
+    "orderId": "48V89305FL9425934",
+    "approvedBy": "sandbox test buyer (US personal account created for this project)",
+    "payerId": "YR55WNPZY2Z7L",
+    "capture": { "httpStatus": 201, "orderStatus": "COMPLETED", "captureId": "6D574228TK475554M", "captureStatus": "COMPLETED", "amount": { "currency_code": "USD", "value": "1.00" }, "sellerReceivable": { "gross": "1.00", "fee": "0.52", "net": "0.48" }, "createTime": "2026-10-28T09:13:34Z" },
+    "recapture": { "httpStatus": 422, "name": "UNPROCESSABLE_ENTITY", "issue": "ORDER_ALREADY_CAPTURED", "debugId": "f6980745cdc64" }
+  },
+  "subscriptions": {
+    "product": { "httpStatus": 201, "id": "PROD-8YM70924V2538925V", "name": "Neighborline monthly gift" },
+    "plans": [
+      { "usd": "10", "httpStatus": 201, "id": "P-96A48067NP453301DNLQ3ZWA", "status": "ACTIVE" },
+      { "usd": "25", "httpStatus": 201, "id": "P-6M667885P93534239NLQ3ZWI", "status": "ACTIVE" },
+      { "usd": "50", "httpStatus": 201, "id": "P-1G16108106851000MNLQ3ZWQ", "status": "ACTIVE" }
+    ]
+  },
+  "cancelUnclaimedRetries": [
+    { "payoutItemId": "8AZ3B82QWL2KS", "httpStatus": 500, "name": "INTERNAL_SERVICE_ERROR", "debugId": "f62688844c66b", "note": "first attempt, inside the spike" },
+    { "payoutItemId": "8AZ3B82QWL2KS", "httpStatus": 500, "name": "INTERNAL_SERVICE_ERROR", "note": "second attempt, PayPal-Request-Id nl-cancel-8AZ3B82QWL2KS" },
+    { "payoutItemId": "8AZ3B82QWL2KS", "httpStatus": 500, "name": "INTERNAL_SERVICE_ERROR", "debugId": "f5901191f9c22", "note": "third attempt ~15 min later" }
+  ],
+  "webhookEventsList": { "note": "GET /v1/notifications/webhooks-events with second-precision start_time and end_time → 200 (0 events: no webhook subscribed yet); with millisecond start_time and no end_time → 400 VALIDATION_ERROR" },
+  "appScopes": { "neighborline-main": "APP-8C260918Y10891331: no Payouts scope; has reporting (Transaction Search) and billing scopes", "neighborline-payouts": "APP-86230892DR346250L: Payouts scope; no reporting scope" }
+}
