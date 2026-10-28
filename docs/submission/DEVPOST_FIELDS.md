@@ -220,7 +220,7 @@ Claude Code (Anthropic, Claude Opus 5.5) wrote the code, tests and docs, as seve
 
 ```
 PayPal Payouts API (batch create with PayPal and Venmo items, get batch/item, cancel unclaimed item; recipient_wallet VENMO, social_feed_privacy PRIVATE, explicit purpose, notification_language), Payouts idempotency (sender_batch_id derived from the signed approval + PayPal-Request-Id, duplicate-batch resolution), Webhooks (verify-webhook-signature with the raw body; PAYMENT.PAYOUTS-ITEM.*, PAYMENT.PAYOUTSBATCH.*, PAYMENT.CAPTURE.COMPLETED, BILLING.SUBSCRIPTION.ACTIVATED), Orders v2 (DONATION category, idempotent capture), JavaScript SDK (Smart Buttons with Venmo and Pay Later, Pay Later messaging, subscription buttons), Subscriptions (Catalog Products + Billing Plans), Transaction Search (reconciliation of every payout, status drift, stuck PENDING), OAuth 2.0 client credentials, PayPal Agent Toolkit (list_transactions), sandbox negative testing (PayPal-Mock-Response, ERRPYO test values). Plus our own MIT package @neighborline/paypal and the MCP server neighborline-payouts-mcp.
-(sandbox) Every call is exercised end to end against tools/fake-paypal, our look-alike of PayPal's documented shapes; the run against PayPal's real sandbox is waiting on sandbox credentials, and the demo labels simulated PayPal ids "Sandbox: simulated".
+Every call is exercised end to end against tools/fake-paypal, our look-alike of PayPal's documented shapes. Verified against PayPal's sandbox on 2026-10-28: batch `CACL6XH7HDM72`. Rosa's claim is still simulated, because nobody can claim a sandbox payout for her.
 ```
 
 *(sandbox) After the spike:* replace the last sentence with "Verified against PayPal's sandbox on {DATE}: batch

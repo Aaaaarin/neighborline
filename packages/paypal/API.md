@@ -69,7 +69,7 @@ ESM only, Node ≥ 20, types included. Runtime dependencies: `@modelcontextproto
 | `CreateBatchResult` | interface | `{ batchId, status: BatchStatus, paypalStatus, senderBatchId, timeCreated, duplicate, raw }` |
 | `BatchDetails` | interface | `{ batchId, status, paypalStatus, senderBatchId, timeCreated, timeCompleted, amountCents, feesCents, currency, items, totalItems, totalPages, hasNextPage, raw }` |
 | `NormalizedPayoutItem` | interface | `{ payoutItemId, payoutBatchId, senderBatchId, senderItemId, transactionId, activityId, status: PayoutItemStatus, paypalStatus, amountCents, currency, feeCents, receiver, recipientType, wallet, timeProcessed, errorName, errorMessage, raw }` |
-| `PayoutRecipientType` | `'EMAIL' \| 'PHONE' \| 'USER_HANDLE' \| 'PAYPAL_ID'` | `USER_HANDLE` is a Venmo username. Sandbox rejects `PHONE` |
+| `PayoutRecipientType` | `'EMAIL' \| 'PHONE' \| 'USER_HANDLE' \| 'PAYPAL_ID'` | `USER_HANDLE` is a Venmo username. Docs list `PHONE` as unsupported in sandbox, but the real sandbox accepted it on 2026-10-28 (batch PENDING; [evidence](../../docs/SANDBOX_EVIDENCE.md)) |
 | `PayoutWallet` | `'PAYPAL' \| 'VENMO'` | One batch can mix both |
 | `SocialFeedPrivacy` | `'PRIVATE' \| 'FRIENDS_ONLY' \| 'PUBLIC'` | Venmo only |
 | `PAYOUT_PURPOSES` / `PayoutPurpose` | `readonly ['AWARDS', 'PRIZES', 'DONATIONS', 'GOODS', 'SERVICES', 'REBATES', 'CASHBACK', 'DISCOUNTS', 'NON_GOODS_OR_SERVICES']` | Set it explicitly: PayPal's default in the web UI is `GOODS` |

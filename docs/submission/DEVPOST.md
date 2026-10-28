@@ -142,7 +142,7 @@ Payouts request body → webhook event → UI. One `Services` seam separates the
 
 The running app calls all of these through `@neighborline/paypal`: the approver process makes the Payouts calls and
 the web app makes the rest. Every call is exercised end to end against `tools/fake-paypal`, our look-alike of PayPal's
-documented shapes; the run against PayPal's real sandbox is waiting on sandbox credentials *(sandbox)*. The demo's
+documented shapes; the run against PayPal's real sandbox on 2026-10-28 is recorded in [SANDBOX_EVIDENCE.md](../SANDBOX_EVIDENCE.md) (batch `CACL6XH7HDM72`). The demo's
 PayPal ids are labelled "Sandbox: simulated" whenever they come from the look-alike.
 
 ### AI tools used (required list)
@@ -162,7 +162,7 @@ PayPal ids are labelled "Sandbox: simulated" whenever they come from the look-al
 - **Making "AI never touches money" structural, not a promise.** The intake agent has no tools. Amounts come from a pure `computeAmount(policy, request, history)`. An approval record is hashed over requests, amounts, destinations and policy version, and it voids itself if anything changes after the first signature. Only that record can produce a `sender_batch_id`, and only two distinct organizers can complete it.
 - **Sandbox realities.**
   - Venmo payouts in sandbox are documented only as a mock (`POSPYO003`).
-  - Sandbox rejects `recipient_type: PHONE`.
+  - PayPal documents `recipient_type: PHONE` as unsupported in sandbox, yet the real sandbox accepted it (2026-10-28).
   - Webhook-simulator events cannot be verified by PayPal's postback API.
   - Transaction Search lags up to 3 hours.
 

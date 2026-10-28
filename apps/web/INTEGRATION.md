@@ -161,7 +161,7 @@ workspace packages use. Cache the DB handle and the agents/PayPal clients on `gl
 - Mrs. Lan's Venmo is `@lan-nguyen54` everywhere (agents fixtures, web stage, NOTES-core).
 - Category key is `medicine_copay` (core) in the web mock too.
 - Stage texts come straight from `packages/agents/fixtures/scenarios/*.json` (`lib/server/fixtures/scenarios.ts`).
-- Jean is paid by Venmo `@jean-baptiste-h` (sandbox rejects `recipient_type: PHONE`).
+- Jean is paid by Venmo `@jean-baptiste-h` (Venmo by handle, not `recipient_type: PHONE`, which PayPal documents as unsupported in sandbox).
 - Rosa's `rosa.m.delgado@example.com` has "no PayPal account yet" in fake PayPal (`unclaimedReceivers`); in the real
   sandbox with stand-ins on, each run uses a fresh `neighborline-unclaimed-rosa-…@example.com` instead.
 
