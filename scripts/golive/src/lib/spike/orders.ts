@@ -4,7 +4,9 @@
  *
  * Approval needs a browser. Strategies: 'playwright' logs into the developer's own sandbox buyer account
  * (SANDBOX_BUYER_EMAIL/PASSWORD) on PayPal's sandbox checkout; 'link' just GETs the approve link (what
- * tools/fake-paypal treats as the buyer approving); 'skip' records the approve URL for a human to click.
+ * tools/fake-paypal treats as the buyer approving); 'skip' records the approve URL for a human to click;
+ * 'manual' (the browser spike) also leaves the order CREATED for a human, who approves it at the approve URL and then
+ * captures it with captureApproved (NLSpike.capture in src/browser/spike-browser.ts).
  */
 import type { PayPal } from '@neighborline/paypal';
 import { errorShape } from '../paypal-admin.js';
@@ -42,31 +44,10 @@ export async function probeOrders(pp: PayPal, runId: string, approver: { strateg
     } catch (err) {
       probe.approval = { strategy: approver.strategy, ok: false, note: (err as Error).message };
     }
-  } else probe.approval = { strategy: 'skip', ok: false, note: `no buyer automation; approve by hand at ${probe.approveUrl ?? '(no link)'} then re-run with --force-part orders` };
+  } else if (approver.strategy === 'manual') probe.approval = { strategy: 'manual', ok: false, note: `waiting for a human to approve at ${probe.approveUrl ?? '(no link)'}; then capture it (NLSpike.capture)` };
+  else probe.approval = { strategy: 'skip', ok: false, note: `no buyer automation; approve by hand at ${probe.approveUrl ?? '(no link)'} then re-run with --force-part orders` };
   log(`    approval (${probe.approval.strategy}): ${probe.approval.ok ? 'ok' : probe.approval.note}`);
-  if (probe.approval.ok && probe.orderId) {
-    try {
-      const c = await pp.orders.captureOrder(probe.orderId);
-      probe.capture = {
-        status: c.status,
-        ...(c.captureId ? { captureId: c.captureId } : {}),
-        ...(c.captureStatus ? { captureStatus: c.captureStatus } : {}),
-        ...(c.amountCents !== undefined ? { amountCents: c.amountCents } : {}),
-        ...(c.feeCents !== undefined ? { feeCents: c.feeCents } : {}),
-        ...(c.fundingSource ? { fundingSource: c.fundingSource } : {}),
-        ...(c.payerEmail ? { payerEmail: c.payerEmail } : {}),
-      };
-      log(`    capture ${c.captureId} ${c.captureStatus ?? c.status}`);
-      try {
-        const again = await pp.orders.captureOrder(probe.orderId, { requestId: `golive-recapture-${runId}` });
-        probe.recapture = { alreadyCaptured: again.alreadyCaptured, ...(again.captureId ? { captureId: again.captureId } : {}) };
-      } catch (err) {
-        probe.recapture = { alreadyCaptured: false, error: errorShape(err) };
-      }
-    } catch (err) {
-      probe.captureError = errorShape(err);
-    }
-  }
+  if (probe.approval.ok && probe.orderId) Object.assign(probe, await captureApproved(pp, probe.orderId, runId, log));
   // Negative testing on Orders: the documented PayPal-Mock-Response header.
   try {
     const o = await pp.orders.createDonationOrder({ amountCents: 100, description: 'Neighborline sandbox negative test', customId: `golive_${runId}_declined`, returnUrl: RETURN_URL, cancelUrl: CANCEL_URL, requestId: `golive-order-declined-${runId}` });
@@ -81,6 +62,35 @@ export async function probeOrders(pp: PayPal, runId: string, approver: { strateg
     probe.declined = { error: errorShape(err) };
   }
   return probe;
+}
+
+export type CaptureResult = Pick<OrdersProbe, 'capture' | 'captureError' | 'recapture'>;
+
+/** Capture an approved order, then capture it again (ORDER_ALREADY_CAPTURED → the existing capture). Never throws. */
+export async function captureApproved(pp: PayPal, orderId: string, runId: string, log: (s: string) => void): Promise<CaptureResult> {
+  const out: CaptureResult = {};
+  try {
+    const c = await pp.orders.captureOrder(orderId);
+    out.capture = {
+      status: c.status,
+      ...(c.captureId ? { captureId: c.captureId } : {}),
+      ...(c.captureStatus ? { captureStatus: c.captureStatus } : {}),
+      ...(c.amountCents !== undefined ? { amountCents: c.amountCents } : {}),
+      ...(c.feeCents !== undefined ? { feeCents: c.feeCents } : {}),
+      ...(c.fundingSource ? { fundingSource: c.fundingSource } : {}),
+      ...(c.payerEmail ? { payerEmail: c.payerEmail } : {}),
+    };
+    log(`    capture ${c.captureId} ${c.captureStatus ?? c.status}`);
+    try {
+      const again = await pp.orders.captureOrder(orderId, { requestId: `golive-recapture-${runId}` });
+      out.recapture = { alreadyCaptured: again.alreadyCaptured, ...(again.captureId ? { captureId: again.captureId } : {}) };
+    } catch (err) {
+      out.recapture = { alreadyCaptured: false, error: errorShape(err) };
+    }
+  } catch (err) {
+    out.captureError = errorShape(err);
+  }
+  return out;
 }
 
 /** tools/fake-paypal: GETting the approve link is the buyer approving. */

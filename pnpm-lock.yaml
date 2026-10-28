@@ -297,6 +297,9 @@ importers:
       '@neighborline/paypal':
         specifier: workspace:*
         version: link:../../packages/paypal
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@neighborline/fake-paypal':
         specifier: workspace:*
@@ -304,6 +307,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.20.5
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
       tsx:
         specifier: ^4.19.2
         version: 4.23.15

@@ -113,6 +113,37 @@ re-run later, the run goes on); `skipped` (no key yet); `failed` (the run stops 
   receives a real delivery, verifies it with PayPal's postback API (and a tampered copy, which must fail) and deletes
   the subscription. Without it, `deploy-render`'s hosted run records the webhook the app itself verified.
 
+### Running the sandbox spike from a browser (when the server can't reach PayPal)
+
+Some machines (a locked-down CI or cloud container) cannot reach `api-m.sandbox.paypal.com`, while a browser tab on
+`developer.paypal.com` can (PayPal's sandbox API answers CORS there). The spike then runs in that tab and only its JSON
+comes back. Same lib functions, same parts in the same order, same `SpikeData`; not run in the tab: the local webhook
+receiver (needs a server) and the Playwright buyer (the order waits for you instead).
+
+1. Build the bundle (one minified IIFE, about 50 KB): `pnpm --filter @neighborline/golive build:browser` →
+   `scripts/golive/dist-browser/spike.js` (git-ignored).
+2. In a logged-in `developer.paypal.com` tab, put the sandbox apps' keys in **that tab's** sessionStorage, nowhere
+   else: `sessionStorage.nl_payouts = JSON.stringify({id: '<Payouts app client id>', sec: '<secret>'})` and the same
+   for `nl_main` (the main app; optional, without it Orders are skipped and reconcile uses the Payouts app).
+3. Paste the contents of `spike.js` into that tab's console (or a JavaScript tool). It defines `window.NLSpike`.
+4. `d = await NLSpike.run({ personalEmail: 'sb-…@personal.example.com', venmoHandle: '@…' })`. It polls up to 240 s
+   per batch (`pollSeconds`). If your tool times out on long calls: `NLSpike.start({...})`, then `NLSpike.status()`
+   until `running` is false.
+5. Orders: open `d.orders.approveUrl`, log in as the sandbox buyer, approve, then `d = await NLSpike.capture(d)`.
+6. Copy the result out: `NLSpike.json()` (or `NLSpike.json(i)` → `{chunk, of, text}` slices of 20 000 characters if
+   the tool truncates). The last result also survives a reload in sessionStorage `nl_spike_last`.
+7. On the repo machine: save it as `golive-out/browser-spike.json` and run `pnpm golive:ingest golive-out/browser-spike.json`.
+   That writes `golive-out/state.json` (the `sandbox-spike` part and step), `sandbox-spike.json`,
+   `SANDBOX_EVIDENCE.md`, and, for sandbox data, the duplicate-error fixture and PAYPAL_NOTES.md's observed block,
+   exactly like `pnpm golive --only sandbox-spike`. Then `pnpm golive --only finalize-docs`.
+8. Transaction Search lag: later, in the tab, `d = await NLSpike.reconcileAgain(d)`, copy, ingest again.
+
+Rails: only `https://api-m.sandbox.paypal.com` is accepted as base (and `localhost`, for the test); credentials are
+read only from sessionStorage and never logged; the returned JSON is scrubbed of the credential values, access tokens
+and any `Authorization`/token-looking field, and `golive:ingest` refuses anything that still looks like one, refuses
+malformed data (zod), live PayPal, and a `target` that does not match `base`. Tested in `src/browser/browser-spike.test.ts`:
+the bundle in Playwright Chromium on another origin against `tools/fake-paypal` with `FAKE_PAYPAL_CORS=1`, then ingested.
+
 ## 3. Fallbacks and rollback
 
 | If | Do |
@@ -121,6 +152,7 @@ re-run later, the run goes on); `skipped` (no key yet); `failed` (the run stops 
 | **The hosted hero ends `UNCLAIMED`/`FAILED`** instead of `SUCCESS` (`deploy-render` warns) | The receiver is not a sandbox **Personal** account (or has no confirmed email): fix `SANDBOX_DEMO_RECEIVER_EMAIL`, then `pnpm golive --only deploy-render,finalize-docs`. Or run the stage on the labelled fake: `GOLIVE_HOSTED_PAYPAL_MODE=fake pnpm golive --only deploy-render,finalize-docs` |
 | **The hosted `/demo` run fails in sandbox** (`deploy-render` warns; e.g. `SENDER_RESTRICTED`, no verified webhook) | Same fake-mode command as above; the spike's evidence still stands. Check the Payouts app's webhook delivery log at developer.paypal.com |
 | **The duplicate-error shape differs** from what the client expects | The spike marks `duplicate` `warn` and writes the real body to `packages/paypal/src/fixtures/duplicate-sender-batch/`; `pnpm --filter @neighborline/paypal test` then fails until `isDuplicateSenderBatchError` / `findExistingBatchId` in `packages/paypal/src/payouts.ts` match it. Nothing was paid twice either way (`DuplicateBatchError` → `UNKNOWN` → re-check) |
+| **The machine running golive cannot reach PayPal's sandbox** (proxy 403, timeouts in `preflight`) | Run the spike in a browser tab and ingest its JSON: [Running the sandbox spike from a browser](#running-the-sandbox-spike-from-a-browser-when-the-server-cant-reach-paypal) |
 | **Transaction Search permission missing** | Tick it on the main app (step 1), wait a few minutes, `pnpm golive --only sandbox-setup,sandbox-spike` |
 | **Render is late or the build fails** | `deploy-render` prints the dashboard link to the failed deploy's logs ([DEPLOY.md Troubleshooting](DEPLOY.md#troubleshooting)). No account in time: submit with "Runs locally with zero credentials: `pnpm i && pnpm dev`" (DEVPOST_FIELDS.md says where), and keep the sandbox evidence |
 | **A bad deploy** | Render dashboard → the service → **Events** → an earlier deploy → **Rollback**; or set `GOLIVE_HOSTED_PAYPAL_MODE=fake` and re-run `deploy-render` |

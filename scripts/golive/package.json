@@ -9,14 +9,18 @@
     "golive": "tsx src/main.ts",
     "check-links": "tsx src/check-links.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "build:browser": "tsx src/browser/build.ts",
+    "ingest": "tsx src/browser/ingest.ts"
   },
   "dependencies": {
-    "@neighborline/paypal": "workspace:*"
+    "@neighborline/paypal": "workspace:*",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@neighborline/fake-paypal": "workspace:*",
     "@types/node": "^22.9.0",
+    "esbuild": "^0.25.12",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^4.1.12"

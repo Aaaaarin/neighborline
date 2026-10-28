@@ -17,6 +17,7 @@
     "fake-paypal": "pnpm --filter @neighborline/fake-paypal start",
     "dev:web": "pnpm --filter @neighborline/web dev",
     "golive": "pnpm --silent --filter @neighborline/golive golive",
+    "golive:ingest": "pnpm --silent --filter @neighborline/golive ingest",
     "check-links": "pnpm --silent --filter @neighborline/golive check-links"
   },
   "devDependencies": {

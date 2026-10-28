@@ -16,12 +16,13 @@ import { linkApprover, probeOrders } from '../lib/spike/orders.js';
 import { createBatchRecord, phoneProbe, planBatches, pollBatch, type BatchRecord } from '../lib/spike/payouts.js';
 import { probeCancelUnclaimed, probeDuplicate, probeNegative } from '../lib/spike/probes.js';
 import { probeReconcile } from '../lib/spike/reconcile.js';
+import { DONE, spikeStepResult } from '../lib/spike/result.js';
+import { runIdFor } from '../lib/spike/run-id.js';
 import { registerCapture, startReceiver, verifyCaptured } from '../lib/spike/webhook-capture.js';
 
-const DONE = new Set(['ok', 'warn']);
 const num = (v: string | undefined, d: number) => (v && Number.isFinite(Number(v)) ? Number(v) : d);
 
-export const runIdFor = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', 't').toLowerCase();
+export { runIdFor };
 
 export const sandboxSpike: Step = {
   name: 'sandbox-spike',
@@ -187,14 +188,6 @@ export const sandboxSpike: Step = {
       if (notes) outputs.push(notes);
     }
     save();
-    const statuses = Object.entries(d.parts);
-    const failed = statuses.filter(([, v]) => v.status === 'failed');
-    const pending = statuses.filter(([, v]) => v.status === 'pending');
-    const warned = statuses.filter(([, v]) => v.status === 'warn');
-    const items = (d.batches ?? []).flatMap((b) => b.items ?? []);
-    const summary = `${items.map((i) => `${i.wallet[0]}:${i.status}`).join(' ')}; ${statuses.filter(([, v]) => DONE.has(v.status)).length}/${statuses.length} parts done`;
-    if (failed.length) return { status: 'failed', summary, next: failed.map(([k, v]) => `${k}: ${v.note ?? 'failed'}`).join(' | '), outputs };
-    if (pending.length) return { status: 'pending', summary, next: `${pending.map(([k, v]) => `${k}: ${v.note ?? 'pending'}`).join(' | ')}. Re-run: pnpm golive --only sandbox-spike`, outputs };
-    return { status: warned.length ? 'warn' : 'ok', summary, ...(warned.length ? { next: warned.map(([k, v]) => `${k}: ${v.note ?? 'check'}`).join(' | ') } : {}), outputs };
+    return spikeStepResult(d, outputs);
   },
 };
