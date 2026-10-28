@@ -32,7 +32,8 @@
       "next>postcss": "^8.5.23",
       "@paypal/agent-toolkit>mathjs": "^15.2.0",
       "@paypal/agent-toolkit>@langchain/core": "0.3.80",
-      "vite": "^7.3.0"
+      "vite": "^7.3.0",
+      "express>body-parser": "^2.4.0"
     },
     "auditConfig": {
       "ignoreGhsas": [
