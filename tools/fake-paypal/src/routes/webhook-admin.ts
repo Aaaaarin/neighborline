@@ -157,6 +157,14 @@ function listEvents(ctx: FakeContext, c: Ctx): Reply {
   const end = c.query.get('end_time');
   const type = c.query.get('event_type');
   const txn = c.query.get('transaction_id');
+  if (ctx.config.sandboxRealism && start !== null) {
+    // Observed 2026-10-28: a millisecond start_time without end_time → 400; second-precision start AND end → 200.
+    const seconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+    const bad: Array<{ field: string; location: 'query'; issue: string }> = [];
+    if (!seconds.test(start)) bad.push({ field: 'start_time', location: 'query', issue: 'start_time must be in the format YYYY-MM-DDTHH:MM:SSZ.' });
+    if (end === null || !seconds.test(end)) bad.push({ field: 'end_time', location: 'query', issue: 'end_time is required in the format YYYY-MM-DDTHH:MM:SSZ.' });
+    if (bad.length) throw ppError(400, 'VALIDATION_ERROR', 'Invalid data provided', bad, API);
+  }
   type Ev = { id: string; create_time: string; event_type: string; resource?: Record<string, unknown> };
   let events = [...ctx.state.events.values()] as Ev[];
   if (start) events = events.filter((e) => e.create_time >= start.replace(/\.\d+Z$/, 'Z'));

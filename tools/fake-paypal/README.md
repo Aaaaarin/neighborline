@@ -18,6 +18,8 @@ WEBHOOK_TARGET_URL=http://localhost:3000/api/webhooks/paypal pnpm fake-paypal
 | `FAKE_PAYPAL_CORS` | `false` | If `1`/`true`, answer CORS preflights and allow any origin (a browser page calling the fake; scripts/golive browser spike) |
 | `FAKE_PAYPAL_REPORTING_LAG_MS` | `0` | Transaction Search visibility lag. Real PayPal: up to 3h |
 | `FAKE_PAYPAL_REJECT_PHONE` | `false` | Mimics real sandbox, which rejects `recipient_type: PHONE` |
+| `FAKE_PAYPAL_SANDBOX_REALISM` | `false` | Mimics what the real sandbox did on 2026-10-28: a payout batch with **any** Venmo item is refused as a whole (400 `VALIDATION_ERROR`, "Recipient wallet not supported in sandbox.") unless that item's note is the documented mock `POSPYO003`; `GET /v1/notifications/webhooks-events` needs second-precision `start_time` **and** `end_time` |
+| `FAKE_PAYPAL_REPORTING_NOT_READY` | `false` | Transaction Search answers 404 `INVALID_REQUEST` "Data for the given start date is not available." (a brand-new sandbox account, 2026-10-28) |
 | `FAKE_PAYPAL_CLIENT_ID` / `_SECRET` | — | If set, only these credentials get tokens |
 
 ## What's implemented
@@ -33,7 +35,7 @@ WEBHOOK_TARGET_URL=http://localhost:3000/api/webhooks/paypal pnpm fake-paypal
   - A Venmo item without a note gets `400 VALIDATION_ERROR`.
 - `GET /v1/payments/payouts/:id?page&page_size&total_required`
 - `GET /v1/payments/payouts-item/:id`
-- `POST /v1/payments/payouts-item/:id/cancel` (UNCLAIMED items only)
+- `POST /v1/payments/payouts-item/:id/cancel` (UNCLAIMED items only; a second cancel of the same item is 400 `ITEM_ALREADY_CANCELLED`, as PayPal documents with `ERRPYO007`)
 - Sandbox test values:
   - `items[0].note`: `ERRPYO001`–`ERRPYO040`.
   - Path: `ERRPYOB001`–`ERRPYOB004`.

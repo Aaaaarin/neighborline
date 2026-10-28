@@ -31,7 +31,7 @@ export interface Fault {
 }
 
 const SETTABLE: Array<TransactionStatus | 'CANCELED'> = ['SUCCESS', 'FAILED', 'PENDING', 'UNCLAIMED', 'RETURNED', 'ONHOLD', 'BLOCKED', 'REFUNDED', 'REVERSED', 'CANCELED'];
-const CONFIG_KEYS: Array<keyof FakeConfig> = ['webhookTargetUrl', 'webhookId', 'processingDelayMs', 'autoProcess', 'tokenTtlSec', 'reportingLagMs', 'rejectPhoneRecipients', 'unclaimedReceivers', 'webhookMaxAttempts', 'log'];
+const CONFIG_KEYS: Array<keyof FakeConfig> = ['webhookTargetUrl', 'webhookId', 'processingDelayMs', 'autoProcess', 'tokenTtlSec', 'reportingLagMs', 'rejectPhoneRecipients', 'sandboxRealism', 'reportingNotReady', 'unclaimedReceivers', 'webhookMaxAttempts', 'log'];
 
 export function registerControlRoutes(router: Router, ctx: FakeContext, hooks: { reset(): void; faults: Fault[] }): void {
   const open = { auth: false };

@@ -115,6 +115,7 @@ function collectRows(ctx: FakeContext): Row[] {
 }
 
 function search(ctx: FakeContext, c: Ctx): Reply {
+  if (ctx.config.reportingNotReady) throw ppError(404, 'INVALID_REQUEST', 'Data for the given start date is not available.', undefined, API);
   const start = c.query.get('start_date');
   const end = c.query.get('end_date');
   if (!start || !RFC3339_SECONDS.test(start)) throw bad('start_date', 'start_date is required in RFC 3339 format with seconds.');

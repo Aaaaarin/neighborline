@@ -63,6 +63,17 @@ function validateItems(ctx: FakeContext, header: Record<string, unknown>, items:
   return errs;
 }
 
+/** Observed 2026-10-28: one Venmo item fails the whole batch in the real sandbox, unless its note is the mock POSPYO003. */
+function refuseSandboxVenmo(items: PayoutItemRequest[]): void {
+  const errs: ErrorDetail[] = [];
+  items.forEach((it, i) => {
+    if ((it.recipient_wallet ?? 'PAYPAL').toUpperCase() === 'VENMO' && it.note?.trim() !== 'POSPYO003') {
+      errs.push({ field: `items[${i}].recipient_wallet`, location: 'body', issue: 'Recipient wallet not supported in sandbox.' });
+    }
+  });
+  if (errs.length) throw validation(errs, API);
+}
+
 function createPayout(ctx: FakeContext, c: Ctx): Reply {
   const body = c.json<{ sender_batch_header?: Record<string, unknown>; items?: unknown }>();
   const requestId = c.header('paypal-request-id');
@@ -78,6 +89,7 @@ function createPayout(ctx: FakeContext, c: Ctx): Reply {
   negativeCreatePayout(body);
   const errs = validateItems(ctx, header, body.items);
   if (errs.length) throw validation(errs, API);
+  if (ctx.config.sandboxRealism) refuseSandboxVenmo(body.items as PayoutItemRequest[]);
 
   if (senderBatchId && ctx.state.senderBatchIds.has(senderBatchId)) {
     const existing = ctx.state.senderBatchIds.get(senderBatchId)!;
@@ -245,11 +257,16 @@ function syntheticBatch(ctx: FakeContext, id: string, status: BatchStatus) {
   };
 }
 
+/** Items this fake cancelled (real PayPal then answers ITEM_ALREADY_CANCELLED, negative-testing value ERRPYO007). */
+const cancelled = new WeakSet<PayoutItemRec>();
+
 function cancelItem(ctx: FakeContext, c: Ctx): Reply {
   const item = requireItem(ctx, c.params.id!);
+  if (cancelled.has(item)) throw ppError(400, 'ITEM_ALREADY_CANCELLED', 'Item has already been cancelled.', undefined, API);
   if (item.transaction_status !== 'UNCLAIMED') {
     throw ppError(400, 'ITEM_INCORRECT_STATUS', 'Item cannot be cancelled because it is not in UNCLAIMED status.', undefined, API);
   }
   setItemStatus(ctx, item, 'CANCELED');
+  cancelled.add(item);
   return { status: 200, body: itemView(ctx, item, 'self') };
 }

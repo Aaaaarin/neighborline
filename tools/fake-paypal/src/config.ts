@@ -16,6 +16,18 @@ export interface FakeConfig {
   /** Real sandbox rejects recipient_type PHONE for payouts. Off by default so demo data keeps working. */
   rejectPhoneRecipients: boolean;
   /**
+   * Behave like the real PayPal sandbox where it differs from the docs (observed 2026-10-28). Off by default.
+   *   - A payout batch with ANY Venmo item is refused as a whole: 400 VALIDATION_ERROR, "Recipient wallet not
+   *     supported in sandbox." Venmo items whose note is the documented mock POSPYO003 are accepted (201 PENDING).
+   *   - GET /v1/notifications/webhooks-events needs second-precision start_time AND end_time (else 400).
+   */
+  sandboxRealism: boolean;
+  /**
+   * Transaction Search answers 404 INVALID_REQUEST "Data for the given start date is not available." (a brand-new
+   * sandbox account, observed 2026-10-28). Off by default.
+   */
+  reportingNotReady: boolean;
+  /**
    * Receivers that behave like an email/handle with no PayPal account yet (item → UNCLAIMED), in addition to the
    * substring rules in outcomes.ts. Demo world: Rosa has not opened a PayPal account with her email yet.
    */
@@ -42,6 +54,8 @@ export const DEFAULT_CONFIG: FakeConfig = {
   tokenTtlSec: 32_400,
   reportingLagMs: 0,
   rejectPhoneRecipients: false,
+  sandboxRealism: false,
+  reportingNotReady: false,
   unclaimedReceivers: ['rosa.m.delgado@example.com'],
   signingSecret: 'fake-paypal-local-signing-key',
   webhookMaxAttempts: 3,
@@ -64,6 +78,10 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Partial<Fak
   if (lag !== undefined) out.reportingLagMs = lag;
   const phone = bool(env.FAKE_PAYPAL_REJECT_PHONE);
   if (phone !== undefined) out.rejectPhoneRecipients = phone;
+  const realism = bool(env.FAKE_PAYPAL_SANDBOX_REALISM);
+  if (realism !== undefined) out.sandboxRealism = realism;
+  const notReady = bool(env.FAKE_PAYPAL_REPORTING_NOT_READY);
+  if (notReady !== undefined) out.reportingNotReady = notReady;
   if (env.FAKE_PAYPAL_UNCLAIMED_RECEIVERS !== undefined) {
     out.unclaimedReceivers = env.FAKE_PAYPAL_UNCLAIMED_RECEIVERS.split(',').map((r) => r.trim()).filter(Boolean);
   }
