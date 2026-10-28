@@ -20,11 +20,11 @@ export {
   type NormalizedPayoutItem,
   type BatchDetails,
 } from './payouts.js';
-export { WebhooksApi, buildVerifyRequestBody, getHeader, WEBHOOK_HEADERS, type VerifyWebhookInput, type VerifyWebhookResult, type HeaderBag } from './webhooks.js';
+export { WebhooksApi, buildVerifyRequestBody, getHeader, webhookEventsQuery, WEBHOOK_HEADERS, type VerifyWebhookInput, type VerifyWebhookResult, type HeaderBag, type ListWebhookEventsInput, type WebhookEventSummary } from './webhooks.js';
 export { parseWebhookEvent, WebhookParseError, type WebhookEvent } from './webhook-events.js';
 export { OrdersApi, buildDonationOrder, summarizeCapture, type CreateDonationOrderInput, type OrderSummary, type CaptureSummary } from './orders.js';
 export { SubscriptionsApi, DEFAULT_DONATION_TIERS_CENTS, planName, type EnsureProductInput, type PlanSummary, type SubscriptionSummary } from './subscriptions.js';
-export { ReportingApi, chunkDateRange, toRfc3339, EVENT_CODES, MAX_WINDOW_MS, TRANSACTION_SEARCH_LAG_MS, type SearchTransactionsInput, type PayPalTransaction } from './reporting.js';
+export { ReportingApi, chunkDateRange, isReportingNotReady, toRfc3339, EVENT_CODES, MAX_WINDOW_MS, TRANSACTION_SEARCH_LAG_MS, type SearchTransactionsInput, type PayPalTransaction } from './reporting.js';
 export { reconcile, type LocalPayoutItem, type ReconcileOptions, type ReconcileReport } from './reconcile.js';
 export { batchDigest, signApprovalToken, readApprovalToken, createHmacApprovalVerifier, denyAllApprovals, type ApprovalVerifier, type ApprovalRequest, type ApprovalDecision, type ApprovalPayload } from './approval.js';
 export { createPayPal, createPayPalFromEnv, resolvePayPalEnv, type PayPal, type PayPalMode, type ResolvedPayPalEnv } from './paypal.js';

@@ -1,7 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiCalls, startFake, type FakeHarness } from '../test/fake.js';
 import { reconcile, type LocalPayoutItem } from './reconcile.js';
-import { chunkDateRange, MAX_WINDOW_MS, toRfc3339, type PayPalTransaction } from './reporting.js';
+import { PayPalApiError } from './errors.js';
+import { chunkDateRange, isReportingNotReady, MAX_WINDOW_MS, toRfc3339, type PayPalTransaction } from './reporting.js';
 
 describe('chunkDateRange', () => {
   it('splits 70 days into ≤31-day, contiguous, non-overlapping windows', () => {
@@ -124,5 +125,30 @@ describe('ReportingApi + reconcile against fake-paypal', () => {
     expect(report.ok).toBe(true);
     expect(report.matched.map((m) => m.local.id)).toEqual(['r1']);
     expect(report.noTransactionId.map((i) => i.id)).toEqual(['r2']); // BLOCKED: PayPal never created a transaction
+  });
+});
+
+describe('isReportingNotReady (observed 2026-10-28 on a brand-new sandbox account)', () => {
+  let h: FakeHarness;
+  beforeAll(async () => {
+    h = await startFake({ reportingNotReady: true });
+  });
+  afterAll(() => h.close());
+
+  it('classifies 404 INVALID_REQUEST "Data for the given start date is not available." as reporting lag', async () => {
+    const err = await h.paypal.reporting.searchTransactions({ startDate: new Date(Date.now() - 86_400_000), endDate: new Date() }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PayPalApiError);
+    expect((err as PayPalApiError).status).toBe(404);
+    expect(isReportingNotReady(err)).toBe(true);
+  });
+
+  it('does not classify other failures as lag', () => {
+    const mk = (status: number, body: unknown, path = '/v1/reporting/transactions') => new PayPalApiError({ status, body, method: 'GET', path });
+    expect(isReportingNotReady(mk(404, { name: 'INVALID_REQUEST', message: 'Data for the given start date is not available.' }))).toBe(true);
+    expect(isReportingNotReady(mk(403, { name: 'NOT_AUTHORIZED', message: 'Authorization failed due to insufficient permissions.' }))).toBe(false);
+    expect(isReportingNotReady(mk(400, { name: 'INVALID_REQUEST', message: 'Date range is greater than 31 days.' }))).toBe(false);
+    expect(isReportingNotReady(mk(500, { name: 'INTERNAL_SERVER_ERROR' }))).toBe(false);
+    expect(isReportingNotReady(mk(404, { name: 'INVALID_REQUEST' }, '/v1/payments/payouts/X'))).toBe(false);
+    expect(isReportingNotReady(new Error('Data for the given start date is not available.'))).toBe(false);
   });
 });

@@ -3,6 +3,7 @@
  * `searchTransactions` splits long ranges into ≤31-day chunks and follows pagination within each.
  */
 import type { PayPalClient } from './client.js';
+import { PayPalApiError } from './errors.js';
 import { fromPayPalValue } from './money.js';
 
 export const MAX_WINDOW_MS = 31 * 24 * 3_600_000;
@@ -47,6 +48,17 @@ export interface PayPalTransaction {
   invoiceId: string | undefined;
   payerEmail: string | undefined;
   raw: unknown;
+}
+
+/**
+ * Transaction Search's "nothing here yet" answer: `404 INVALID_REQUEST` "Data for the given start date is not
+ * available." (observed 2026-10-28 on a brand-new sandbox account). That is reporting lag, not a failure: report the
+ * items as pending and try again later. Any other error (403 permission, 400 window, 5xx) is a real failure.
+ */
+export function isReportingNotReady(err: unknown): boolean {
+  if (!(err instanceof PayPalApiError) || err.status !== 404 || !err.path.startsWith('/v1/reporting/')) return false;
+  const text = [err.message, ...err.details.flatMap((d) => [d.issue, d.description ?? ''])].join(' ');
+  return err.name === 'INVALID_REQUEST' || /not (yet )?available/i.test(text);
 }
 
 /** RFC 3339 with seconds, no millis — the format Transaction Search requires. */

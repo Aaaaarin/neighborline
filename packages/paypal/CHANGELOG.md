@@ -5,7 +5,12 @@ All notable changes to `@neighborline/paypal`. Versions follow [semver](https://
 
 ## Unreleased
 
-Nothing yet.
+### Added (from the real sandbox run, 2026-10-28)
+- `isReportingNotReady(err)`: Transaction Search answers `404 INVALID_REQUEST` "Data for the given start date is not
+  available." on a brand-new account. Callers treat it as reporting lag (pending), not as a failure.
+- `WebhooksApi#listEvents` and the pure `webhookEventsQuery`: `GET /v1/notifications/webhooks-events` with
+  `start_time` and `end_time` both in second-precision UTC. The sandbox refused a millisecond `start_time` with no
+  `end_time` (400 `VALIDATION_ERROR`) and accepted this form.
 
 ## 0.2.0 — 2026-10-16 (first npm release candidate, not yet published)
 

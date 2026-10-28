@@ -102,6 +102,10 @@ Also exported from `@neighborline/paypal/webhooks`. `paypal.webhooks` is a `Webh
 | Export | Signature | Notes |
 |---|---|---|
 | `WebhooksApi#verifyWebhookSignature` | `(input: VerifyWebhookInput) => Promise<VerifyWebhookResult>` | `POST /v1/notifications/verify-webhook-signature` with the **raw body spliced in** byte for byte. Missing headers or a non-object body fail without a network call |
+| `WebhooksApi#listEvents` | `(input: ListWebhookEventsInput) => Promise<WebhookEventSummary[]>` | `GET /v1/notifications/webhooks-events`, one page, newest first. Always sends `start_time` and `end_time` in second-precision UTC (the sandbox refused a millisecond `start_time` without `end_time`, 2026-10-28) |
+| `webhookEventsQuery` | `(input: ListWebhookEventsInput, now?) => Record<string, string \| number>` | Pure: the query `listEvents` sends (`end_time` defaults to now) |
+| `ListWebhookEventsInput` | interface | `{ startTime, endTime? = now, pageSize? = 50 (1–300), eventType?, transactionId? }` |
+| `WebhookEventSummary` | interface | `{ id, eventType, createTime, resource, raw }` |
 | `WebhooksApi#simulateEvent` | `({ eventType, webhookId?, url?, resourceVersion? }) => Promise<{ id, event_type, raw }>` | PayPal's simulator. Simulated events cannot be verified (PayPal's design) |
 | `buildVerifyRequestBody` | `(input: VerifyWebhookInput) => string \| { error: 'missing_headers' \| 'invalid_body' }` | Pure |
 | `getHeader` | `(headers: HeaderBag, name: string) => string \| undefined` | Case-insensitive over `Headers` or a plain record (Express/Node) |
@@ -154,6 +158,7 @@ Also exported from `@neighborline/paypal/webhooks`. `paypal.webhooks` is a `Webh
 | `ReportingApi#searchTransactions` | `(input: SearchTransactionsInput) => Promise<PayPalTransaction[]>` | `GET /v1/reporting/transactions`. Ranges over 31 days are split, every page is fetched |
 | `chunkDateRange` | `(start: Date, end: Date, maxMs = MAX_WINDOW_MS) => Array<{ start, end }>` | Pure |
 | `toRfc3339` | `(d: Date \| string) => string` | Seconds, no milliseconds, as Transaction Search requires |
+| `isReportingNotReady` | `(err) => boolean` | True for Transaction Search's `404 INVALID_REQUEST` "Data for the given start date is not available." (a brand-new sandbox account, 2026-10-28): reporting lag, so report the items as pending and try later, not as a failure |
 | `MAX_WINDOW_MS` | `number` | 31 days |
 | `TRANSACTION_SEARCH_LAG_MS` | `number` | 3 h: PayPal's documented maximum reporting delay |
 | `EVENT_CODES` | `{ MASS_PAY: 'T0001', SUBSCRIPTION_PAYMENT: 'T0002', EXPRESS_CHECKOUT: 'T0006', DONATION: 'T0013', MASS_PAY_REVERSAL: 'T1114', MASS_PAY_REFUND: 'T1115', PAYMENT_REFUND: 'T1107' }` | |

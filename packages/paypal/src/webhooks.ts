@@ -6,6 +6,7 @@
  * genuine event fail. So the request body is assembled by splicing the *raw* body in as `webhook_event`.
  */
 import type { PayPalClient } from './client.js';
+import { toRfc3339 } from './reporting.js';
 
 export type HeaderBag = Headers | Record<string, string | string[] | undefined>;
 
@@ -60,6 +61,45 @@ export function buildVerifyRequestBody(input: VerifyWebhookInput): string | { er
   return `${head.slice(0, -1)},"webhook_event":${input.rawBody.trim()}}`;
 }
 
+/** One event from `GET /v1/notifications/webhooks-events`. */
+export interface WebhookEventSummary {
+  id: string;
+  eventType: string;
+  createTime: string | undefined;
+  resource: unknown;
+  raw: unknown;
+}
+
+export interface ListWebhookEventsInput {
+  startTime: Date | string;
+  /** Default: now. PayPal answered 400 VALIDATION_ERROR without it (observed 2026-10-28). */
+  endTime?: Date | string;
+  /** 1–300. Default 50. */
+  pageSize?: number;
+  eventType?: string;
+  transactionId?: string;
+}
+
+/**
+ * Query for `GET /v1/notifications/webhooks-events` (pure). `start_time` and `end_time` are always both sent, in
+ * second-precision UTC (`YYYY-MM-DDTHH:MM:SSZ`): the sandbox refused a millisecond `toISOString()` start_time with no
+ * end_time (400 VALIDATION_ERROR) and accepted this form (200), observed 2026-10-28.
+ */
+export function webhookEventsQuery(input: ListWebhookEventsInput, now: Date = new Date()): Record<string, string | number> {
+  const pageSize = input.pageSize ?? 50;
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 300) throw new RangeError('pageSize must be 1–300');
+  const start = toRfc3339(input.startTime);
+  const end = toRfc3339(input.endTime ?? now);
+  if (Date.parse(end) < Date.parse(start)) throw new RangeError('endTime is before startTime');
+  return {
+    start_time: start,
+    end_time: end,
+    page_size: pageSize,
+    ...(input.eventType ? { event_type: input.eventType } : {}),
+    ...(input.transactionId ? { transaction_id: input.transactionId } : {}),
+  };
+}
+
 export class WebhooksApi {
   constructor(private readonly client: PayPalClient) {}
 
@@ -73,6 +113,15 @@ export class WebhooksApi {
       rawBody: body,
     });
     return res.data.verification_status === 'SUCCESS' ? { verified: true, status: 'SUCCESS' } : { verified: false, status: 'FAILURE', reason: 'paypal_failure' };
+  }
+
+  /** Events PayPal emitted for this app in a time window (newest first, one page). */
+  async listEvents(input: ListWebhookEventsInput): Promise<WebhookEventSummary[]> {
+    const res = await this.client.request<{ events?: Array<{ id: string; event_type: string; create_time?: string; resource?: unknown }> }>({
+      path: '/v1/notifications/webhooks-events',
+      query: webhookEventsQuery(input),
+    });
+    return (res.data.events ?? []).map((e) => ({ id: e.id, eventType: e.event_type, createTime: e.create_time, resource: e.resource, raw: e }));
   }
 
   /**

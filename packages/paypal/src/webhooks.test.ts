@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { startFake, type FakeHarness } from '../test/fake.js';
 import { applyItemStatus, type PayoutItemStatus } from './payout-status.js';
 import { parseWebhookEvent, WebhookParseError } from './webhook-events.js';
-import { buildVerifyRequestBody } from './webhooks.js';
+import { buildVerifyRequestBody, webhookEventsQuery } from './webhooks.js';
 
 interface Delivery {
   headers: Record<string, string>;
@@ -140,5 +140,31 @@ describe('parseWebhookEvent', () => {
     expect(() => parseWebhookEvent('not json')).toThrow(WebhookParseError);
     expect(() => parseWebhookEvent({ id: 'WH-1', event_type: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED', resource: { nope: true } })).toThrow(/unexpected resource shape/);
     expect(parseWebhookEvent({ id: 'WH-2', event_type: 'CUSTOMER.DISPUTE.CREATED', resource: {} }).kind).toBe('unknown');
+  });
+});
+
+describe('listEvents (GET /v1/notifications/webhooks-events)', () => {
+  it('builds second-precision start_time AND end_time (the sandbox refused milliseconds without end_time, 2026-10-28)', () => {
+    const q = webhookEventsQuery({ startTime: new Date('2026-10-28T10:00:00.789Z') }, new Date('2026-10-28T11:22:33.456Z'));
+    expect(q).toEqual({ start_time: '2026-10-28T10:00:00Z', end_time: '2026-10-28T11:22:33Z', page_size: 50 });
+    expect(webhookEventsQuery({ startTime: '2026-10-28T10:00:00.1Z', endTime: '2026-10-28T10:05:00Z', pageSize: 100, eventType: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED' })).toMatchObject({ end_time: '2026-10-28T10:05:00Z', page_size: 100, event_type: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED' });
+    expect(() => webhookEventsQuery({ startTime: '2026-10-28T10:00:00Z', endTime: '2026-10-28T09:00:00Z' })).toThrow(RangeError);
+    expect(() => webhookEventsQuery({ startTime: new Date(), pageSize: 301 })).toThrow(RangeError);
+  });
+
+  it('lists events from a fake that enforces the sandbox format', async () => {
+    const since = new Date(Date.now() - 60_000);
+    await runClaimStory(); // has a Venmo item: run it before turning on realism, which would refuse the batch
+    h.fake.config.sandboxRealism = true;
+    try {
+      const events = await h.paypal.webhooks.listEvents({ startTime: since, endTime: new Date(Date.now() + 60_000), pageSize: 100 });
+      expect(events.map((e) => e.eventType)).toContain('PAYMENT.PAYOUTS-ITEM.SUCCEEDED');
+      expect(events[0]).toMatchObject({ id: expect.any(String), createTime: expect.any(String) });
+      const call = h.calls.find((c) => c.url.includes('/v1/notifications/webhooks-events'))!;
+      expect(new URL(call.url).searchParams.get('start_time')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+      expect(new URL(call.url).searchParams.get('end_time')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    } finally {
+      h.fake.config.sandboxRealism = false;
+    }
   });
 });
