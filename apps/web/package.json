@@ -40,7 +40,7 @@
     "@neighborline/fake-paypal": "workspace:*",
     "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^22.9.0",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "tailwindcss": "^4.3.3",
