@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { REPO, StateStore, rel, writeOut, type StepResult } from '../lib/context.js';
 import { paypalTarget, SANDBOX_URL } from '../lib/env.js';
 import { renderEvidence, type SpikeData } from '../lib/evidence.js';
+import { findExtras } from '../lib/spike/extras.js';
 import { updatePaypalNotes, writeDuplicateFixture } from '../lib/spike/observed.js';
 import { spikeStepResult } from '../lib/spike/result.js';
 import { findSecrets } from './secrets.js';
@@ -75,8 +76,30 @@ export interface IngestResult {
   outputs: string[];
 }
 
+/**
+ * Data captured by a bundle that predates `isReportingNotReady` recorded Transaction Search's 404 "Data for the given
+ * start date is not available." (a new account's reporting lag) as `failed`. Re-read that same recorded response with
+ * today's rule: status `pending`, every item in `pendingLag`, the raw error kept as-is. Anything else is untouched.
+ */
+export function reclassifyReportingLag(d: SpikeData): SpikeData {
+  const r = d.reconcile;
+  const e = r?.error as { status?: number; name?: string; message?: string } | undefined;
+  if (!r || r.status !== 'failed' || !e || e.status !== 404) return d;
+  if (e.name !== 'INVALID_REQUEST' && !/not (yet )?available/i.test(e.message ?? '')) return d;
+  const ids = (d.batches ?? []).flatMap((b) => (b.items ?? []).map((i) => i.payoutItemId));
+  const summary = `PayPal's reporting isn't ready yet (Transaction Search: "${e.message ?? 'not available'}"); ${ids.length} item(s) pending, try again later`;
+  d.reconcile = { ...r, pendingLag: ids, status: 'pending', summary };
+  const part = d.parts.reconcile;
+  if (part) d.parts.reconcile = { ...part, status: 'pending', note: `${ids.length} item(s) inside PayPal's Transaction Search reporting lag (recorded 404 re-read as pending at ingest)` };
+  return d;
+}
+
 export function ingestSpike(text: string, o: { repo: string; out: string; now?: () => Date }): IngestResult {
-  const d = parseSpikeJson(text);
+  const d = reclassifyReportingLag(parseSpikeJson(text));
+  if (d.target === 'sandbox') {
+    const extras = findExtras(o.repo, d.runId);
+    if (extras) d.extras = extras;
+  }
   const ctx = { repo: o.repo, out: o.out };
   const state = new StateStore(join(o.out, 'state.json'));
   const prev = state.get<Partial<SpikeData>>('sandbox-spike');

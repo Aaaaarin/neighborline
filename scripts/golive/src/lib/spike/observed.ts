@@ -44,7 +44,7 @@ export function observedBlock(d: SpikeData): string {
     `- **Item outcomes:** ${items.map((i) => `${i.wallet} ${i.recipientType}${i.receiver.startsWith('@') ? ' (with @)' : ''} → ${i.status}${i.errorName ? ` (${i.errorName})` : ''}`).join('; ') || 'none'}.`,
     d.phone ? `- **PHONE recipient:** ${d.phone.createError ? `refused, HTTP ${d.phone.createError.status} ${d.phone.createError.name}` : `accepted (${d.phone.batchStatus})`}.` : '',
     neg.length ? `- **Negative-testing statuses:** ${neg.map((n) => `${n.code} → ${n.status} ${n.name ?? ''}`.trim()).join(', ')}.` : '',
-    d.reconcile ? `- **Transaction Search:** ${d.reconcile.matched.length} of ${items.length} items matched by \`transaction_id\`; lag ${d.reconcile.matched.map((m) => m.lagMinutes).filter((x) => x !== null).join('/') || '?'} min; ${d.reconcile.pendingLag.length} pending at ${d.reconcile.checkedAt}.` : '',
+    d.reconcile ? `- **Transaction Search:** ${d.reconcile.matched.length} of ${items.length} items matched by \`transaction_id\`${d.reconcile.matched.length ? `; lag ${d.reconcile.matched.map((m) => m.lagMinutes).filter((x) => x !== null).join('/') || '?'} min` : ''}; ${d.reconcile.pendingLag.length} pending at ${d.reconcile.checkedAt}${d.reconcile.status === 'pending' && !d.reconcile.matched.length ? ' (PayPal\'s reporting not ready yet for a new account)' : ''}.` : '',
     END,
   ].filter((l) => l !== '');
   return lines.join('\n');

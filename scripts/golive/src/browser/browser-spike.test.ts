@@ -15,7 +15,7 @@ import { REPO } from '../lib/context.js';
 import type { SpikeData } from '../lib/evidence.js';
 import { tmp } from '../test-helpers.js';
 import { buildBrowserBundle, MAX_BYTES } from './build.js';
-import { ingestSpike, parseIngestArgs, parseSpikeJson } from './ingest.js';
+import { ingestSpike, parseIngestArgs, parseSpikeJson, reclassifyReportingLag } from './ingest.js';
 import { findSecrets } from './secrets.js';
 
 if (!process.env.PLAYWRIGHT_BROWSERS_PATH && existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
@@ -191,5 +191,49 @@ describe('golive:ingest', () => {
     expect(parseIngestArgs(['--', '/tmp/a.json', '--out', 'o'], '/w')).toEqual({ file: '/tmp/a.json', out: '/w/o' });
     expect(() => parseIngestArgs([], '/w')).toThrow(/usage/);
     expect(() => parseIngestArgs(['a', 'b'], '/w')).toThrow(/one file/);
+  });
+});
+
+describe('golive:ingest reporting lag', () => {
+  it('re-reads a recorded Transaction Search 404 "not available" (real sandbox, 2026-10-28) as pending, keeping the raw error', () => {
+    const raw = readFileSync(join(REPO, 'docs/evidence/raw/sandbox-spike-20261028t090256.json'), 'utf8');
+    const d = reclassifyReportingLag(parseSpikeJson(raw));
+    const ids = (d.batches ?? []).flatMap((b) => (b.items ?? []).map((i) => i.payoutItemId));
+    expect(ids.length).toBeGreaterThan(0);
+    expect(d.reconcile?.status).toBe('pending');
+    expect(d.reconcile?.pendingLag).toEqual(ids);
+    expect(d.reconcile?.error).toMatchObject({ status: 404, name: 'INVALID_REQUEST' });
+    expect(d.parts.reconcile?.status).toBe('pending');
+  });
+
+  it('leaves other reconcile failures alone', () => {
+    const raw = JSON.parse(readFileSync(join(REPO, 'docs/evidence/raw/sandbox-spike-20261028t090256.json'), 'utf8'));
+    raw.reconcile.error = { status: 500, name: 'INTERNAL_SERVICE_ERROR', message: 'boom' };
+    const d = reclassifyReportingLag(parseSpikeJson(JSON.stringify(raw)));
+    expect(d.reconcile?.status).toBe('failed');
+    expect(d.parts.reconcile?.status).toBe('failed');
+  });
+});
+
+describe('golive:ingest sandbox extras', () => {
+  it('attaches the hand-check file with the same runId and renders it truthfully', async () => {
+    const { findExtras, renderExtras, cancelOutcome } = await import('../lib/spike/extras.js');
+    const { renderEvidence, evidenceFacts } = await import('../lib/evidence.js');
+    const d = reclassifyReportingLag(parseSpikeJson(readFileSync(join(REPO, 'docs/evidence/raw/sandbox-spike-20261028t090256.json'), 'utf8')));
+    const x = findExtras(REPO, d.runId);
+    expect(x?.orderCapture?.capture.captureId).toBe('6D574228TK475554M');
+    d.extras = x;
+    const md = renderEvidence(d);
+    expect(md).toContain('## Checked by hand in the same session');
+    expect(md).toContain('`ORDER_ALREADY_CAPTURED`');
+    expect(md).not.toContain('PayPal + Venmo in one batch');
+    const f = evidenceFacts(d);
+    expect(f.captureId).toBe('6D574228TK475554M');
+    expect(f.cancel).toBe('paypal-5xx'); // never "cancelled back"
+    expect(f.phone).toBe('accepted');
+    expect(f.plans).toBe(3);
+    expect(cancelOutcome({ after: 'RETURNED' })).toBe('cancelled');
+    expect(renderExtras({ runId: 'r', recordedAt: 't' })).toContain('## Checked by hand in the same session');
+    expect(findExtras(REPO, 'no-such-run')).toBeUndefined();
   });
 });

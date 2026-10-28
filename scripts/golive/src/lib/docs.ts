@@ -61,6 +61,10 @@ export interface Facts {
     verifiedEventId?: string;
     duplicateOk: boolean | null;
     captureId?: string;
+    /** Outcome of cancelling the UNCLAIMED item: PayPal-side 5xx on every try is 'paypal-5xx'. */
+    cancel?: 'cancelled' | 'paypal-5xx' | 'error';
+    phone?: 'accepted' | 'refused';
+    plans?: number;
     reconciled: number;
   };
   hosted?: HostedEvidence;
@@ -87,10 +91,13 @@ export function readmeEdits(text: string, f: Facts): { text: string; edits: Arra
       s.batchId ? `batch \`${s.batchId}\`` : null,
       s.paypalSuccess ? 'PayPal-wallet item SUCCESS' : null,
       s.venmoStatuses.length ? `Venmo items ${s.venmoStatuses.join('/')}` : null,
-      s.unclaimed ? 'an unregistered email UNCLAIMED, then cancelled back' : null,
+      s.unclaimed
+        ? `an unregistered email UNCLAIMED${s.cancel === 'cancelled' ? ', then cancelled back' : s.cancel === 'paypal-5xx' ? ' (cancelling it answered PayPal-side 500s; shown as "try again")' : ''}`
+        : null,
       s.duplicateOk ? 'a reused `sender_batch_id` resolved to the original batch' : null,
       s.verifiedEventId ? `webhook \`${s.verifiedEventId}\` verified by PayPal's postback API` : null,
       s.captureId ? `a donation captured (\`${s.captureId}\`)` : null,
+      s.plans ? `${s.plans} monthly-giving plans created` : null,
       s.reconciled ? `${s.reconciled} items matched in Transaction Search` : null,
     ].filter(Boolean);
     const r1 = replaceRow(t, 'Real PayPal sandbox', `| Real PayPal sandbox | **Run on ${s.date}** with \`PAYPAL_MODE=sandbox\` credentials: ${parts.join('; ')}. Ids, timestamps and statuses: [docs/SANDBOX_EVIDENCE.md](docs/SANDBOX_EVIDENCE.md) |`);
@@ -101,7 +108,7 @@ export function readmeEdits(text: string, f: Facts): { text: string; edits: Arra
       : s.venmoStatuses.length
         ? `Observed on ${s.date}: ${s.venmoStatuses.join(' / ')} ([evidence](docs/SANDBOX_EVIDENCE.md))`
         : 'Not observed in the sandbox run';
-    const r2 = replaceRow(t, 'Venmo payouts in sandbox', `| Venmo payouts in sandbox | ${venmo}. Sandbox also rejects \`recipient_type: PHONE\` |`);
+    const r2 = replaceRow(t, 'Venmo payouts in sandbox', `| Venmo payouts in sandbox | ${venmo}${s.phone === 'accepted' ? '. Sandbox accepted \`recipient_type: PHONE\`, which the docs list as unsupported' : s.phone === 'refused' ? '. Sandbox refused \`recipient_type: PHONE\`' : ''} |`);
     t = r2.text;
     edits.push({ rule: 'README Sandbox reality: Venmo row', applied: r2.applied });
   }

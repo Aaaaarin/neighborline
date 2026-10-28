@@ -3,7 +3,7 @@
  * against the real sandbox on key day: webhook subscriptions, plans, payouts, duplicate, negative values, Orders,
  * a captured + verified webhook delivery, Transaction Search, evidence, and a resumed second run.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createFakePayPal, type FakePayPal } from '@neighborline/fake-paypal';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -27,6 +27,8 @@ const steps = [preflight, sandboxSetup, sandboxSpike];
 
 describe('PayPal steps against the fake', () => {
   it('set up, spike, write evidence; a second run resumes without paying twice', async () => {
+    const fixtureDir = join(REPO, 'packages/paypal/src/fixtures/duplicate-sender-batch');
+    const fixturesBefore = existsSync(fixtureDir) ? snapshotDir(fixtureDir) : '';
     const out = tmp();
     const capturePort = await freePort();
     const env = fakePaypalEnv(fake.url, {
@@ -82,7 +84,8 @@ describe('PayPal steps against the fake', () => {
     expect(md).not.toContain('sb-lan47@');
     expect(md).not.toMatch(/EPayouts|EMain/);
     // A fake run never touches the repo's PayPal notes or fixtures.
-    expect(existsSync(join(REPO, 'packages/paypal/src/fixtures/duplicate-sender-batch', `sandbox-${spike.startedAt.slice(0, 10)}.json`))).toBe(false);
+    // (Compared before/after: a real sandbox run on the same day legitimately leaves its own fixture there.)
+    expect(existsSync(fixtureDir) ? snapshotDir(fixtureDir) : '').toBe(fixturesBefore);
 
     // Second run: everything resumes; no new batch is created.
     const batchesBefore = fake.state.batches.size;
@@ -149,3 +152,14 @@ describe('Transaction Search on a brand-new account (observed 2026-10-28)', () =
     }
   });
 });
+
+/** File names, sizes and mtimes in a directory: equal before/after means nothing was written there. */
+function snapshotDir(dir: string): string {
+  return readdirSync(dir)
+    .sort()
+    .map((n) => {
+      const st = statSync(join(dir, n));
+      return `${n}:${st.size}:${st.mtimeMs}`;
+    })
+    .join('|');
+}
