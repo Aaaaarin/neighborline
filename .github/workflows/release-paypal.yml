@@ -34,7 +34,8 @@ env:
 jobs:
   release:
     name: Test, pack and publish
-    runs-on: ubuntu-latest
+    # ubuntu-latest moved to Ubuntu 26 (2026-10-19); playwright install --with-deps does not support it yet.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: npm
     permissions:
