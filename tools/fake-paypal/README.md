@@ -15,6 +15,7 @@ WEBHOOK_TARGET_URL=http://localhost:3000/api/webhooks/paypal pnpm fake-paypal
 | `FAKE_PAYPAL_WEBHOOK_ID` | `0FAKEWEBHOOK0NEIGHBORLINE01` | Pass it as `webhook_id` when verifying |
 | `FAKE_PAYPAL_PROCESSING_DELAY_MS` | `1500` | Time from batch PENDING to final items. PROCESSING starts at ⅓ of it |
 | `FAKE_PAYPAL_AUTO_PROCESS` | `true` | If `false`, batches wait for `POST /__fake/batches/:id/process` |
+| `FAKE_PAYPAL_CORS` | `false` | If `1`/`true`, answer CORS preflights and allow any origin (a browser page calling the fake; scripts/golive browser spike) |
 | `FAKE_PAYPAL_REPORTING_LAG_MS` | `0` | Transaction Search visibility lag. Real PayPal: up to 3h |
 | `FAKE_PAYPAL_REJECT_PHONE` | `false` | Mimics real sandbox, which rejects `recipient_type: PHONE` |
 | `FAKE_PAYPAL_CLIENT_ID` / `_SECRET` | — | If set, only these credentials get tokens |

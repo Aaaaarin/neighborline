@@ -39,6 +39,19 @@ export interface FakePayPal {
   close(): Promise<void>;
 }
 
+/** Permissive CORS for FAKE_PAYPAL_CORS=1: any origin, the methods and headers PayPal clients send, debug id readable. */
+export function corsHeaders(h: import('node:http').IncomingHttpHeaders): Record<string, string> {
+  const origin = headerValue(h, 'origin');
+  const asked = headerValue(h, 'access-control-request-headers');
+  return {
+    'access-control-allow-origin': origin ?? '*',
+    ...(origin ? { vary: 'Origin' } : {}),
+    'access-control-allow-methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+    'access-control-allow-headers': asked ?? 'authorization, content-type, accept, paypal-request-id, paypal-mock-response, prefer, paypal-auth-assertion, paypal-partner-attribution-id',
+    'access-control-expose-headers': 'paypal-debug-id, retry-after',
+  };
+}
+
 export async function createFakePayPal(options: FakePayPalOptions = {}): Promise<FakePayPal> {
   const { port = 0, host = '127.0.0.1', seed, now: nowOpt, ...cfg } = options;
   const config: FakeConfig = { ...DEFAULT_CONFIG, ...cfg };
@@ -110,6 +123,12 @@ export async function createFakePayPal(options: FakePayPalOptions = {}): Promise
   const server: Server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://fake.local');
     const method = (req.method ?? 'GET').toUpperCase();
+    const cors = config.cors ? corsHeaders(req.headers) : {};
+    if (config.cors && method === 'OPTIONS') {
+      res.writeHead(204, { ...cors, 'access-control-max-age': '600' });
+      res.end();
+      return;
+    }
     let reply: Reply;
     try {
       const rawBody = await readBody(req);
@@ -138,7 +157,7 @@ export async function createFakePayPal(options: FakePayPalOptions = {}): Promise
         reply = { status: 500, body: errorBody('INTERNAL_SERVER_ERROR') };
       }
     }
-    const headers: Record<string, string> = { 'paypal-debug-id': ids.debugId(), ...(reply.headers ?? {}) };
+    const headers: Record<string, string> = { 'paypal-debug-id': ids.debugId(), ...(reply.headers ?? {}), ...cors };
     if (reply.raw) {
       res.writeHead(reply.status, { ...headers, 'content-type': reply.raw.contentType });
       res.end(reply.raw.text);

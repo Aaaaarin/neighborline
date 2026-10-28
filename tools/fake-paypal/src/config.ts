@@ -27,6 +27,11 @@ export interface FakeConfig {
   signingSecret: string;
   /** Webhook delivery attempts per event (real PayPal: up to 25 over 3 days). */
   webhookMaxAttempts: number;
+  /**
+   * Answer CORS preflights and add permissive Access-Control-* headers, so a browser page on another origin can call
+   * the fake (scripts/golive's browser spike test). Off by default; FAKE_PAYPAL_CORS=1.
+   */
+  cors: boolean;
   log: boolean;
 }
 
@@ -40,6 +45,7 @@ export const DEFAULT_CONFIG: FakeConfig = {
   unclaimedReceivers: ['rosa.m.delgado@example.com'],
   signingSecret: 'fake-paypal-local-signing-key',
   webhookMaxAttempts: 3,
+  cors: false,
   log: false,
 };
 
@@ -61,6 +67,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Partial<Fak
   if (env.FAKE_PAYPAL_UNCLAIMED_RECEIVERS !== undefined) {
     out.unclaimedReceivers = env.FAKE_PAYPAL_UNCLAIMED_RECEIVERS.split(',').map((r) => r.trim()).filter(Boolean);
   }
+  const cors = bool(env.FAKE_PAYPAL_CORS);
+  if (cors !== undefined) out.cors = cors;
   const auto = bool(env.FAKE_PAYPAL_AUTO_PROCESS);
   if (auto !== undefined) out.autoProcess = auto;
   if (env.FAKE_PAYPAL_CLIENT_ID && env.FAKE_PAYPAL_CLIENT_SECRET) {
