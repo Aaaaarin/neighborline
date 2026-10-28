@@ -130,6 +130,25 @@ describe('background jobs', () => {
     await expect(ops().reconcileWindow({ startDate: end.toISOString(), endDate: start.toISOString(), lagHours: 0, idempotencyKey: 'x' })).rejects.toMatchObject({ status: 400 });
   });
 
+  it('Transaction Search "Data for the given start date is not available." (a new account) is reporting lag: pending, not a failure', async () => {
+    h.fake.config.reportingNotReady = true;
+    try {
+      const end = new Date(Date.now() + 60_000);
+      const start = new Date(end.getTime() - 86_400_000);
+      const before = (await listAudit(await db())).filter((e) => e.action === 'reconcile.window').length;
+      const r = await ops().reconcileWindow({ startDate: start.toISOString(), endDate: end.toISOString(), lagHours: 3, idempotencyKey: 'reconcile:not-ready' });
+      expect(r).toMatchObject({ reportingNotReady: true, matched: 0, mismatches: [], fetchedTransactions: 0 });
+      expect(r.checked).toBeGreaterThan(0);
+      expect(r.pendingLag).toHaveLength(r.checked);
+      expect((await listAudit(await db())).filter((e) => e.action === 'reconcile.window')).toHaveLength(before); // a later retry still runs
+      const organizer = await h.engine.reconcile();
+      expect(organizer).toMatchObject({ reportingPending: true, matched: 0, mismatched: 0 });
+      expect(organizer.note).toContain('PayPal’s reporting isn’t ready yet; try again later.');
+    } finally {
+      h.fake.config.reportingNotReady = false;
+    }
+  });
+
   it('report refresh: regenerates when forced or due, otherwise answers not_due quickly', async () => {
     const forced = await ops().reportRefresh({ minNewPayouts: 5, force: true, reason: 'manual' });
     expect(forced).toMatchObject({ regenerated: true, reportVersion: 1 });

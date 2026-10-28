@@ -18,7 +18,7 @@ import { listAlerts } from './queries';
 import { railSettings, withRailResolution } from './rail';
 import { DECLINE_REASON_EN, questionFor } from './conversation';
 import { splitUntranslated } from '../../untranslated';
-import { sandboxDemoReceiver, standInNoteFromDestination } from './sandbox-standin';
+import { SANDBOX_VENMO_NOTICE, sandboxDemoReceiver, standInNoteFromDestination } from './sandbox-standin';
 
 export function organizerView(o: DomainOrganizer): Organizer {
   const handle = o.handles.find((h) => h.startsWith('@')) ?? o.handles[0] ?? '';
@@ -140,12 +140,16 @@ export async function requestView(ctx: Ctx, r: HelpRequest, cache: { policy?: Po
   };
 }
 
-/** A sandbox /demo run filed with a stand-in destination (sandbox-standin.ts): the sentence every screen shows. */
-function standInView(ctx: Ctx, r: HelpRequest): Pick<RequestView, 'sandboxStandIn'> {
+/**
+ * A request filed with a sandbox stand-in destination (sandbox-standin.ts): the sentence every screen shows. Or, in
+ * sandbox without a stand-in, a Venmo destination the approver will refuse: the card says so up front.
+ */
+function standInView(ctx: Ctx, r: HelpRequest): Pick<RequestView, 'sandboxStandIn' | 'sandboxVenmoNotice'> {
   const s = ctx.meta.get(r.id)?.standIn;
   if (s && r.payoutDestination?.value === s.destination.value) return { sandboxStandIn: { note: s.note, scripted: s.scripted } };
   const note = standInNoteFromDestination(r.id, r.payoutDestination, sandboxDemoReceiver(ctx.env, ctx.cfg.paypalMode));
-  return note ? { sandboxStandIn: { note } } : {};
+  if (note) return { sandboxStandIn: { note } };
+  return ctx.cfg.paypalMode === 'sandbox' && r.payoutDestination?.wallet === 'VENMO' ? { sandboxVenmoNotice: SANDBOX_VENMO_NOTICE } : {};
 }
 
 export async function listRequestViews(ctx: Ctx, filter?: { status?: RequestStatus[] }): Promise<RequestView[]> {

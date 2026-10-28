@@ -5,7 +5,7 @@ import { Play, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Organizer, PlayMode, RuntimeModes, ScenarioId } from '@/lib/types';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { cx } from '@/lib/format';
 import { Chip } from '../RailChips';
 import { Wordmark } from '../Wordmark';
@@ -351,7 +351,7 @@ export function Stage({
 
 /** Real sandbox: nobody can claim for the neighbor, so say so and let an organizer return the money. */
 function SandboxUnclaimed({ name, batchId, itemId, standIn }: { name: string; batchId: string; itemId: string; standIn: boolean }) {
-  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error' | 'retry'>('idle');
   return (
     <div data-testid="sandbox-unclaimed" className="mt-4 rounded-xl border border-dashed border-rule-strong p-3 text-[0.88rem] text-ink-2">
       <p>
@@ -367,14 +367,20 @@ function SandboxUnclaimed({ name, batchId, itemId, standIn }: { name: string; ba
           try {
             await api.cancelItem(batchId, itemId);
             setState('done');
-          } catch {
-            setState('error');
+          } catch (err) {
+            // PayPal's cancel endpoint can fail on its side (the sandbox answered 500 twice): that is "try again", not a failure.
+            setState(err instanceof ApiError && err.code === 'paypal_unknown' ? 'retry' : 'error');
           }
         }}
         className="mt-2 min-h-10 rounded-full border border-rule-strong px-4 text-ink hover:bg-sunk disabled:opacity-60"
       >
-        {state === 'done' ? 'Cancelled · money returned' : state === 'error' ? 'Couldn’t cancel — try again' : 'Cancel unclaimed payout'}
+        {state === 'done' ? 'Cancelled · money returned' : state === 'retry' ? 'Try cancelling again' : state === 'error' ? 'Couldn’t cancel — try again' : 'Cancel unclaimed payout'}
       </button>
+      {state === 'retry' && (
+        <p data-testid="cancel-retry" role="status" className="mt-2 text-ink-2">
+          PayPal couldn’t cancel right now; try again in a minute. Trying again is safe: a payout can only be cancelled once.
+        </p>
+      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@ import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { redactDeep, redactPII, type PayoutItemStatus } from '@neighborline/core';
 import { appendAudit, auditLog, donations, getRequest, listItems, payoutItems, recordNotification, type Db } from '@neighborline/db';
-import { reconcile as reconcileItems } from '@neighborline/paypal';
+import { isReportingNotReady, reconcile as reconcileItems } from '@neighborline/paypal';
 import { notifyKeyFor } from '@neighborline/agents';
 import type {
   OrganizerAlertRequest,
@@ -79,6 +79,11 @@ export async function reconcileWindow(ctx: BaseCtx, cache: ReconcileCache, req: 
   try {
     txns = await ctx.paypal.reporting.searchTransactions({ startDate: start, endDate: end });
   } catch (err) {
+    if (isReportingNotReady(err)) {
+      // Reporting lag (a brand-new account): every item in the window is pending, nothing is a mismatch. Not a failure, so no retry storm.
+      log.info('internal.reconcile.reporting_not_ready', { window: `${start.toISOString()}/${end.toISOString()}`, items: local.length });
+      return { window: { startDate: start.toISOString(), endDate: end.toISOString() }, checked: local.length, matched: 0, mismatches: [], pendingLag: local.map((r) => ({ itemId: r.id, paidAt: r.createdAt.toISOString() })), fetchedTransactions: 0, reportingNotReady: true };
+    }
     log.warn('internal.reconcile.paypal_failed', { error: err instanceof Error ? err.message : String(err) });
     throw new HttpError(502, 'PayPal Transaction Search failed');
   }

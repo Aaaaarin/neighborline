@@ -53,6 +53,11 @@ export interface ReconcileResponse {
   /** Local items too recent to be visible in Transaction Search yet. */
   pendingLag: Array<{ itemId: string; paidAt: string }>;
   fetchedTransactions: number;
+  /**
+   * Transaction Search had no data for this window yet (404 INVALID_REQUEST "Data for the given start date is not
+   * available.", a brand-new account): reporting lag, not a failure. Every item is in `pendingLag`.
+   */
+  reportingNotReady?: true;
 }
 
 /** POST /api/internal/unclaimed-sweep — READ-ONLY list of payout items currently UNCLAIMED. Decisions are made in the workflow. */

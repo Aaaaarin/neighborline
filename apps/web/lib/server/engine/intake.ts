@@ -41,7 +41,7 @@ import { nowIso } from './events';
 import { demoSpentTodayCents } from './queries';
 import { appealAck, categoryLabelIn, householdAnswer, questionFor } from './conversation';
 import { getThread } from './views';
-import { swapToStandIn } from './sandbox-standin';
+import { isStandInDestination, sandboxDemoReceiver, swapToStandIn } from './sandbox-standin';
 import { ui } from '../../i18n';
 
 export async function startIntake(
@@ -316,7 +316,9 @@ export interface Rail {
 export async function railFor(ctx: Ctx, req: HelpRequest, policy: Policy, dest: PayoutDestination): Promise<Rail> {
   const now = new Date();
   const phone = req.contact?.phone ?? req.contact?.whatsapp;
-  const history = (await getHistoryForDestination(ctx.db, dest, 30, { groupId: req.groupId, ...(phone ? { phone } : {}) })).filter((h) => !isDemoId(h.requestId));
+  // Sandbox stand-ins: earlier payouts to the one shared stand-in account are other people's (the approver's recheck agrees).
+  const standIn = sandboxDemoReceiver(ctx.env, ctx.cfg.paypalMode);
+  const history = (await getHistoryForDestination(ctx.db, dest, 30, { groupId: req.groupId, ...(phone ? { phone } : {}) })).filter((h) => !isDemoId(h.requestId) && !isStandInDestination(h.destination, standIn));
   const today = Math.max(0, (await getTodaySpentCents(ctx.db, req.groupId)) - (await demoSpentTodayCents(ctx.db, req.groupId)));
   const extraction = req.extracted ?? { category: 'other' };
   const amount = computeAmount({ policy, extraction, history, todaySpentCents: today, destination: dest, ...(phone ? { phone } : {}), now, requestId: req.id });

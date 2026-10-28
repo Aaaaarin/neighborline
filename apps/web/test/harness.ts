@@ -33,9 +33,10 @@ export async function startHarness(
     outbound?: OutboundNotifier | null;
     /**
      * Run the engine in PAYPAL_MODE=sandbox against the fake (PAYPAL_BASE_URL → fake-paypal, no claim control):
-     * the closest stand-in for the real sandbox. `env` adds e.g. SANDBOX_DEMO_RECEIVER_EMAIL.
+     * the closest stand-in for the real sandbox. `env` adds e.g. SANDBOX_DEMO_RECEIVER_EMAIL (the approver gets it
+     * too). `realism` turns on the fake's sandboxRealism (any Venmo item fails the whole batch, as observed).
      */
-    sandbox?: { env?: Record<string, string> };
+    sandbox?: { env?: Record<string, string>; realism?: boolean };
   } = {},
 ): Promise<Harness> {
   const deliveries: Harness['deliveries'] = [];
@@ -58,14 +59,19 @@ export async function startHarness(
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
   const { port } = server.address() as AddressInfo;
-  const fake = await createFakePayPal({ webhookTargetUrl: `http://127.0.0.1:${port}/api/webhooks/paypal`, processingDelayMs: opts.processingDelayMs ?? 300 });
+  const fake = await createFakePayPal({ webhookTargetUrl: `http://127.0.0.1:${port}/api/webhooks/paypal`, processingDelayMs: opts.processingDelayMs ?? 300, ...(opts.sandbox?.realism ? { sandboxRealism: true } : {}) });
   const payoutsClient = new PayPalClient({ clientId: 'fake-client-id', clientSecret: 'fake-client-secret', baseUrl: fake.url });
   const approver: RunningApprover = await startApproverServer({
     db: async () => (await (engine as unknown as { state: Promise<{ ctx: { db: Db } }> }).state).ctx.db,
     payouts: new PayoutsApi(payoutsClient),
     webhooks: new WebhooksApi(payoutsClient),
-    config: { requirePasskeys: false, demoMode: true, webhookId: fake.config.webhookId },
-    env: { DEMO_MODE: 'true' },
+    config: {
+      requirePasskeys: false,
+      demoMode: (opts.sandbox?.env?.DEMO_MODE ?? 'true') === 'true',
+      webhookId: fake.config.webhookId,
+      ...(opts.sandbox ? { paypalMode: 'sandbox' as const, standInReceiver: opts.sandbox.env?.DEMO_MODE === 'false' ? undefined : opts.sandbox.env?.SANDBOX_DEMO_RECEIVER_EMAIL } : {}),
+    },
+    env: { DEMO_MODE: opts.sandbox?.env?.DEMO_MODE ?? 'true' },
     log: silentLogger,
     secret: TEST_APPROVER_SECRET,
     health: { paypalMode: 'fake', credentials: 'fake', requirePasskeys: false, demoMode: true },

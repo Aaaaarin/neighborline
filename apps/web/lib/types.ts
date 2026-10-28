@@ -186,6 +186,11 @@ export interface RequestView {
    * (lib/server/engine/sandbox-standin.ts). `note` is the sentence every screen shows.
    */
   sandboxStandIn?: { note: string; scripted?: { wallet: 'PAYPAL' | 'VENMO'; value: string } };
+  /**
+   * PAYPAL_MODE=sandbox, Venmo destination, no stand-in: PayPal's sandbox refuses Venmo, so the approver will refuse
+   * this (code `wallet_unsupported`). The card says so before anyone signs.
+   */
+  sandboxVenmoNotice?: string;
 }
 
 export interface AppealView {
@@ -428,6 +433,12 @@ export interface ReconcileResult {
   drift?: number;
   at: string;
   simulated: boolean;
+  /**
+   * PayPal's Transaction Search had no data for the window yet (404 "Data for the given start date is not available.",
+   * a brand-new sandbox account): reporting lag, nothing compared, every item stays pending. `note` says so.
+   */
+  reportingPending?: true;
+  note?: string;
 }
 
 /* ---------- donations ---------- */

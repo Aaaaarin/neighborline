@@ -1,11 +1,12 @@
 /** /ledger: every payout item from the db, plus reconcile against PayPal Transaction Search. */
 import type { Lang } from '@neighborline/core';
 import { getActivePolicy, latestReconcileRun, listItems, listRequests, saveReconcileRun, type ReconcileItemOutcome } from '@neighborline/db';
-import { reconcile as reconcileItems, TRANSACTION_SEARCH_LAG_MS, type ReconcileReport } from '@neighborline/paypal';
+import { isReportingNotReady, reconcile as reconcileItems, TRANSACTION_SEARCH_LAG_MS, type PayPalTransaction, type ReconcileReport } from '@neighborline/paypal';
 import type { LedgerRow, LedgerView, ReconcileResult, ReconcileState } from '../../types';
 import { categoryLabelFor, type BaseCtx } from './context';
 import { allBatches, listAlerts } from './queries';
 import { loadFund } from './totals';
+import { log } from '../log';
 import { manualRecords, withRailResolution } from './rail';
 
 /** Seeded history never went through this PayPal environment, so it is labelled, not "reconciled". */
@@ -130,6 +131,9 @@ export async function buildLedger(ctx: BaseCtx, cache: ReconcileCache): Promise<
   };
 }
 
+/** Transaction Search has no data for the window yet (isReportingNotReady): what /ledger and the nightly job say. */
+export const REPORTING_NOT_READY = 'PayPal’s reporting isn’t ready yet; try again later. Nothing was compared, and every payout stays pending until it is.';
+
 /** Compare every item PayPal should know about with Transaction Search (last 30 days). */
 export async function runReconcile(ctx: BaseCtx, cache: ReconcileCache): Promise<ReconcileResult> {
   // Seeded history never reached this PayPal, and items recorded by hand or refused have no PayPal transaction.
@@ -137,7 +141,15 @@ export async function runReconcile(ctx: BaseCtx, cache: ReconcileCache): Promise
   const items = (await listItems(ctx.db)).filter((i) => !isSeeded(i.paypalItemId) && !offPayPal.has(i.batchId));
   const end = new Date();
   const start = new Date(end.getTime() - 30 * 86_400_000);
-  const txns = await ctx.paypal.reporting.searchTransactions({ startDate: start, endDate: end });
+  let txns: PayPalTransaction[];
+  try {
+    txns = await ctx.paypal.reporting.searchTransactions({ startDate: start, endDate: end });
+  } catch (err) {
+    if (!isReportingNotReady(err)) throw err;
+    // Reporting lag, not a failure: nothing to compare yet, so nothing is recorded and every item stays pending.
+    log.info('reconcile.reporting_not_ready', { items: items.length });
+    return { checked: items.length, matched: 0, mismatched: 0, drift: 0, at: end.toISOString(), simulated: ctx.cfg.paypalMode !== 'sandbox', reportingPending: true, note: REPORTING_NOT_READY };
+  }
   const report = reconcileItems(items, txns, { asOf: end, lagMs: TRANSACTION_SEARCH_LAG_MS });
   const { summary } = await recordRun(ctx, cache, report, { start, end }, 'organizer');
   return {

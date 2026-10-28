@@ -155,6 +155,11 @@ export function ApproveCard({
               {view.sandboxStandIn.scripted ? ` Rail checks ran on ${view.sandboxStandIn.scripted.value} first.` : ''}
             </p>
           )}
+          {view.sandboxVenmoNotice && (
+            <p data-testid="card-sandbox-venmo" role="note" className="mt-1 text-[0.82rem] font-medium leading-snug text-signal">
+              {view.sandboxVenmoNotice}
+            </p>
+          )}
         </div>
         {view.amountBreakdown && !block && (
           <details className="group">

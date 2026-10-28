@@ -76,7 +76,13 @@ export function redactRequestView(v: RequestView): RequestView {
         }
       : {}),
     ...(sandboxStandIn
-      ? { sandboxStandIn: { note: sandboxStandIn.note, ...(sandboxStandIn.scripted ? { scripted: { wallet: sandboxStandIn.scripted.wallet, value: maskReceiver(sandboxStandIn.scripted.value) } } : {}) } }
+      ? {
+          sandboxStandIn: {
+            // The Venmo label names the handle ("…standing in for @handle"): mask it there too.
+            note: sandboxStandIn.scripted ? sandboxStandIn.note.split(sandboxStandIn.scripted.value.replace(/^@/, '')).join(maskReceiver(sandboxStandIn.scripted.value).replace(/^@/, '')) : sandboxStandIn.note,
+            ...(sandboxStandIn.scripted ? { scripted: { wallet: sandboxStandIn.scripted.wallet, value: maskReceiver(sandboxStandIn.scripted.value) } } : {}),
+          },
+        }
       : {}),
     redacted: true,
   };

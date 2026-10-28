@@ -41,6 +41,7 @@ export function LedgerTable({ initial }: { initial: LedgerView }) {
     try {
       const r = await api.reconcile();
       setView(await api.ledger());
+      if (r.reportingPending) return setNote(r.note ?? 'PayPal’s reporting isn’t ready yet; try again later.');
       setNote(`Checked ${r.checked} items against PayPal Transaction Search: ${r.matched} matched, ${r.mismatched} mismatched${r.drift ? `, ${r.drift} with status drift or stuck pending` : ''}${r.simulated ? ' (simulated)' : ''}.`);
     } catch (e) {
       setNote(e instanceof ApiError ? e.message : 'Reconcile didn’t run. Try again.');
