@@ -1,5 +1,6 @@
 // --with-vo: narrator lines + Mrs. Lan's voice note via OpenAI gpt-4o-mini-tts (needs OPENAI_API_KEY).
 // Each line is cached by a hash of (model, voice, instructions, text), so re-runs only pay for changed lines.
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,14 +41,27 @@ export function voJobs(T) {
   });
 }
 
+/** Pauses inside a voice file ([[start, end], …] in file seconds, ≥ 0.2 s under −40 dB), for snapping caption cuts. */
+export function pausesIn(file) {
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-i', file, '-af', 'silencedetect=n=-40dB:d=0.2', '-f', 'null', '-'], { encoding: 'utf8' });
+  const out = [];
+  let open = null;
+  for (const m of r.stderr.matchAll(/silence_(start|end): (-?[\d.]+)/g)) {
+    if (m[1] === 'start') open = Math.max(0, Number(m[2]));
+    else if (open != null) out.push([open, Number(m[2])]), (open = null);
+  }
+  return out;
+}
+
 /**
- * Generates (or reuses) every line; returns { durations: {V1: s, …}, files: [{id, file, start}] }. Lines already in
+ * Generates (or reuses) every line; returns { durations: {V1: s, …}, pauses: {V1: [[s, e], …]}, files: [{id, file, start}] }. Lines already in
  * DIRS.vo (e.g. rendered by .github/workflows/voiceover.yml and downloaded) are never re-requested, so the key is only
  * needed for lines that are missing.
  */
 export async function generateVo(T) {
   const files = [];
   const durations = {};
+  const pauses = {};
   const jobs = voJobs(T);
   const missing = jobs.filter((j) => !existsSync(join(DIRS.vo, j.fileName)));
   if (missing.length && !process.env.OPENAI_API_KEY) throw new Error(`--with-vo needs OPENAI_API_KEY for ${missing.length} line(s) not in ${DIRS.vo}: ${missing.map((j) => j.fileName).join(', ')}`);
@@ -58,10 +72,11 @@ export async function generateVo(T) {
       await tts(j, file);
     }
     durations[j.id] = probeDuration(file);
+    pauses[j.id] = pausesIn(file);
     if (j.window && durations[j.id] > j.window + 0.2) log(`WARNING ${j.id}: ${durations[j.id].toFixed(2)} s is longer than its ${j.window} s window. Regenerate brisker or retime the window in timeline.json`);
     files.push({ id: j.id, file, start: j.start });
   }
-  return { durations, files };
+  return { durations, pauses, files };
 }
 
 /**

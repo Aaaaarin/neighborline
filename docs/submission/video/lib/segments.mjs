@@ -1,7 +1,7 @@
 // Builds one silent 1920×1080/30 fps segment per shot (segs/<id>.mp4) with ffmpeg.
 // Crop boxes are CSS px on the 1920×1080 stage (multiplied by the take's DPR); placements are output px.
 import { join } from 'node:path';
-import { DIRS, ffmpeg } from './common.mjs';
+import { DIRS, ffmpeg, probeDuration } from './common.mjs';
 
 export const PAPER = '0xEFF1EE';
 const ENC = ['-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', '30', '-an'];
@@ -41,9 +41,11 @@ export const LAYOUT = {
 };
 
 /** filter_complex that composes `layout` from input [0:v] (a take at `dpr`) onto a paper background. */
-function composeFilter(layout, dpr, dur, label = 'v', idleUntil = -1) {
+function composeFilter(layout, dpr, dur, label = 'v', idleUntil = -1, padEnd = 0) {
   const n = layout.parts.length;
-  const f = [`color=c=${PAPER}:s=1920x1080:r=30:d=${dur}[bg]`, `[0:v]fps=30,split=${n}${layout.parts.map((_, i) => `[p${i}]`).join('')}`];
+  // padEnd: hold the take's last frame when the shot runs past the end of the recording (a static, finished stage).
+  const pad = padEnd > 0 ? `tpad=stop_mode=clone:stop_duration=${padEnd.toFixed(3)},` : '';
+  const f = [`color=c=${PAPER}:s=1920x1080:r=30:d=${dur}[bg]`, `[0:v]${pad}fps=30,split=${n}${layout.parts.map((_, i) => `[p${i}]`).join('')}`];
   layout.parts.forEach((p, i) => {
     const s = p.src;
     const W = Math.round((s.w * p.k) / 2) * 2;
@@ -79,14 +81,18 @@ export function takeSegment(shot, take, file) {
   const layout = shot.insets?.length ? { ...base, parts: [...base.parts, ...shot.insets.map((i) => ({ border: true, ...i }))] } : base;
   // Local time at which the stage leaves idle (Play + ~0.3 s for request.created to reach the page).
   const idleUntil = take.playAt + (take.ev.created ?? 0) + 0.3 - shot.srcStart;
-  const f = composeFilter(layout, take.dpr, shot.dur, 'v', idleUntil);
+  // A shot may run up to ~0.5 s past the end of its take (Shot 8 holds the blocked stage while the VO finishes).
+  const src = join(DIRS.takes, `${take.id}.mp4`);
+  const short = shot.srcStart + shot.dur - probeDuration(src);
+  if (short > 0.6) throw new Error(`${shot.id}: runs ${short.toFixed(2)} s past the end of takes/${take.id}.mp4`);
+  const f = composeFilter(layout, take.dpr, shot.dur, 'v', idleUntil, short > -0.05 ? short + 0.1 : 0);
   let last = 'v0';
   if (shot.push) {
     const focus = layout.focus?.[shot.push.focus] ?? { x: 960, y: 540 };
     f.push(pushFilter('v0', 'v1', shot.dur, shot.push.to, { fx: focus.x / 1920, fy: focus.y / 1080 }));
     last = 'v1';
   }
-  ffmpeg(['-ss', String(shot.srcStart), '-t', String(shot.dur), '-i', join(DIRS.takes, `${take.id}.mp4`), '-filter_complex', f.join(';'), '-map', `[${last}]`, '-t', String(shot.dur), ...ENC, file]);
+  ffmpeg(['-ss', String(shot.srcStart), '-t', String(shot.dur), '-i', src, '-filter_complex', f.join(';'), '-map', `[${last}]`, '-t', String(shot.dur), ...ENC, file]);
 }
 
 /**

@@ -136,7 +136,7 @@ const raw = join(OUT, 'video_raw.mp4');
 ffmpeg(['-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', raw]);
 
 // 8. Captions: SRT (YouTube CC, committed) + ASS (burn-in, per-composition placement).
-const cues = buildCues(T, vo?.durations);
+const cues = buildCues(T, vo?.durations, vo?.pauses);
 const srt = toSrt(cues);
 writeFileSync(join(HERE, 'captions.srt'), srt);
 writeFileSync(join(OUT, 'captions.srt'), srt);

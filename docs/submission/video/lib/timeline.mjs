@@ -179,8 +179,13 @@ function twoLines(ws, maxLine) {
   return best ? best.lines : [s];
 }
 
-/** Cues for every VO line: start at the window start, run for the spoken length (measured or estimated). */
-export function buildCues(T, voDurations = {}) {
+/**
+ * Cues for every VO line: start at the window start, run for the spoken length (measured or estimated). With the
+ * measured pauses of the voice file (--with-vo), each cut between two cues of a line moves to the pause nearest its
+ * character-proportional estimate when the cue ends on punctuation (the next cue shows 0.1 s before the next phrase
+ * starts), so the words on screen are the words being spoken.
+ */
+export function buildCues(T, voDurations = {}, voPauses = {}) {
   const cues = [];
   for (const v of T.vo) {
     const spoken = voDurations[v.id] ?? v.estSeconds;
@@ -188,10 +193,21 @@ export function buildCues(T, voDurations = {}) {
     const parts = cueTexts(v.text);
     const chars = parts.map((p) => p.join(' ').length);
     const total = chars.reduce((a, b) => a + b, 0);
+    const pauses = (voPauses[v.id] ?? []).filter(([a, b]) => a > 0.3 && b < spoken - 0.1);
     let t = v.start;
+    let acc = 0;
     parts.forEach((p, i) => {
-      const d = Math.max(1.2, (span * chars[i]) / total);
-      const end = i === parts.length - 1 ? Math.max(t + 1.2, v.start + span) : t + d;
+      acc += chars[i];
+      let cut = t + Math.max(1.2, (span * chars[i]) / total);
+      const punct = /[.,;:?!]$/.exec(p.at(-1).split(' ').at(-1))?.[0];
+      if (pauses.length && punct) {
+        // Within 1.5 s of the estimate: after a full stop the longest pause (a sentence break), after a comma the nearest.
+        const est = (span * acc) / total;
+        const cands = pauses.map(([a, b]) => ({ b, len: b - a, d: Math.abs((a + b) / 2 - est) })).filter((c) => c.d < 1.5 && v.start + c.b - 0.1 > t + 1.0);
+        const pick = cands.sort((x, y) => (/[.;?!]/.test(punct) ? y.len - x.len : x.d - y.d))[0];
+        if (pick) cut = v.start + pick.b - 0.1;
+      }
+      const end = i === parts.length - 1 ? Math.max(t + 1.2, v.start + span) : cut;
       cues.push({ kind: 'vo', id: `${v.id}.${i + 1}`, start: +t.toFixed(3), end: +Math.min(end, v.end + 0.4).toFixed(3), lines: p });
       t = end;
     });
