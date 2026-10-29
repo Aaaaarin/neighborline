@@ -293,7 +293,7 @@ const STRINGS = {
     translated: "번역",
     voiceNote: "음성 메시지",
     transcribing: "말씀하신 내용을 적고 있어요…",
-    waiting: "이웃 두 명의 승인을 기다리는 중",
+    waiting: "두 명의 승인 대기 중",
     sending: "돈을 보내는 중",
     arrived: "돈이 도착했어요",
     claim: "받는 방법",
