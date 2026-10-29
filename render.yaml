@@ -112,6 +112,9 @@ services:
         value: "on"
       - key: TRUST_PROXY_HOPS
         value: "1"
+      # Tells /trust the nightly Workflows jobs exist (render.free.yaml leaves it out).
+      - key: NEIGHBORLINE_WORKFLOWS
+        value: "on"
       - key: NEIGHBORLINE_GROUP_SLUG
         value: eastside
       - key: PAYPAL_BASE_URL

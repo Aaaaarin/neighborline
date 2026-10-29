@@ -216,7 +216,9 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
         status: 'simulated',
         detail: sandboxDemoReceiver(ctx.env, ctx.cfg.paypalMode)
           ? 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. PayPal’s sandbox refuses any payout batch with a Venmo item, so on this server every request with a Venmo destination pays a PayPal sandbox account standing in for the neighbor’s Venmo, and every screen of the run says so.'
-          : 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. Whether sandbox Venmo receivers settle is unverified, so SUCCESS for Venmo is simulated.',
+          : sandbox
+            ? 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. PayPal’s sandbox refuses any payout batch with a Venmo item (observed 2026-10-28), so on this server the approval service refuses Venmo payouts up front and the organizer card says so.'
+            : 'Venmo items are sent with recipient_wallet VENMO and social_feed_privacy PRIVATE. Here the local fake PayPal settles them, so SUCCESS for Venmo is simulated; PayPal’s real sandbox refuses Venmo payouts.',
       },
       {
         label: 'Webhook signatures',
@@ -247,10 +249,13 @@ export function buildTrust(ctx: BaseCtx, group: GroupView, approver: ApproverSta
       },
       {
         label: 'Nightly reconcile against Transaction Search',
-        status: ctx.env.RENDER ? (sandbox ? 'real' : 'simulated') : 'not_yet',
-        detail: ctx.env.RENDER
+        // NEIGHBORLINE_WORKFLOWS=on is set by render.yaml (paid stack with Workflows + cron); render.free.yaml has neither.
+        status: ctx.env.RENDER && ctx.env.NEIGHBORLINE_WORKFLOWS === 'on' ? (sandbox ? 'real' : 'simulated') : 'not_yet',
+        detail: ctx.env.RENDER && ctx.env.NEIGHBORLINE_WORKFLOWS === 'on'
           ? `Scheduled on Render (Render Workflows): every night each payout item is compared with ${sandbox ? 'PayPal sandbox Transaction Search' : 'the fake PayPal’s Transaction Search'}. The ledger also has a Reconcile now button.`
-          : 'Scheduled on Render when deployed there (render.yaml, Render Workflows). This server isn’t on Render, so use Reconcile now on the ledger.',
+          : ctx.env.RENDER
+            ? 'Written as Render Workflows tasks (render.yaml), but this deployment runs the free Blueprint without Workflows or the cron job, so nothing runs nightly yet. Organizers can use Reconcile now on the ledger.'
+            : 'Scheduled on Render when deployed there (render.yaml, Render Workflows). This server isn’t on Render, so use Reconcile now on the ledger.',
       },
       phoneLine(ctx.env),
       {
