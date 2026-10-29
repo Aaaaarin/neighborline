@@ -71,7 +71,8 @@ describe('finalize-docs', () => {
     const fields = readFileSync(join(repo, 'docs/submission/DEVPOST_FIELDS.md'), 'utf8');
     expect(fields).toContain('https://nl-test.onrender.com/demo');
     expect(fields).toContain('https://youtu.be/abcdefghijk');
-    expect(fields).toContain('sb-judge@personal.example.com / judge-pass-1');
+    // No sandbox login is published (2026-10-29 decision): judges use a sandbox test card on /donate.
+    expect(fields).not.toContain('judge-pass-1');
     expect(fields).toContain('| `{HOSTED_URL}` |'); // the token table itself stays
     expect(readFileSync(join(repo, 'docs/SANDBOX_EVIDENCE.md'), 'utf8')).toContain('SBATCH0000001');
     expect(readFileSync(join(repo, 'docs/PAYPAL.md'), 'utf8')).toContain('Answered by the sandbox run of 2026-11-10');

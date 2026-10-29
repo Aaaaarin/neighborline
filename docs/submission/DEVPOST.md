@@ -5,8 +5,7 @@ technical claim is the linked file. The README's [Sandbox reality](../../README.
 [Live-mode reality](../../README.md#live-mode-reality) sections must say the same thing as this page.
 
 **Fill-in tokens** (the only placeholders left; see the checklist at the end): `{HOSTED_URL}` once Render is up,
-`{VIDEO_ID}` after the YouTube upload, `{SANDBOX_BUYER_EMAIL}` / `{SANDBOX_BUYER_PASSWORD}` for a dedicated sandbox
-personal account. If the sandbox spike lands before submission, update the two sentences marked *(sandbox)*.
+`{VIDEO_ID}` after the YouTube upload (judges pay on /donate with a sandbox test card; no login is published). If the sandbox spike lands before submission, update the two sentences marked *(sandbox)*.
 
 ---
 
@@ -269,8 +268,8 @@ Sandbox notes
 - PayPal ids on the /demo rail are labeled "Sandbox: simulated" whenever they come from our local PayPal stand-in
   rather than the real sandbox.
 - Venmo payouts: PayPal documents only a sandbox mock for Venmo, so Venmo items may use that documented mock.
-- Donations: /donate uses PayPal JS SDK buttons in sandbox. Sandbox buyer login: {SANDBOX_BUYER_EMAIL} /
-  {SANDBOX_BUYER_PASSWORD} (a dedicated sandbox personal account, never a real password).
+- Donations: /donate uses PayPal JS SDK buttons in sandbox: pick **Debit or Credit Card** and use a test card from PayPal's sandbox card generator (<https://developer.paypal.com/tools/sandbox/card-testing/>); it is fake money and no PayPal login is needed. We don't publish a
+  sandbox login.
   Without a client id configured, the page shows a clearly labeled simulated button.
 - SMS, WhatsApp and phone callbacks are not built yet. Neighborline messages the neighbor back in her thread on the web line.
 - Your runs are yours alone: they are tied to your browser, other judges can't see, approve or reset them, and they
@@ -291,7 +290,7 @@ Code to look at (5 minutes)
 ## Pre-submit checklist (owner: whoever presses Submit)
 
 - [ ] No name clash on Devpost or GitHub for "Neighborline".
-- [ ] Every fill-in token is replaced: `{HOSTED_URL}`, `{VIDEO_ID}`, `{SANDBOX_BUYER_EMAIL}`, `{SANDBOX_BUYER_PASSWORD}`.
+- [ ] Every fill-in token is replaced: `{HOSTED_URL}`, `{VIDEO_ID}`.
 - [ ] *(sandbox)* sentences match the mode the hosted demo runs in (`PAYPAL_MODE` in render.yaml) and whether the sandbox spike ran.
 - [ ] Test counts still match `pnpm test` and `playwright test --list`, and CI is green on main.
 - [ ] The hosted URL works in a private window on a phone and on a laptop, and the first load is under 3 s (no cold-start timeout).

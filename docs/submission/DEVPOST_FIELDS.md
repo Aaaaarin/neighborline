@@ -11,7 +11,6 @@ version and the sources.
 |---|---|---|
 | `{HOSTED_URL}` | the Render host, e.g. `neighborline.onrender.com` (no `https://`) | after `render.yaml` is applied ([DEPLOY.md](../DEPLOY.md)) |
 | `{VIDEO_ID}` | the YouTube id, e.g. `dQw4w9WgXcQ` | after the upload ([YOUTUBE.md](YOUTUBE.md)) |
-| `{SANDBOX_BUYER_EMAIL}` / `{SANDBOX_BUYER_PASSWORD}` | a dedicated PayPal sandbox *personal* test account | once sandbox credentials exist |
 | `{TEAM_*}` | team names and handles | before submitting |
 
 **Two statements depend on the sandbox run** and are marked *(sandbox)*. If the real PayPal sandbox spike has run by
@@ -267,7 +266,7 @@ Hosted demo: https://neighborline.onrender.com
 NOTES
 - All people, handles and the group are fictional. No real money moves.
 - PayPal ids on the /demo rail are labelled "Sandbox: simulated" when they come from our local PayPal stand-in. (sandbox)
-- Donations: /donate uses the PayPal JS SDK in sandbox. Sandbox buyer: {SANDBOX_BUYER_EMAIL} / {SANDBOX_BUYER_PASSWORD}. Without a client id the page shows a clearly labelled simulated button.
+- Donations: /donate uses the PayPal JS SDK in sandbox: pick **Debit or Credit Card** and use a test card from PayPal's sandbox card generator (<https://developer.paypal.com/tools/sandbox/card-testing/>); it is fake money and no PayPal login is needed. Without a client id the page shows a clearly labelled simulated button.
 - AI runs in fixture mode on the hosted demo (deterministic, no model calls), labelled on /trust.
 - The phone line is built and tested but has no Twilio number yet; replies appear in the neighbor's thread on the web line.
 - Your runs are yours alone: other judges can't see, approve or reset them. Press "Play again" for a fresh run.
