@@ -31,8 +31,7 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). MIT
 
 ## Try it in 30 seconds
 
-**Hosted:** not deployed yet (the Render Blueprint is ready in [`render.yaml`](render.yaml)). Until then, run it
-locally with no credentials:
+**Hosted:** <https://neighborline.onrender.com/demo> (no login; PayPal sandbox). Or run it locally with no credentials:
 
 ```bash
 corepack enable            # pnpm 10 (pinned in package.json)
@@ -351,12 +350,12 @@ What is real and what is simulated today:
 | Real PayPal sandbox | **Run on 2026-10-28** with `PAYPAL_MODE=sandbox` credentials: batch `CACL6XH7HDM72`; PayPal-wallet item SUCCESS; an unregistered email UNCLAIMED (cancelling it answered PayPal-side 500s; shown as "try again"); a reused `sender_batch_id` resolved to the original batch; a donation captured (`6D574228TK475554M`); 3 monthly-giving plans created. Ids, timestamps and statuses: [docs/SANDBOX_EVIDENCE.md](docs/SANDBOX_EVIDENCE.md) |
 | Rosa's claim | Played by the fake PayPal. In sandbox nobody claims for her: her payout (with stand-ins on, to a fresh unregistered address per run) stays `UNCLAIMED`, and the stage offers **Cancel unclaimed payout** (no faked claim). The real sandbox's cancel answered 500 three times (2026-10-28); that shows as "PayPal couldn't cancel right now; try again", never as a failure |
 | Venmo payouts in sandbox | **The real sandbox refuses Venmo** (2026-10-28): a batch with any Venmo item (by handle, `@`handle or email) is refused as a whole, 400 `VALIDATION_ERROR` "Recipient wallet not supported in sandbox."; PayPal's documented mock note `POSPYO003` is accepted (201 `PENDING`). So in sandbox the demo pays a PayPal sandbox account standing in for the Venmo handle, labelled on every screen, and the approver refuses Venmo up front when no stand-in is set ([evidence](docs/SANDBOX_EVIDENCE.md)). Sandbox accepted `recipient_type: PHONE`, which the docs list as unsupported |
-| Scripted `/demo` payouts in sandbox | With `PAYPAL_MODE=sandbox` and `SANDBOX_DEMO_RECEIVER_EMAIL` (a sandbox Personal account), Lan's, Jean's and Walter's payouts go to that account's PayPal wallet, standing in for their Venmo or email, so they really settle (so does any other request with a Venmo destination, `/call` included: "PayPal's sandbox can't pay Venmo, so this goes to a PayPal sandbox account standing in for @handle"); Rosa's goes to a fresh unregistered address per run, so it really goes `UNCLAIMED`. Rail checks run on the scripted destination first; the stage, both phones, the organizer card and `/trust` say so. `pnpm golive` turns it on for the hosted sandbox; **not run yet** |
+| Scripted `/demo` payouts in sandbox | **Run on the hosted app** (2026-10-29): Mrs. Lan's payout, batch `9D4A2K6DW4Y5N`, reached **SUCCESS** in a PayPal sandbox account standing in for her Venmo (`sb-xz…@personal.example.com`), and the app verified PayPal's signed `PAYMENT.PAYOUTS-ITEM.SUCCEEDED` webhook. Rail checks run on the scripted handle first and every screen of the run says so; Rosa's goes to a fresh unregistered address and really stays `UNCLAIMED` until an organizer cancels it ([evidence](docs/SANDBOX_EVIDENCE.md)) |
 | Webhook simulator events | Cannot be verified by PayPal's postback API (documented). Real deliveries can |
 | Transaction Search | Lags up to 3 hours. Reconcile reports young items as `pendingLag`. On a brand-new sandbox account it answered 404 "Data for the given start date is not available." (2026-10-28): treated as reporting lag, `/ledger` says "PayPal's reporting isn't ready yet; try again later" |
 | Speech, translation, read-back | Fixture mode replays prepared transcripts. `AI_MODE=live` calls Claude or OpenAI; the providers are tested against fake clients, and a take with real models is still to record |
 | Nightly jobs (reconcile, unclaimed follow-ups, report) | Written and tested (`workflows/`); they run once the Render Blueprint is applied. Until then, **Reconcile now** on `/ledger` |
-| Hosting | Not deployed yet. [`render.yaml`](render.yaml) defines the stack ([docs/DEPLOY.md](docs/DEPLOY.md)) |
+| Hosting | Deployed on Render from [`render.free.yaml`](render.free.yaml): <https://neighborline.onrender.com> (free web instance with the approver as a separate process, free Postgres; it sleeps after 15 idle minutes, so the first visit can take about a minute). The paid stack in [`render.yaml`](render.yaml) adds the Workflows tasks and the cron job ([docs/DEPLOY.md](docs/DEPLOY.md)) |
 | Phone line and call-backs | Built and tested with simulated, signed Twilio webhooks; switches on with a Twilio number, none is connected yet ([docs/PHONE.md](docs/PHONE.md)) |
 | SMS and WhatsApp | Not built. Messages appear on the neighbor's in-browser phone (SMS goes out only once a verified sender is configured) |
 

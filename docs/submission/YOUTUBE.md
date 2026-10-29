@@ -30,7 +30,7 @@ Mrs. Lan doesn't read English, and her power has been out for two days. She leav
 
 Neighborline is a mutual-aid hotline for neighborhood groups, built for the PayPal AI Hackathon. A neighbor asks for help in any of 10 languages; AI transcribes it, translates it and reads it back in their language; code computes the amount from the group's own written rules; two organizers approve with passkeys on their phones; and a separate approval service pays through PayPal Payouts to PayPal or Venmo. The AI never decides who deserves help and never touches the money.
 
-▶ Try it, no login: https://{HOSTED_URL}/demo
+▶ Try it, no login: https://neighborline.onrender.com/demo
 ▶ Source (MIT): https://github.com/Aaaaarin/neighborline
 ▶ How it was tested and what is simulated: https://github.com/Aaaaarin/neighborline#sandbox-reality
 

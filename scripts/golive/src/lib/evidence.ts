@@ -43,6 +43,10 @@ export interface HostedEvidence {
   error?: string;
   /** The app paid a sandbox stand-in (SANDBOX_DEMO_RECEIVER_EMAIL, masked) instead of the scripted destination. */
   standIn?: string;
+  /** YYYY-MM-DD of the hosted run (defaults to the spike's date). */
+  date?: string;
+  /** Which Blueprint is deployed: render.free.yaml has no Workflows or cron job. */
+  blueprint?: 'render.yaml' | 'render.free.yaml';
 }
 
 /** `sb-4a…@personal.example.com`, `neighborline-unclaimed-…@example.com`; handles stay as they are. */
@@ -140,7 +144,7 @@ export function renderEvidence(d: SpikeData): string {
   }
   if (d.hosted) {
     const h = d.hosted;
-    L.push(`- Hosted app ${h.url}, scenario \`${h.scenario}\` (PAYPAL_MODE=${h.paypalMode ?? '?'}): ${h.paypalBatchId ? `batch \`${h.paypalBatchId}\`, item **${h.itemStatus ?? '?'}**${h.standIn ? ` (paid to the sandbox stand-in \`${h.standIn}\` instead of the scripted Venmo handle; the stage says so)` : ''}` : h.error ?? 'no batch'}${h.webhookVerified ? `; the app verified webhook \`${h.webhookVerified.eventId}\` (${h.webhookVerified.eventType}) at ${h.webhookVerified.at}` : ''}${h.confirmedAtPayPal && 'eventType' in h.confirmedAtPayPal ? `; PayPal's event API knows that event (${h.confirmedAtPayPal.eventType})` : ''}${h.seconds ? `; ${h.seconds} s end to end` : ''}.`);
+    L.push(`- Hosted app ${h.url}, scenario \`${h.scenario}\` (PAYPAL_MODE=${h.paypalMode ?? '?'}): ${h.paypalBatchId ? `batch \`${h.paypalBatchId}\`, item **${h.itemStatus ?? '?'}**${h.standIn ? ` (paid to the sandbox stand-in \`${h.standIn}\` instead of the scripted Venmo handle; the stage says so)` : ''}` : h.error ?? 'no batch'}${h.webhookVerified ? `; the app verified ${h.webhookVerified.eventId ? `webhook \`${h.webhookVerified.eventId}\` ` : 'PayPal\'s signed webhook '}(${h.webhookVerified.eventType})${h.webhookVerified.at ? ` at ${h.webhookVerified.at}` : ''}` : ''}${h.confirmedAtPayPal && 'eventType' in h.confirmedAtPayPal ? `; PayPal's event API knows that event (${h.confirmedAtPayPal.eventType})` : ''}${h.seconds ? `; ${h.seconds} s end to end` : ''}.`);
   }
   if (d.events?.length) L.push(`- PayPal generated ${d.events.length} events for these batches: ${d.events.slice(0, 8).map((e) => `\`${e.type}\``).join(', ')}${d.events.length > 8 ? ', …' : ''}.`);
   if (!d.capture && !d.hosted && !d.events?.length) L.push('- Not checked yet: needs a public URL (GOLIVE_WEBHOOK_CAPTURE_URL, or the hosted app after deploy-render).');

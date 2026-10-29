@@ -157,7 +157,7 @@ header. The pipeline cuts each excerpt from the committed file by regex and fail
 ### Shot 14. Close and ask (2:26.5–2:40.5)
 - **Visual:** composition A with Mrs. Lan's warm phone; the right side cross-fades (320 ms) from the stopwatch to the end card:
   - **Neighborline**
-  - `Try the hotline, no login` / **Live demo link in the description** (until deployed; with `HOSTED_URL` set the card prints `{HOSTED_URL}/demo` instead)
+  - `Try the hotline, no login` / **Live demo link in the description** (until deployed; with `HOSTED_URL` set the card prints `neighborline.onrender.com/demo` instead)
   - `Open source (MIT)` / `github.com/Aaaaarin/neighborline`
   - `Built for the PayPal AI Hackathon`
 - **VO V9 (2:27–2:38):** "Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language."

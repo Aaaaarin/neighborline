@@ -13,11 +13,16 @@ import { STEPS } from './steps/index.js';
 import { finalizeDocs } from './steps/finalize-docs.js';
 import { fakeRunner, tmp } from './test-helpers.js';
 
+/** The deployed host (docs/DEPLOY.md); finalize-docs writes it into the tracked docs. */
+const REAL_HOST = 'neighborline.onrender.com';
+
 function shadowRepo(): string {
   const dir = tmp('golive-shadow-');
   for (const f of execFileSync('git', ['ls-files'], { cwd: REPO, encoding: 'utf8' }).split('\n').filter(Boolean)) {
     mkdirSync(dirname(join(dir, f)), { recursive: true });
-    writeFileSync(join(dir, f), f.endsWith('.md') && existsSync(join(REPO, f)) ? readFileSync(join(REPO, f)) : '');
+    // Tracked docs already carry the real host once finalize-docs has run for real; turn it back into the token
+    // so the test exercises the first fill (the README "Hosted:" line is matched either way).
+    writeFileSync(join(dir, f), f.endsWith('.md') && existsSync(join(REPO, f)) ? readFileSync(join(REPO, f), 'utf8').replaceAll(REAL_HOST, '{HOSTED_URL}') : '');
   }
   return dir;
 }

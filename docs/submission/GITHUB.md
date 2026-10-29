@@ -17,7 +17,7 @@ A mutual-aid hotline: a neighbor leaves a voice note in any language, AI reads i
 ## About → Website
 
 ```
-https://{HOSTED_URL}/demo
+https://neighborline.onrender.com/demo
 ```
 
 Until it is hosted, leave it empty (don't point it at localhost or Devpost).
@@ -51,7 +51,7 @@ gh repo edit Aaaaarin/neighborline --visibility public --accept-visibility-chang
 # 3. About panel
 gh repo edit Aaaaarin/neighborline \
   --description "A mutual-aid hotline: a neighbor leaves a voice note in any language, AI reads it back, code applies the group's rules, two organizers approve with passkeys, and PayPal Payouts sends cash to PayPal or Venmo. Includes neighborline-payouts-mcp: AI agents can pay only with two humans' signatures." \
-  --homepage "https://{HOSTED_URL}/demo" \
+  --homepage "https://neighborline.onrender.com/demo" \
   --add-topic paypal,paypal-payouts,venmo,mutual-aid,disaster-relief,ai-agents,mcp,model-context-protocol,llm,claude \
   --add-topic openai,structured-outputs,speech-to-text,multilingual,passkeys,webauthn,nextjs,typescript,accessibility,hackathon \
   --enable-issues --enable-discussions=false --enable-wiki=false

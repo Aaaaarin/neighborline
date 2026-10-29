@@ -1,0 +1,44 @@
+{
+  "recordedAt": "2026-10-29T10:35:00Z",
+  "source": "hosted app https://neighborline.onrender.com (Render free web + Postgres, PAYPAL_MODE=sandbox, AI_MODE=live with OpenAI), observed in a browser",
+  "lan": {
+    "scenario": "lan",
+    "paypalBatchId": "9D4A2K6DW4Y5N",
+    "paypalItemId": "XYG4PJS94CYEW",
+    "transactionIdShort": "3DM67476LC…7443",
+    "itemStatus": "SUCCESS",
+    "stopwatchSeconds": 53.2,
+    "systemSeconds": 32.1,
+    "successSeenBy": "approver status poll at +0:53.2",
+    "webhook": {
+      "eventType": "PAYMENT.PAYOUTS-ITEM.SUCCEEDED",
+      "verifiedAt": "+1:14.7",
+      "verification": "signature checked by the app"
+    },
+    "standIn": "sb-xz…@personal.example.com (SANDBOX_DEMO_RECEIVER_EMAIL) standing in for Venmo @lan-nguyen54"
+  },
+  "rosa": {
+    "scenario": "rosa",
+    "paypalBatchId": "RYKFM8GNJCK6W",
+    "paypalItemId": "ERY58DBQPJS7L",
+    "itemStatus": "UNCLAIMED",
+    "cancel": "POST /v1/payments/payouts-item/ERY58DBQPJS7L/cancel → 500 INTERNAL_SERVICE_ERROR; shown as 'PayPal couldn't cancel right now; try again'"
+  },
+  "blocked": {
+    "scenario": "blocked",
+    "result": "lookalike @eastside-mutuaiaid blocked, injected instructions ignored, no batch"
+  },
+  "liveIntake": {
+    "channel": "/call typed text",
+    "lang": "ko",
+    "extraction": "IntakeExtraction valid on first try · 3.1 s (OpenAI)",
+    "computed": "Policy v1 · Utility outage · $150",
+    "approvals": "visitor as Marcus (demo key) + Dana (scripted demo key)",
+    "payout": "SUCCESS to the sandbox stand-in for @minji-park22; neighbor told in Korean",
+    "ledgerTxShort": "3C9063…171Y"
+  },
+  "notes": [
+    "The first /call send during a redeploy returned 'That didn't go through. Please try again.'; the retry worked.",
+    "/ledger Reconcile now needs an organizer passkey session; not run from the hosted app."
+  ]
+}

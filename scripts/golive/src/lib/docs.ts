@@ -78,10 +78,14 @@ export function readmeEdits(text: string, f: Facts): { text: string; edits: Arra
   const edits: Array<{ rule: string; applied: boolean }> = [];
   let t = text;
   if (f.host) {
-    const hostedRe = /\*\*Hosted:\*\* not deployed yet[\s\S]*?locally with no credentials:/;
+    const hostedRe = /\*\*Hosted:\*\* (?:not deployed yet|<https:\/\/[^>]+>)[\s\S]*?locally with no credentials:/; // first deploy, or a later host change
     t = t.replace(hostedRe, `**Hosted:** <https://${f.host}/demo> (no login; ${f.hosted?.paypalMode === 'sandbox' ? 'PayPal sandbox' : 'PayPal stand-in, labelled'}). Or run it locally with no credentials:`);
     edits.push({ rule: 'README "Hosted:" line', applied: t.includes(`**Hosted:** <https://${f.host}/demo>`) });
-    const r = replaceRow(t, 'Hosting', `| Hosting | Deployed on Render from [\`render.yaml\`](render.yaml): <https://${f.host}> (web + approver, Postgres, Workflows, cron; [docs/DEPLOY.md](docs/DEPLOY.md)) |`);
+    const hostingRow =
+      f.hosted?.blueprint === 'render.free.yaml'
+        ? `| Hosting | Deployed on Render from [\`render.free.yaml\`](render.free.yaml): <https://${f.host}> (free web instance with the approver as a separate process, free Postgres; it sleeps after 15 idle minutes, so the first visit can take about a minute). The paid stack in [\`render.yaml\`](render.yaml) adds the Workflows tasks and the cron job ([docs/DEPLOY.md](docs/DEPLOY.md)) |`
+        : `| Hosting | Deployed on Render from [\`render.yaml\`](render.yaml): <https://${f.host}> (web + approver, Postgres, Workflows, cron; [docs/DEPLOY.md](docs/DEPLOY.md)) |`;
+    const r = replaceRow(t, 'Hosting', hostingRow);
     t = r.text;
     edits.push({ rule: 'README Sandbox reality: Hosting row', applied: r.applied });
   }
@@ -117,7 +121,7 @@ export function readmeEdits(text: string, f: Facts): { text: string; edits: Arra
     const r = replaceRow(
       t,
       STAND_IN_ROW,
-      `| ${STAND_IN_ROW} | **Run on the hosted app** (${f.sandbox.date}): ${h.scenario === 'lan' ? 'Mrs. Lan' : h.scenario}'s payout, batch \`${h.paypalBatchId}\`, reached **${h.itemStatus ?? '?'}** in a PayPal sandbox account standing in for her Venmo (\`${h.standIn}\`)${h.webhookVerified ? `, settled by webhook \`${h.webhookVerified.eventId}\`` : ''}. Rail checks run on the scripted handle first and every screen of the run says so; Rosa's goes to a fresh unregistered address and really stays \`UNCLAIMED\` until an organizer cancels it ([evidence](docs/SANDBOX_EVIDENCE.md)) |`,
+      `| ${STAND_IN_ROW} | **Run on the hosted app** (${h.date ?? f.sandbox.date}): ${h.scenario === 'lan' ? 'Mrs. Lan' : h.scenario}'s payout, batch \`${h.paypalBatchId}\`, reached **${h.itemStatus ?? '?'}** in a PayPal sandbox account standing in for her Venmo (\`${h.standIn}\`)${h.webhookVerified ? (h.webhookVerified.eventId ? `, settled by webhook \`${h.webhookVerified.eventId}\`` : `, and the app verified PayPal's signed \`${h.webhookVerified.eventType}\` webhook`) : ''}. Rail checks run on the scripted handle first and every screen of the run says so; Rosa's goes to a fresh unregistered address and really stays \`UNCLAIMED\` until an organizer cancels it ([evidence](docs/SANDBOX_EVIDENCE.md)) |`,
     );
     t = r.text;
     edits.push({ rule: 'README Sandbox reality: Scripted /demo payouts row', applied: r.applied });
@@ -140,6 +144,9 @@ export function devpostSandboxEdits(file: 'DEVPOST.md' | 'DEVPOST_FIELDS.md', te
   if (file === 'DEVPOST_FIELDS.md') {
     const re = phrase("(sandbox) Every call is exercised end to end against tools/fake-paypal, our look-alike of PayPal's documented shapes; the run against PayPal's real sandbox is waiting on sandbox credentials, and the demo labels simulated PayPal ids \"Sandbox: simulated\".");
     if (text.includes(verified)) return { text, applied: true };
+    // An earlier fill (e.g. before the hosted run): rewrite that sentence to the end of its line.
+    const earlier = /Verified against PayPal's sandbox on \d{4}-\d{2}-\d{2}:[^\n]*/;
+    if (earlier.test(text)) return { text: text.replace(earlier, verified), applied: true };
     if (!re.test(text)) return { text, applied: false };
     return { text: text.replace(re, `Every call is exercised end to end against tools/fake-paypal, our look-alike of PayPal's documented shapes. ${verified}`), applied: true };
   }
