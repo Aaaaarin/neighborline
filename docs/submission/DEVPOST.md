@@ -23,8 +23,8 @@ PayPal or Venmo, and the reply comes back in your language. A hotline, not a das
 
 ## Links ("Try it out")
 
-- **Live demo, no login:** `https://neighborline.onrender.com/demo` (if there is no hosted URL at submission, replace this line with
-  "Runs locally with zero credentials: `pnpm i && pnpm dev`")
+- **Live demo, no login:** `https://neighborline.onrender.com/demo` (hosted on Render, PayPal sandbox; also runs locally with zero
+  credentials: `pnpm i && pnpm dev`)
 - **Source (MIT):** https://github.com/Aaaaarin/neighborline
 - **Video:** `https://youtu.be/{VIDEO_ID}`
 
@@ -150,9 +150,9 @@ PayPal ids are labelled "Sandbox: simulated" whenever they come from the look-al
 | AI tool | Where | How it is used |
 |---|---|---|
 | **Anthropic Claude** (`claude-sonnet-5-5`, Messages API) | Intake extraction, the single repair call, policy compiler, report narrative, out-of-catalog translation | One forced tool call with `strict: true` (constrained decoding to our JSON Schema), then **zod validation → one repair call that shows the model its own output and the exact issues → if still invalid or low-confidence, re-ask the neighbor in their language**. Every step leaves a trace the UI shows ("Schema repaired 1 field (payout.value) · 1 repair call") |
-| **OpenAI** `gpt-5.4-mini` (alternative LLM provider) | Same jobs | Structured Outputs (`json_schema`, strict), same validation pipeline. `LLM_PROVIDER` picks the provider and falls back to whichever key exists |
+| **OpenAI** `gpt-5.4-mini` (alternative LLM provider; the one the hosted demo runs) | Same jobs | Structured Outputs (`json_schema`, strict), same validation pipeline. `LLM_PROVIDER` picks the provider and falls back to whichever key exists; the hosted app sets `LLM_PROVIDER=openai` |
 | **OpenAI** `gpt-4o-transcribe` | Speech-to-text for voice notes | Language detection and transcript. Raw audio is deleted after transcription by default (`AUDIO_RETENTION=none`; `apps/web/lib/server/audio-retention.ts`) |
-| **OpenAI** `gpt-4o-mini-tts` | The read-back ("Nghe lại", listen again) and callback audio | Warm, slow delivery instructions. Browser speech is the fallback |
+| **OpenAI** `gpt-4o-mini-tts` | Phone-line prompts and callback audio, and the video's voiceover | Warm, slow delivery instructions. The web read-back ("Nghe lại", listen again) uses the browser's own speech |
 | Deterministic grounding (code, not AI) | After every extraction | A payout handle or amount the neighbor did not say is dropped. Spoken handles are normalized ("lan dash nguyen 54" → `@lan-nguyen54`) |
 | Fixture providers | Tests and the zero-credential demo (`AI_MODE=fixture`) | Deterministic outputs for the demo scenarios. Labeled as fixture mode on `/trust` and `/report` |
 | **Claude Code** (Anthropic, Claude Opus 5.5) | Building the project | Code, tests and docs were written by Claude Code agents working in parallel lanes (core/db, payments, AI, web, docs, security and QA), coordinated through a shared zod contract and `NOTES-*.md` files, and steered by two humans. THREAT_MODEL.md documents how AI-written code was reviewed |

@@ -200,9 +200,9 @@ sidebar, before you submit; [GITHUB.md](GITHUB.md) has the settings.
 ```
 IN THE PRODUCT (packages/agents/src/providers)
 - Anthropic Claude, claude-sonnet-5-5 (Messages API): intake extraction, the single repair call, the policy compiler (plain-English rules → policy, quoting the sentence behind each cap), the donor report's sentences, and translation of status messages outside our vetted catalog. One forced tool call with strict JSON Schema, then zod validation; if invalid, ONE repair call that shows the model its own output and the exact issues; if still invalid or low-confidence, the neighbor is asked again in her language. Every step leaves a trace the organizer can see.
-- OpenAI gpt-5.4-mini (alternative LLM; Structured Outputs, strict json_schema), same jobs and the same validation pipeline. LLM_PROVIDER picks Anthropic or OpenAI. An OpenAI-compatible local model also works.
+- OpenAI gpt-5.4-mini (alternative LLM; Structured Outputs, strict json_schema), same jobs and the same validation pipeline. LLM_PROVIDER picks Anthropic or OpenAI; the hosted demo runs OpenAI (LLM_PROVIDER=openai). An OpenAI-compatible local model also works.
 - OpenAI gpt-4o-transcribe: speech-to-text for voice notes, with language detection. Raw audio is deleted after transcription by default.
-- OpenAI gpt-4o-mini-tts: the read-back ("Nghe lại", listen again) and phone prompts in languages the phone carrier has no voice for (e.g. Haitian Creole), with browser speech as the fallback.
+- OpenAI gpt-4o-mini-tts: phone prompts in languages the phone carrier has no voice for (e.g. Haitian Creole), callback audio and the video's voiceover. The web read-back ("Nghe lại", listen again) uses the browser's own speech.
 - PayPal Agent Toolkit (@paypal/agent-toolkit): the report writer reads donation inflows through list_transactions, read-only and with fixed arguments; no model chooses the call.
 - Our MCP server, neighborline-payouts-mcp: lets any AI agent use PayPal Payouts, but create_payout_batch requires an approval token bound to the exact batch and two distinct human approvers.
 

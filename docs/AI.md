@@ -147,7 +147,7 @@ break out of the data block. The `inject_en` fixture and the `blocked` stage sce
 |---|---|---|
 | LLM | `FixtureLLM`: scenario answers matched by transcript; otherwise a conservative keyword extractor (categories, household size and quick-answer labels in all ten contract languages) that never extracts an amount and asks the specific missing question; policy text → offline parser; translations from `fixtures/translations.json` or identity; report → template | Claude (`claude-sonnet-5-5`) or OpenAI (`gpt-5.4-mini`), chosen by `LLM_PROVIDER`, falling back to whichever key exists, then to fixtures with a warning. Or a model on your own machine: `LLM_PROVIDER=openai-compatible` (below) |
 | STT | `FixtureSTT`: recognizes fixture audio by marker or by sha256 in `fixtures/audio/manifest.json`. An unknown recording transcribes as `lan_vi` unless `AI_FIXTURE_DEFAULT_AUDIO=none` | OpenAI `gpt-4o-transcribe` (needs `OPENAI_API_KEY`) |
-| TTS | Fixture (browser speech in the UI) | OpenAI `gpt-4o-mini-tts`, voice `coral` |
+| TTS | Fixture (browser speech in the UI) | OpenAI `gpt-4o-mini-tts`, voice `coral`, for the phone line (and the video voiceover). The web read-back's "listen" button always uses browser speech |
 | Fallback | — | `AI_FALLBACK=fixture` sends model errors to fixtures and logs it |
 
 `providers.notes` lists, in plain words, which provider is live; `/trust` shows it in the Sandbox reality panel.

@@ -232,11 +232,11 @@ The hackathon asks every entry to list the AI it uses.
 | Structured extraction, repair, policy drafting, report narrative, out-of-catalog translation | **Anthropic Claude**, `claude-sonnet-5-5` (`ANTHROPIC_MODEL`) | Messages API, one forced tool call with `strict: true` (constrained decoding to the JSON Schema), then zod validation |
 | Same, alternative provider | **OpenAI**, `gpt-5.4-mini` (`OPENAI_MODEL`) | Chat Completions Structured Outputs (`json_schema`, `strict: true`), then zod validation |
 | Speech-to-text | **OpenAI** `gpt-4o-transcribe` (`OPENAI_STT_MODEL`; `whisper-1` also works) | Audio transcription |
-| Read-back and callback voice | **OpenAI** `gpt-4o-mini-tts`, voice `coral` | Text-to-speech, with browser speech as the fallback |
+| Phone-line voice and the video voiceover | **OpenAI** `gpt-4o-mini-tts`, voice `coral` | Text-to-speech. The web read-back's "listen" button uses the browser's own speech (`speechSynthesis`) |
 | Offline mode (default) | Fixture providers | Deterministic outputs keyed to the demo scenarios. Used by every test and by `pnpm dev` |
 
 `AI_MODE=live` selects real providers. `LLM_PROVIDER` chooses Anthropic or OpenAI and falls back to whichever key
-exists. `AI_FALLBACK=fixture` falls back to fixtures on model errors and logs it.
+exists. The hosted app runs `LLM_PROVIDER=openai` (OpenAI for extraction and speech-to-text). `AI_FALLBACK=fixture` falls back to fixtures on model errors and logs it.
 
 **To build it:** the code, tests and docs were written by **Claude Code** agents (Claude Opus 5.5) working in
 parallel lanes (core/db, payments, AI, web, docs), steered by two humans. Lanes communicated through `NOTES-*.md`
