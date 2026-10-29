@@ -75,7 +75,7 @@ Recorded 2026-10-28T09:20:00Z; PayPal sandbox (api-m.sandbox.paypal.com), called
 
 ## Webhooks
 
-- Not checked yet: needs a public URL (GOLIVE_WEBHOOK_CAPTURE_URL, or the hosted app after deploy-render).
+- Hosted app https://neighborline.onrender.com, scenario `lan` (PAYPAL_MODE=sandbox): batch `9D4A2K6DW4Y5N`, item **SUCCESS** (paid to the sandbox stand-in `sb-xz…@personal.example.com` instead of the scripted Venmo handle; the stage says so); the app verified PayPal's signed webhook (PAYMENT.PAYOUTS-ITEM.SUCCEEDED); 53.2 s end to end.
 
 ## Transaction Search reconcile
 
