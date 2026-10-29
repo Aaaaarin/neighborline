@@ -192,8 +192,8 @@ PayPal ids are labelled "Sandbox: simulated" whenever they come from the look-al
 
 ## What's next for Neighborline
 
-1. Run the real PayPal sandbox end to end, including the Venmo spike, and host the demo on Render with its nightly
-   jobs (reconcile, unclaimed follow-ups, report refresh), which are written and tested.
+1. Move the hosted demo to Render's paid plan so the nightly jobs run (reconcile, unclaimed follow-ups, report
+   refresh; written and tested), and run Venmo payouts on a live account, since the sandbox refuses them.
 2. Phone-number and WhatsApp intake (Twilio voice with `<Record>`), and voice or SMS callbacks once US carrier
    registration clears.
 3. Organizer onboarding run by the fiscal sponsor: single-use invite codes and recovery of a lost passkey. Already
@@ -220,15 +220,18 @@ Paste into Devpost's "testing instructions" field, or the top of the description
 ```
 NO LOGIN NEEDED. Everything below runs in the browser in about 3 minutes.
 
-Hosted demo: https://neighborline.onrender.com
+Hosted demo: https://neighborline.onrender.com (real PayPal sandbox and live AI; after a quiet spell the first visit
+can take about a minute while the server wakes)
 (Local alternative, zero credentials: `corepack enable && pnpm i && pnpm dev`, then open http://localhost:3000)
 
-1) The hero flow, about 25 seconds
+1) The hero flow, about a minute
    Open https://neighborline.onrender.com/demo?scenario=lan&autoplay=1
-   Watch Mrs. Lan's Vietnamese voice note get read back, confirmed, approved by two organizers, and paid to Venmo.
-   The stopwatch stops when PayPal reports SUCCESS (about 22 s) and shows "Neighbors deciding" and "System" time
-   separately (system: about 3 s). The neighbor's and organizers' taps are scripted, and the organizers sign with
-   labelled demo keys. Tap "Dịch" on her phone to toggle English.
+   Watch Mrs. Lan's Vietnamese voice note get transcribed, read back, confirmed, approved by two organizers, and paid
+   through the real PayPal sandbox. The sandbox refuses Venmo payouts, so her $150 goes to a PayPal sandbox account
+   standing in for her Venmo; every screen says so. The stopwatch stops when PayPal reports SUCCESS (about 55 s on this
+   small server, about 22 s locally) and shows "Neighbors deciding" and "System" time separately; PayPal's signed
+   webhook arrives and is verified shortly after. The neighbor's and organizers' taps are scripted, and the organizers
+   sign with labelled demo keys. Tap "Dịch" on her phone to toggle English.
 
 2) Be the second organizer
    Open https://neighborline.onrender.com/demo?scenario=lan&mode=manual (or flip "I'll approve as Marcus").
@@ -238,11 +241,12 @@ Hosted demo: https://neighborline.onrender.com
    (Repeat approvals are idempotent: the sender_batch_id is derived from the approval record, so a retry returns the
    same batch. docs/DEMO.md has a curl to try it.)
 
-3) Unclaimed, then rescued
+3) Unclaimed
    Open https://neighborline.onrender.com/demo?scenario=rosa&autoplay=1
-   Rosa's PayPal email has no account yet, so PayPal reports UNCLAIMED and claim help goes out in Spanish. With our
-   local PayPal stand-in the stage then plays her claim and the item turns SUCCESS. (sandbox) Against PayPal's real
-   sandbox nobody can claim for her: the item stays UNCLAIMED and an organizer can cancel it to return the money.
+   Rosa's payout goes to a fresh address with no PayPal account, so the real sandbox reports UNCLAIMED and claim help
+   goes out in Spanish. Nobody can claim it for her in the sandbox, so the clock keeps running; "Cancel unclaimed
+   payout" asks PayPal to return it (the sandbox's cancel has answered 500 so far, shown as "try again"; PayPal returns
+   unclaimed money after 30 days anyway). Locally, on our PayPal stand-in, she claims it and it turns SUCCESS.
 
 4) Impersonator blocked
    Open https://neighborline.onrender.com/demo?scenario=blocked&autoplay=1

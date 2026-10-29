@@ -108,7 +108,7 @@ A strict-TypeScript pnpm monorepo:
 
 - **Making "AI never touches money" structural.** The intake agent has no tools; amounts come from a pure `computeAmount(policy, request, history)`; the approval record voids itself if anything changes after the first signature; and only a record two distinct organizers signed can produce a batch id.
 - **Being honest when PayPal doesn't answer.** A timeout after PayPal accepted a batch looks like a failure. Marking it `FAILED` invites a second payment; marking it paid lies to the neighbor. So it stays `UNKNOWN` and is resolved by re-sending the *same* `sender_batch_id` after a fresh policy check.
-- **Sandbox realities.** Venmo payouts are documented only as a sandbox mock, simulator webhooks can't be verified, Transaction Search lags 3 hours. We built a look-alike of PayPal's shapes and label every simulated piece on screen.
+- **Sandbox realities.** We ran PayPal's real sandbox on Oct 28 and 29 and wrote down every surprise: it refuses any payout batch with a Venmo item, its cancel endpoint answered 500 to every try, simulator webhooks can't be verified, and Transaction Search lags (a new account first answers "not available"). The app now handles each one honestly: a labelled sandbox account stands in for Venmo, a failed cancel says "try again", reporting lag is "pending". The evidence, with every PayPal id, is in [SANDBOX_EVIDENCE.md](https://github.com/Aaaaarin/neighborline/blob/main/docs/SANDBOX_EVIDENCE.md).
 - **A demo judges can drive without weakening the real thing.** "Two different people" can't become "one judge with two keys". Demo mode fails closed, a visitor signs only as Marcus on runs their own browser started, and `/trust` prints exactly what demo mode relaxes.
 - **Lookalikes without false alarms.** `rn`→`m`, `1`→`l`, Cyrillic homoglyphs and edit distance catch `@eastside-mutuaiaid`, while "Lan" and "Nguyễn Thị Lan" are never flagged and a polite "please approve my request" is not an injection.
 
@@ -128,7 +128,7 @@ A strict-TypeScript pnpm monorepo:
 
 ## What's next for Neighborline
 
-1. Run the real PayPal sandbox end to end (Payouts to PayPal and Venmo, webhooks, Transaction Search) and keep the hosted demo on Render with its nightly jobs.
+1. Move the hosted demo to Render's paid plan with the nightly Workflows jobs, and run Venmo payouts on a live account (the sandbox refuses them).
 2. Connect a Twilio number to the built phone line; then WhatsApp, and SMS once carrier registration clears.
 3. Native-speaker review of every requester-facing string (the packet is in the repo), then vetted thread messages for French, Tagalog, Korean and Russian.
 4. Score live models on the 10-language eval and publish the numbers next to the offline ones.
@@ -209,7 +209,7 @@ WHAT THE AI IS NEVER ALLOWED TO DO
 Compute an amount (packages/core computeAmount does), decide eligibility or score a person, hold PayPal credentials or call Payouts (the intake agent has no tools; a separate approval service is the only process with Payouts credentials), activate a policy (two organizers sign), write money text freely (vetted templates; code fills the amount), or invent a number in the donor report (ungrounded numbers trigger a repair, then a fixed template).
 
 HONEST STATUS
-The hosted demo and every test run in fixture mode (AI_MODE=fixture): deterministic outputs, labelled on /trust and /report, so it works with zero keys. The live providers are tested against fake vendor clients; docs/EVAL.md measures the offline pipeline on 208 cases in 10 languages and has an empty row for live-model numbers. {IF A LIVE RUN HAPPENED: replace this paragraph with the live numbers and say which model the hosted demo uses.}
+The hosted demo (https://neighborline.onrender.com) runs live AI: OpenAI gpt-5.4-mini for extraction (LLM_PROVIDER=openai) and gpt-4o-transcribe for voice notes. On Oct 29 a Korean request typed into /call was read back in Korean, priced by the group's rules and paid in the PayPal sandbox (docs/evidence/raw/hosted-20261029.json). If a model call fails, the app falls back to deterministic fixtures and /trust says so. Tests and `pnpm dev` run in fixture mode with zero keys. docs/EVAL.md measures the offline pipeline on 208 cases in 10 languages; live-model numbers are not scored yet.
 
 TO BUILD IT
 Claude Code (Anthropic, Claude Opus 5.5) wrote the code, tests and docs, as several agents working in parallel lanes (core/db, payments, AI, web, security/QA, video), coordinated through one shared zod contract and NOTES-*.md files, and steered and reviewed by our team. THREAT_MODEL.md ("Reviewing AI-written code") describes how AI-written code was checked. The demo video's voices (Mrs. Lan, Rosa, the narrator) are synthetic text-to-speech of fictional people, disclosed on screen and on YouTube.
@@ -235,20 +235,20 @@ unregistered address and really stays unclaimed until an organizer cancels it; t
 ```
 NO LOGIN, NO KEYS. About 3 minutes in a browser.
 
-Hosted demo: https://neighborline.onrender.com
+Hosted demo: https://neighborline.onrender.com (real PayPal sandbox and live AI; the first visit after a quiet spell can take about a minute while the server wakes)
 (Or locally, zero credentials: corepack enable && pnpm i && pnpm dev, then open http://localhost:3000)
 
-1) The whole loop, about 25 s
+1) The whole loop, about a minute
    https://neighborline.onrender.com/demo?scenario=lan&autoplay=1
-   Mrs. Lan's Vietnamese voice note is read back, confirmed, approved by two organizers and paid to Venmo. The stopwatch stops when PayPal reports SUCCESS (about 22 s) and splits "Neighbors deciding" from "System" (about 3 s). The neighbor's and organizers' taps are scripted and signed with labelled demo keys. Tap "Dịch" on her phone for English.
+   Mrs. Lan's Vietnamese voice note is transcribed and read back, confirmed, approved by two organizers and paid through the real PayPal sandbox. PayPal's sandbox refuses Venmo payouts, so her $150 goes to a PayPal sandbox account standing in for her Venmo; every screen says so. The stopwatch stops when PayPal reports SUCCESS (about 55 s on this small server; about 22 s locally) and splits "Neighbors deciding" from "System"; PayPal's signed webhook arrives and is verified shortly after. The neighbor's and organizers' taps are scripted and signed with labelled demo keys. Tap "Dịch" on her phone for English.
 
 2) Be the second organizer
    https://neighborline.onrender.com/demo?scenario=lan&mode=manual then press Play scenario.
    Nothing is paid until YOU tap "Approve $150" on Marcus's phone. With Face ID, Touch ID or Windows Hello your device creates a demo passkey for Marcus and signs; otherwise use Marcus's labelled demo key.
 
-3) Unclaimed, then rescued
+3) Unclaimed
    https://neighborline.onrender.com/demo?scenario=rosa&autoplay=1
-   PayPal reports UNCLAIMED, claim help goes out in Spanish, then she claims and it turns SUCCESS. Her claim is played by our PayPal stand-in (in PayPal's real sandbox nobody can claim for her; an organizer can cancel the item instead).
+   Her payout goes to a fresh address with no PayPal account, so the real sandbox reports UNCLAIMED and claim help goes out in Spanish. Nobody can claim it for her in the sandbox, so the clock keeps running; "Cancel unclaimed payout" asks PayPal to return it (the sandbox's cancel has answered 500 so far, which the app shows as "try again"; PayPal returns unclaimed money after 30 days anyway). Locally, on our PayPal stand-in, she claims it and it turns SUCCESS.
 
 4) Impersonator blocked
    https://neighborline.onrender.com/demo?scenario=blocked&autoplay=1
@@ -265,9 +265,9 @@ Hosted demo: https://neighborline.onrender.com
 
 NOTES
 - All people, handles and the group are fictional. No real money moves.
-- PayPal ids on the /demo rail are labelled "Sandbox: simulated" when they come from our local PayPal stand-in. (sandbox)
+- PayPal ids on the hosted demo are real PayPal sandbox ids. Locally (PAYPAL_MODE=fake) they come from our PayPal stand-in and are labelled "Sandbox: simulated".
 - Donations: /donate uses the PayPal JS SDK in sandbox: pick **Debit or Credit Card** and use a test card from PayPal's sandbox card generator (<https://developer.paypal.com/tools/sandbox/card-testing/>); it is fake money and no PayPal login is needed. Without a client id the page shows a clearly labelled simulated button.
-- AI runs in fixture mode on the hosted demo (deterministic, no model calls), labelled on /trust.
+- AI is live on the hosted demo (OpenAI for extraction and speech-to-text), with a fallback to deterministic fixtures if a model call fails; /trust says which is running.
 - The phone line is built and tested but has no Twilio number yet; replies appear in the neighbor's thread on the web line.
 - Your runs are yours alone: other judges can't see, approve or reset them. Press "Play again" for a fresh run.
 
