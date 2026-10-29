@@ -105,5 +105,8 @@ describe('real sandbox: SUCCESS seen by the status poll before the signed webhoo
     const keys = buildSteps({ scenario: 'lan', events: polled, view: null, organizerName: () => 'X' }).map((r) => r.key);
     expect(keys.indexOf('webhook')).toBeGreaterThan(keys.indexOf('success'));
     expect(keys.filter((k) => k === 'webhook')).toHaveLength(1);
+    const withCallback = [...lan, ev(23.5, { type: 'notify.sent', lang: 'vi' } as never), ev(74.7, { type: 'webhook.verified', eventType: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED', eventId: 'WH-1' } as never)];
+    const k2 = buildSteps({ scenario: 'lan', events: withCallback, view: null, organizerName: () => 'X' }).map((r) => r.key);
+    expect(k2.slice(-3)).toEqual(['success', 'callback', 'webhook']);
   });
 });

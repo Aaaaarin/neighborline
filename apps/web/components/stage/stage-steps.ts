@@ -221,7 +221,13 @@ export function buildSteps(input: {
   const paidRow = steps.get('success');
   if (hook?.atMs !== undefined && paidRow?.atMs !== undefined && hook.atMs > paidRow.atMs && order.includes('webhook') && !order.includes('webhook2')) {
     order.splice(order.indexOf('webhook'), 1);
-    order.splice(order.indexOf('success') + 1, 0, 'webhook');
+    // After every row that had already happened when the webhook arrived (SUCCESS, usually the callback too).
+    let at = order.indexOf('success');
+    order.forEach((k, i) => {
+      const t = steps.get(k)?.atMs;
+      if (i > at && t !== undefined && t <= hook.atMs!) at = i;
+    });
+    order.splice(at + 1, 0, 'webhook');
     steps.set('webhook', { ...hook, detail: `${hook.detail ?? ''} · arrived after PayPal's payout status already said SUCCESS` });
     steps.set('success', { ...paidRow, detail: paidRow.detail ?? "Seen first by the approver's read-only status check" });
   }
