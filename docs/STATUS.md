@@ -1,41 +1,40 @@
-# Neighborline — build status (Oct 17, 2026)
+# Neighborline — build status (Oct 29, 2026)
 
-Repo: github.com/Aaaaarin/neighborline (private until you approve making it public)
+Repo: github.com/Aaaaarin/neighborline (private until you say "yes, public")
 
-## Built and green
-- 1103 unit and integration tests (`pnpm test`, 11 packages), 38 Playwright end-to-end tests and 18 Render Workflows
-  tests pass; typecheck and the production web build are green; CI on GitHub runs typecheck, tests, build, e2e,
-  dependency audit, secret scan and the AI eval gate
-- Voice/text intake in 10 languages, read-back, one clarifying question with quick answers, decline + REVIEW appeal;
-  Vietnamese address forms (bà, ông, chị… → chúng cháu / chúng tôi) in every status message
-- Rules-as-code: plain-English rules → AI draft with a quoted source per cap → two signatures activate a new version
-- Two-person approval signed with passkeys; a separate approval service is the only process with PayPal Payouts
-  credentials and re-checks policy, rail, hash and signatures before it pays
-- PayPal: Payouts (PayPal + Venmo), Orders v2, Subscriptions, webhooks (verified, at-least-once), Transaction Search
-  reconcile, idempotent batch ids, account-restriction fallback (`FAILED_RAIL`) to manual recording
-- **Sandbox `/demo` that really settles:** with `PAYPAL_MODE=sandbox` and `SANDBOX_DEMO_RECEIVER_EMAIL`, Lan's, Jean's
-  and Walter's payouts go to a PayPal sandbox account standing in for their Venmo/email (after the rail checks on the
-  scripted destination), Rosa's to a fresh unregistered address so it genuinely goes `UNCLAIMED` (cancel on the
-  stage, no faked claim); the stage, both phones, the organizer card and `/trust` say so
-  ([DEMO.md](DEMO.md#in-the-real-paypal-sandbox))
-- Rail protection: lookalike handles, injection, caps; AI eval: 100% injection/impersonation catch, 0 false flags
-  (offline extractor; live model not yet measured)
-- Abuse protection for a public deployment: shared Postgres rate limits, a human check (Turnstile or proof of work)
-  on model-using intake, organizers-only queue outside demo mode
-- Open-source `@neighborline/paypal` package + MCP server that refuses payouts without two human signatures
-  (publish-ready)
-- Phone hotline (Twilio) built and tested with simulated calls; switches on with a number
-- Render Blueprint + Render Workflows jobs written; **`pnpm golive`** scripts the whole key day (sandbox setup and
-  spike, live AI, Render deploy with the hosted `/demo` run, voiceover, doc finalization), tested end to end against
-  fakes ([GOLIVE.md](GOLIVE.md))
-- Video Draft 4 (2:40.5, captions, re-recorded takes with Lan's elder register; code card shows the 1093-test run
-  from before the sandbox stand-in tests); voiceover renders once the OpenAI key exists
+## Live
+- **Hosted:** <https://neighborline.onrender.com> from [`render.free.yaml`](../render.free.yaml): free web instance (approver
+  as a separate process) + free Postgres, `PAYPAL_MODE=sandbox`, `AI_MODE=live` with `LLM_PROVIDER=openai`. It sleeps
+  after 15 idle minutes (first visit about a minute). No Workflows or cron on the free Blueprint. The $50 hackathon
+  credit is on the Render account
+- **The free Postgres expires 30 days after creation (about Nov 28).** Judging is Dec 1–15, so before Nov 28: add a
+  card, then Blueprint → Settings → Blueprint path → `render.yaml` (upgrades the same resources in place and adds the
+  Workflows tasks and the cron job)
+- AI on the hosted app: OpenAI for extraction and speech-to-text; the web "listen" read-back uses the browser's
+  `speechSynthesis`; OpenAI TTS is used by the phone line and the video voiceover
+
+## Verified for real
+- **PayPal sandbox spike, Oct 28** ([SANDBOX_EVIDENCE.md](SANDBOX_EVIDENCE.md), raw in `docs/evidence/raw/`):
+  wallet payout SUCCESS, unregistered email UNCLAIMED, duplicate `sender_batch_id` resolved, donation captured,
+  3 monthly-giving plans; the sandbox refuses Venmo items (stand-ins documented); cancel of UNCLAIMED answers 500
+- **Hosted runs, Oct 29** ([raw](evidence/raw/hosted-20261029.json)): Lan SUCCESS, batch `9D4A2K6DW4Y5N`, with
+  PayPal's signed webhook verified by the app (webhooks registered); Rosa UNCLAIMED, cancel 500 shown as "try
+  again"; the impersonator blocked with no batch; a Korean `/call` request through live OpenAI extraction, priced by
+  the rules, approved and paid in sandbox
+- **Tests (Oct 29):** 1144 unit and integration tests (`pnpm test`, 11 packages), 38 Playwright end-to-end tests,
+  19 Render Workflows tests. CI green: typecheck, unit tests, build, Playwright e2e (ubuntu-24.04), dependency audit
+  (3 documented ignores, incl. zod GHSA-mrhx-c7xc-m3w5), gitleaks
+- Not yet: a live-model score on the eval ([EVAL.md](EVAL.md)); `/ledger` Reconcile now on the hosted app (needs an
+  organizer passkey session); the phone line (no Twilio number)
 
 ## Blocked on you
-Everything that needs a human is one checklist: **[docs/GOLIVE.md](GOLIVE.md)** (about 10 minutes of clicks: PayPal
-sandbox apps and accounts, OpenAI key, Render account and Blueprint; then `pnpm golive`, the YouTube upload and
-`--only finalize-docs`). Beyond it: permission to make the repo public, the Devpost submission, and optionally a
-native-speaker review of the vi/es/ht copy, an npm token and a Twilio number.
+1. **Card on Render → switch the Blueprint path to `render.yaml` before Nov 28** (see above)
+2. **"Yes, public"** for the repo
+3. **YouTube upload** of the video, then `pnpm golive --only finalize-docs` for the link
+4. **Voiceover decision:** OpenAI TTS narration, or ship the captioned Draft 4 as is
+5. **Devpost submission** ([submission/DEVPOST.md](submission/DEVPOST.md), [CHECKLIST.md](submission/CHECKLIST.md))
+- Optional: native-speaker review of the vi/es/ht copy, an npm token, a Twilio number
 
 ## Deadline
-Submission closes Nov 12, 2026 12:00 PT. Target: submit by Nov 11.
+Submission closes Nov 12, 2026 12:00 PT (target Nov 11). Judging Dec 1–15: the hosted app must be on the paid
+Blueprint by then.
