@@ -1,12 +1,13 @@
-# Demo video pipeline (Draft 4: captions, no voiceover yet)
+# Demo video pipeline (Draft 5: voiced)
 
 This folder turns `../VIDEO_SCRIPT.md` into a reviewable MP4 with one command. It follows `../RECORDING_PLAN.md`
 and records the real product, so the cut never drifts from the app the judges will open.
 
 ```bash
-node docs/submission/video/build.mjs            # Draft 4: captions, no VO (records takes only if missing)
+node docs/submission/video/build.mjs            # captions, no VO (records takes only if missing)
 node docs/submission/video/build.mjs --record   # re-record every take and still (UI copy changed)
-node docs/submission/video/build.mjs --with-vo  # + OpenAI gpt-4o-mini-tts narration (needs OPENAI_API_KEY)
+node docs/submission/video/build.mjs --with-vo  # + OpenAI gpt-4o-mini-tts narration (key only for lines not in $VIDEO_OUT/vo)
+node docs/submission/video/build.mjs --vo-jobs docs/submission/video/vo-jobs.json  # TTS jobs for CI (voiceover.yml)
 ```
 
 Other flags: `--rebuild-web` (fresh `next build` into `apps/web/.next-video`), `--fresh-tests` (re-run `pnpm test`
@@ -32,7 +33,7 @@ With the takes cached, a re-cut takes about 8 minutes.
 | 4. Cards | `lib/cards.mjs` | Title, end card, corner tag, lower thirds, the handle overlay, 4 code cards, rendered from HTML with the app's Fontsource fonts and DESIGN.md tokens (`cards/_*.html` are the rendered sources). Code cards are cut from the committed files by regex anchors and fail loudly if an anchor moves, or if a card overflows into the caption band. Card 4 prints the real `pnpm -r test` summary (cached in `cache/pnpm-test.log`) |
 | 5. Segments | `lib/segments.mjs` | One silent segment per shot (`segs/*.mp4`) in compositions A (one phone + big stopwatch), B (three phones + small stopwatch, plus timed insets such as Marcus's passkey signature at 1.6×), C (sender + Dana + 2× zoom of the blocked card), framed pans and pushes, cards, and full-frame clips (the MCP terminal) |
 | 6. Captions | `lib/timeline.mjs`, `lib/captions.mjs` | `captions.srt` (also committed here, for YouTube CC) and `captions.ass` (burn-in; Be Vietnam Pro merged from the Fontsource subsets by `lib/fonts.py`, so Vietnamese diacritics render). Captions sit in the free right-hand column in compositions A and C and bottom-centre elsewhere, so they never cover the phones |
-| 7. Assembly | `build.mjs` | Concat, then one pass for the corner tag, lower thirds, pills, overlays and burned captions → `neighborline-draft4.mp4` (H.264 High, yuv420p, 30 fps, silent AAC track) |
+| 7. Assembly | `build.mjs` | Concat, then one pass for the corner tag, lower thirds, pills, overlays and burned captions → `neighborline-draft5.mp4` (`-vo-silent.mp4` under `--with-vo`) (H.264 High, yuv420p, 30 fps, silent AAC track) |
 | 8. QA | `lib/qa.mjs`, `lib/thumbnail.mjs` | `frames/s_<shot>_in.png` / `_out.png` at every cut, `frames/f_<n>s.png` every 10 s, `frames/contact.png`, plus `thumbnail.png` (1280×720), `thumbnail-1500x1000.png` and the 300 / 168 px legibility checks |
 
 `timeline.json` is the edit decision list you change by hand: shots with script timecodes, VO lines with their
@@ -59,9 +60,17 @@ the build prints a `VO fit:` warning for each line that cannot be read at its wp
    and instructions, so only changed lines cost money.
 2. Re-times the captions to the measured length of each line.
 3. Re-renders the cold open with her real waveform, places every line at its `start` with `adelay`, puts a
-   phone-speaker EQ on Mrs. Lan's voice at 0:00.2, and normalises to −14 LUFS / −1 dBTP → `neighborline-draft4-vo.mp4`.
+   phone-speaker EQ on Mrs. Lan's voice at 0:00.2, and normalises to −14 LUFS / −1 dBTP → `neighborline-draft5-vo.mp4`.
 4. Warns for any line longer than its window. Regenerate it brisker or move its window in `timeline.json`. Never
-   speed up the Vietnamese voice: if hers runs past 4.8 s, lengthen shot `s00` and shift everything after it.
+   speed up the Vietnamese voice: if hers runs past the cold open, lengthen shot `s00` and shift everything after it.
+5. Cuts each line's captions at the pauses measured in its voice file (`pausesIn` in `lib/vo.mjs`; a full stop takes
+   the longest pause near the estimate, a comma the nearest), so the cue on screen is the phrase being spoken.
+
+Fitting a new render: measure where each line's *speech* ends (the last 50 ms window above −45 dB RMS, not the last
+`silencedetect` start, which can be a mid-line pause), give every window at least the file's length − 0.2 s, and keep
+0.4 s or more between a line's speech end and the next line's start. The mix is a plain `adelay` per line, so a line
+that runs long overlaps the next one. A take shot may run up to 0.6 s past the end of its recording; `takeSegment`
+holds the last frame (Shot 8 uses 0.4 s of that, on the finished blocked stage).
 
 Music is not part of the pipeline. If you add a bed, follow RECORDING_PLAN.md step 8 (duck under VO, silent 0:25–0:31.5,
 the tap and the money moment).
@@ -81,11 +90,17 @@ must not be reused. The thumbnail's stopwatch also fits the 1500×1000 card now 
 Draft 4 (`neighborline-draft4.mp4`, 160.5 s) is cut from the re-recorded takes: stopwatch 0:22.5 (people 0:18.9 ·
 system 0:03.5), blocked 0:01.5, and a fresh `pnpm test` on code card 4 (1093 tests).
 
+## Draft 5 (Oct 29): voiced
+
+`neighborline-draft5-vo.mp4`, 175.0 s: the 15 lines rendered by `.github/workflows/voiceover.yml` (branch `vo-lines`),
+no line text changed, no line sped up. The real lines ran 0.2–3.4 s past Draft 4's estimated windows and Mrs. Lan's
+voice note is 9.4 s, so `timeline.json` was retimed around them (cold open 10 s; Shots 5, 6, 7c, 8, 9, 11a–c, 12 and 13
+re-sized; every VO window, lower third, pill, overlay and the corner tag's MCP gap moved with them). VIDEO_SCRIPT.md has
+the Draft 5 shot table. Code card 4 reads the 1144-test run; the end card prints `neighborline.onrender.com/demo`.
+
 ## Known gaps in Draft 4
 
-- No voiceover yet (no `OPENAI_API_KEY` in the build environment). Every line fits its slot at ≤ 154 wpm, so
-  `--with-vo` should drop in without retiming; check the `WARNING` lines it prints.
-- The end card says "Live demo link in the description" until the app is deployed and `HOSTED_URL` is exported.
+- (Fixed in Draft 5: the voiceover, and the hosted URL on the end card.)
 - Approval 2's passkey is a virtual authenticator (labelled on screen). A human take on a Mac with Touch ID would
   read "Visitor’s Mac (as Marcus)".
 - Everything still runs against the PayPal stand-in (`PAYPAL_MODE=fake`), labelled in the corner tag and the lower

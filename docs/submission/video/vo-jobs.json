@@ -1,8 +1,8 @@
 [
   {
     "id": "V1",
-    "start": 5.4,
-    "window": 8.5,
+    "start": 10.2,
+    "window": 9.65,
     "text": "Mrs. Lan doesn't read English, and her power's been out two days. She just left a voice note. Watch the clock.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -11,8 +11,8 @@
   },
   {
     "id": "V2",
-    "start": 14.1,
-    "window": 11,
+    "start": 19.9,
+    "window": 12.5,
     "text": "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers sign.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -21,8 +21,8 @@
   },
   {
     "id": "V3",
-    "start": 31.4,
-    "window": 12.2,
+    "start": 35.4,
+    "window": 15.8,
     "text": "Paid, into her Venmo, with a message in Vietnamese. Twenty-two point five seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -31,8 +31,8 @@
   },
   {
     "id": "V4",
-    "start": 44.3,
-    "window": 12.5,
+    "start": 51.7,
+    "window": 15.4,
     "text": "This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most still run on a volunteer's personal Venmo.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -41,8 +41,8 @@
   },
   {
     "id": "V5a",
-    "start": 57.5,
-    "window": 5,
+    "start": 67.7,
+    "window": 6,
     "text": "Rosa asks for groceries, in Spanish. Same rules, two approvals.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -51,8 +51,8 @@
   },
   {
     "id": "V5b",
-    "start": 69.702,
-    "window": 5.6,
+    "start": 78.102,
+    "window": 6.8,
     "text": "Her email has no PayPal account yet: unclaimed. She gets claim help in Spanish.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -61,8 +61,8 @@
   },
   {
     "id": "V5c",
-    "start": 75.6,
-    "window": 5.7,
+    "start": 85,
+    "window": 7.2,
     "text": "She claims it. Success. Most payout systems stop at unclaimed; this one follows through.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -71,8 +71,8 @@
   },
   {
     "id": "V6",
-    "start": 81.9,
-    "window": 8.4,
+    "start": 92.45,
+    "window": 9.5,
     "text": "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -81,8 +81,8 @@
   },
   {
     "id": "V7a",
-    "start": 90.8,
-    "window": 14.4,
+    "start": 102.3,
+    "window": 14.8,
     "text": "Under the hood: the agents that talk to neighbors have no PayPal tools. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -91,8 +91,8 @@
   },
   {
     "id": "V7b",
-    "start": 105.6,
-    "window": 4.8,
+    "start": 117.55,
+    "window": 5.95,
     "text": "AI output is schema-checked, repaired once, or the neighbor is asked again.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -101,8 +101,8 @@
   },
   {
     "id": "V7c",
-    "start": 110.8,
-    "window": 14.4,
+    "start": 123.85,
+    "window": 15.25,
     "text": "The batch ID is derived from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. The test count is from a real run.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -111,8 +111,8 @@
   },
   {
     "id": "V10",
-    "start": 125.8,
-    "window": 11.5,
+    "start": 139.45,
+    "window": 12.05,
     "text": "For agent builders: the same guard ships as an MCP server. An AI agent asking to pay is refused without two humans' signatures. With them, it pays.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -121,8 +121,8 @@
   },
   {
     "id": "V8",
-    "start": 137.8,
-    "window": 8.5,
+    "start": 151.85,
+    "window": 9.05,
     "text": "Donors give with PayPal or Venmo. The public report never names a neighbor, and every number comes from the ledger.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -131,8 +131,8 @@
   },
   {
     "id": "V9",
-    "start": 147,
-    "window": 11,
+    "start": 161.5,
+    "window": 11.4,
     "text": "Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -145,7 +145,7 @@
     "instructions": "An older Vietnamese woman, tired and cold but polite, speaking natural Northern-accented Vietnamese, slowly, as if leaving a voice message on a phone.",
     "text": "Xin chào, tôi là bà Lan, ở khu Eastside. Sau trận bão băng, nhà tôi bị mất điện hai ngày nay rồi.",
     "start": 0.2,
-    "window": 4.6,
+    "window": 9.6,
     "model": "gpt-4o-mini-tts",
     "fileName": "lan_voice-9cee34be4f01.wav"
   }
