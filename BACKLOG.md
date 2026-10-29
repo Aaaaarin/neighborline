@@ -2,15 +2,17 @@
 
 Ordered by impact on judging. ✅ done · 🔄 in progress · ⏳ blocked on human · ☐ todo
 
-Status as of Oct 17, 2026: 1103 unit tests (`pnpm test`, 11 packages), 18 workflows node tests and 38 Playwright
-tests pass on `main`; typecheck and the production web build are green.
+Status as of Oct 29, 2026: hosted at <https://neighborline.onrender.com> (free Blueprint `render.free.yaml`,
+PayPal sandbox, live OpenAI); real sandbox spike (Oct 28) and hosted runs (Oct 29) recorded in
+[SANDBOX_EVIDENCE.md](docs/SANDBOX_EVIDENCE.md). 1144 unit tests (`pnpm test`, 11 packages), 19 workflows node tests
+and 38 Playwright tests pass on `main`; CI green (typecheck, tests, build, e2e, audit, gitleaks).
 
 ## Blocked on human
-- ⏳ **Key day: one checklist, [docs/GOLIVE.md](docs/GOLIVE.md).** About 10 minutes of clicks (two PayPal sandbox
-  apps, the sandbox Personal account that also stands in on the hosted `/demo`, an OpenAI key, a Render account,
-  API key and the Blueprint click), then `pnpm golive` runs the sandbox spike, live AI, the Render deploy with a
-  hosted `/demo` run, the voiceover and the doc finalization. Everything in Wave 4 below waits on it
-- ⏳ Permission to make the repo public; Devpost submission; public YouTube upload (GOLIVE.md "Then")
+- ✅ Key day ([docs/GOLIVE.md](docs/GOLIVE.md)): sandbox apps and accounts, OpenAI key, Render account and the free
+  Blueprint; sandbox spike and hosted runs done
+- ⏳ **Before Nov 28** (the free Postgres expires 30 days after creation; judging is Dec 1–15): add a card on Render,
+  then switch the Blueprint path to `render.yaml` (upgrades in place, adds Workflows and the cron job)
+- ⏳ Permission to make the repo public; voiceover decision; public YouTube upload; Devpost submission
 - ⏳ Optional: a native speaker to review the vi / es / ht copy and the video's Vietnamese (review packet in
   `docs/submission/review/`); npm org + token for `@neighborline/paypal`; a Twilio number for the hotline
 
@@ -43,7 +45,7 @@ tests pass on `main`; typecheck and the production web build are green.
 
 ## Video and submission ✅
 - ✅ Draft 4 (2:40.5) cut from re-recorded takes (Lan in the bà register, matching EN lines, stopwatch 0:22.5, the
-  1093-test code card; a fresh run now reads 1103, so the card stays as recorded unless the video is re-cut);
+  1093-test code card; a fresh run now reads 1144, so the card stays as recorded unless the video is re-cut);
   thumbnail stopwatch fits the 3:2 card; stage, home, call and rules screenshots re-taken
 - ✅ Paste-ready Devpost packet, gallery, hero GIF (`docs/submission/`); test counts refreshed everywhere (README badges
   and Testing, STATUS, DEVPOST, DEVPOST_FIELDS, CHECKLIST, INTEGRATION, VIDEO_SCRIPT)
@@ -152,11 +154,15 @@ tests pass on `main`; typecheck and the production web build are green.
 - ✅ P2 offline extractor reads a Kreyòl household ("Nou 3 nan kay la")
 
 ## Wave 4: real world (scripted by `pnpm golive`; ⏳ the keys in [GOLIVE.md](docs/GOLIVE.md))
-- ☐ Real sandbox spike: Payouts PayPal + Venmo, webhooks, Transaction Search, Orders/Subscriptions buttons
-  ([checklist](docs/PAYPAL.md#to-verify-in-the-real-sandbox)) → `sandbox-setup`, `sandbox-spike`
-- ☐ Live AI: eval live columns, demo audio with TTS, three real intakes → `live-ai`
-- ☐ Deploy to Render with the Blueprint (web + approver, Postgres, Workflows, scheduler); `verify-deploy.sh`; a hosted
-  `/demo` run that settles in the sandbox through the stand-in → `deploy-render`
+- ✅ Real sandbox spike (Oct 28): Payouts PayPal (SUCCESS, UNCLAIMED, duplicate batch id), Venmo refused by the
+  sandbox (stand-ins), Transaction Search (404 on a new account = lag), Orders capture, Subscriptions plans
+  ([evidence](docs/SANDBOX_EVIDENCE.md))
+- ✅ Webhooks registered; the hosted app verified PayPal's signed `PAYMENT.PAYOUTS-ITEM.SUCCEEDED` (Oct 29)
+- ✅ Deployed to Render from `render.free.yaml` (web + approver, free Postgres); hosted `/demo` runs (Oct 29): Lan
+  SUCCESS `9D4A2K6DW4Y5N`, Rosa UNCLAIMED (cancel 500 → "try again"), impersonator blocked
+- ⏳ Paid Blueprint (`render.yaml`: Workflows, scheduler) before Nov 28 (card on Render)
+- 🔄 Live AI: a Korean `/call` through live OpenAI extraction approved and paid in sandbox (Oct 29); eval live columns
+  still to run → `live-ai`
 - ☐ Optional phone/WhatsApp channel via Twilio ⏳ account
 
 ## Wave 5: win the room
