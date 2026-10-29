@@ -73,7 +73,7 @@ Leave `PAYPAL_MODE`, `PAYPAL_BASE_URL` and the webhook/plan ids alone: golive wr
 pnpm golive
 ```
 
-When it is done: upload `golive-out/video/neighborline-draft3-vo.mp4` to YouTube (public, per the rules;
+When it is done: upload `golive-out/video/neighborline-draft5-vo.mp4` to YouTube (public, per the rules;
 [YOUTUBE.md](submission/YOUTUBE.md)), then
 
 ```bash

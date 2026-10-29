@@ -31,7 +31,7 @@ Repo: github.com/Aaaaarin/neighborline (private until you say "yes, public")
 1. **Card on Render → switch the Blueprint path to `render.yaml` before Nov 28** (see above)
 2. **"Yes, public"** for the repo
 3. **YouTube upload** of the video, then `pnpm golive --only finalize-docs` for the link
-4. **Voiceover decision:** OpenAI TTS narration, or ship the captioned Draft 4 as is
+4. **Video:** voiced Draft 5 is cut (OpenAI TTS narration, 2:55.0, `$VIDEO_OUT/neighborline-draft5-vo.mp4`); watch it, then upload
 5. **Devpost submission** ([submission/DEVPOST.md](submission/DEVPOST.md), [CHECKLIST.md](submission/CHECKLIST.md))
 - Optional: native-speaker review of the vi/es/ht copy, an npm token, a Twilio number
 

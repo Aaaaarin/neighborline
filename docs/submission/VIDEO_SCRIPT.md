@@ -1,4 +1,4 @@
-# Neighborline: demo video script (Draft 2, 2:40.5)
+# Neighborline: demo video script (Draft 5, voiced, 2:55.0)
 
 **Audience:** PayPal DevRel, product and engineering judges, plus sponsor judges. They watch at about 1.5× and
 decide within the first 60–90 seconds.
@@ -20,6 +20,31 @@ Rosa's 6-second claim beat); the stale code card, test count and `HOSTED_URL` ar
 added; `/report` is trimmed to 9 s. The pipeline and the shot timecodes live in `video/timeline.json`; the resolved
 cut is `video/edl.json`.
 
+**What changed in Draft 5** (Oct 29, the voiced cut): the 15 TTS lines (rendered by `.github/workflows/voiceover.yml`)
+run longer than Draft 4's caption estimates, so the cut was retimed around their measured length instead of rewriting
+or speeding up any line. Mrs. Lan's voice note is 9.4 s, so the cold open is 10 s and everything after it moves 5 s
+later; Shot 5 (+2.4 s), the title card (+2.8 s), Rosa's last shot (+0.5 s), the impersonator shot (+0.8 s, holding the
+take's last frame), `/trust` (+0.3 s), code cards 1–4 (+1.3 s, +1.0 s, −0.4 s, 0 s), the MCP clip (+0.4 s) and `/report`
+(+0.4 s) grow so that each line ends on the footage it describes with 0.45–1 s before the next. V5b now starts 1.5 s
+before `UNCLAIMED` lands. Code card 4 reads the current 1144-test run and the end card the hosted URL. Total 2:55.0.
+The authoritative timecodes are `video/timeline.json` and `video/edl.json`; the shot list below keeps Draft 4's
+timecodes for the shot descriptions, and the Draft 5 times are in this table:
+
+| Shot | Draft 5 | VO (file placed at) |
+|---|---|---|
+| 1 Cold open | 0:00–0:10 | Mrs. Lan 0:00.2 (9.4 s) |
+| 2 Voice note lands | 0:10–0:19 | V1 0:10.2 |
+| 3–4 Approvals, paid | 0:19–0:36 | V2 0:19.9; silence 0:32.3–0:35.4 for the tap and the money |
+| 5 Push in on her phone | 0:36–0:51.4 | V3 0:35.4 ("Paid," over the three phones) |
+| 6 Title | 0:51.4–1:07.2 | V4 0:51.7 |
+| 7 Rosa | 1:07.2–1:32.2 | V5a 1:07.7, V5b 1:18.1, V5c 1:25.0 |
+| 8 Impersonator blocked | 1:32.2–1:42.0 | V6 1:32.45 |
+| 9–10 `/trust`, the rail | 1:42.0–1:57.3 | V7a 1:42.3 |
+| 11 Code cards 1–4 | 1:57.3 / 2:03.6 / 2:09.6 / 2:14.2–2:19.2 | V7b 1:57.55, V7c 2:03.85 |
+| 12 MCP agent | 2:19.2–2:31.6 | V10 2:19.45 |
+| 13 `/report` | 2:31.6–2:41.0 | V8 2:31.85 |
+| 14 Close and ask | 2:41.0–2:55.0 (porch light 2:52.8) | V9 2:41.5 |
+
 **Hard constraints this script meets**
 
 | Constraint | Where it is met |
@@ -34,7 +59,7 @@ cut is `video/edl.json`.
 | Under the hood | 1:30.5–2:05.5: the trust page, the rail and 4 code cards |
 | Best Use of PayPal + AI | 2:05.5–2:17.5: an AI agent through `neighborline-payouts-mcp`, refused without two signatures, paid with them |
 | Impact and ask | 2:17.5–2:40.5 |
-| Total ≤ 2:50 | **2:40.5** |
+| Total under 3:00 | **2:55.0** (Draft 5; Draft 4 without voice was 2:40.5) |
 | VO ≤ 380 words, every line ≤ ~160 wpm in its slot | **326 words**; the fastest line is V4 at 154 wpm (table in §2) |
 
 ---
@@ -133,7 +158,7 @@ header. The pipeline cuts each excerpt from the committed file by regex and fail
 | 1 | 1:45.5–1:50.5 | `packages/agents/src/validate.ts` (header comment + `summarizeTrace`) | "invalid? → ONE repair call…" and the `Schema repaired …` summary |
 | 2 | 1:50.5–1:55.5 | `packages/core/src/approvals.ts` lines 144–183 (`canExecute`, `SENDER_BATCH_DOMAIN`, `senderBatchIdFor`) | `distinctApprovers(...) >= requiredApprovers(...)`, `SENDER_BATCH_DOMAIN = 'neighborline/paypal/sender_batch_id/v2'`, and ``return `nl_${sha256Hex(`${SENDER_BATCH_DOMAIN}\n${approval.id}\n${approval.hash}`).slice(0, 24)}` `` (the domain-separated derivation the approver calls) |
 | 3 | 1:55.5–2:00.5 | `packages/paypal/src/webhooks.ts` | `path: '/v1/notifications/verify-webhook-signature'` and the raw-body splice |
-| 4 | 2:00.5–2:05.5 | Terminal card: the real `pnpm test` summary per package, then `packages/paypal/src/reconcile.ts` `reconcile(…)` | **1093 tests pass** in Draft 4 (Oct 17, 2026, 11 packages; read from the cached run, never typed; `edl.json` holds this run). A fresh `pnpm test` now reads 1144 (Oct 29; the sandbox stand-in and sandbox-realism tests came after the cut); the card stays as recorded unless the video is re-cut |
+| 4 | 2:00.5–2:05.5 | Terminal card: the real `pnpm test` summary per package, then `packages/paypal/src/reconcile.ts` `reconcile(…)` | **1144 tests pass** in Draft 5 (Oct 29, 2026; read from the cached run, never typed; `edl.json` holds this run). Draft 4 showed 1093 (Oct 17) |
 
 - **VO V7b (1:45.6–1:50.4):** "AI output is schema-checked, repaired once, or the neighbor is asked again."
 - **VO V7c (1:50.8–2:05.2):** "The batch ID is derived from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. The test count is from a real run."
@@ -168,7 +193,9 @@ header. The pipeline cuts each excerpt from the committed file by regex and fail
 ## 2. Voiceover, clean copy (for TTS and the word count)
 
 Fit = words ÷ window. The target is ≤ ~160 wpm in every slot (TTS at `coral`, "unhurried"); the build re-checks it
-and `edl.json → vo[]` keeps the resolved numbers. Mrs. Lan's Vietnamese (Shot 1) is not counted and is never sped up.
+and `edl.json → vo[]` keeps the resolved numbers. The windows below are Draft 4's estimates; the rendered lines ran
+0.2–3.4 s longer (measured speech: V1 9.6, V2 12.4, V3 15.6, V4 15.2, V5a 5.5, V5b 6.4, V5c 7.0, V6 9.3, V7a 14.7,
+V7b 5.7, V7c 14.6, V10 11.8, V8 8.8, V9 11.1 s), and Draft 5's windows in `timeline.json` are fitted to them. Mrs. Lan's Vietnamese (Shot 1) is not counted and is never sped up.
 
 | Line | Window | Seconds | Words | wpm needed | Text |
 |---|---|---|---|---|---|
@@ -255,7 +282,7 @@ Keep V1 as the default: by 0:14 a judge has heard her, read the promise, and bee
 **Content and trademarks**
 - [ ] No PayPal or Venmo logos, no PayPal-blue logo buttons, no Smart Button close-ups. The `/donate` page's SDK buttons render official marks, so keep `/donate` out of the video.
 - [ ] No real people, real handles or real neighborhoods' victims. All names are fictional, and `example.com` emails are fine.
-- [ ] Final duration is under 2:50, leaving 10 s of margin under the 3:00 limit.
+- [ ] Final duration is under 3:00 (Draft 5: 2:55.0; the voiced lines need 14.5 s more than Draft 4's 2:40.5).
 - [ ] Watch the export once at 1.5× and once muted. The story must survive both: the captions carry it when muted.
 
 **YouTube upload**

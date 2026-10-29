@@ -15,7 +15,7 @@ Quoted from the [official rules](https://paypalaihackathon.devpost.com/rules) (f
 - [ ] No secrets in history: CI's gitleaks job green on `main`, plus `gitleaks detect --log-opts="--all"` locally.
 - [ ] **Functional demo**: the hosted URL loads in a private window on a phone and on a laptop, *or* the run instructions above are in the testing instructions. "Mockups, static prototypes and non-functional demos do not qualify."
 - [ ] Demo **free and unrestricted** through judging (Dec 1–15 window): no login, no paywall; Render plan does not sleep or expire (`render.yaml` uses paid Postgres for this reason).
-- [ ] **Video under 3:00** (Draft 3 is 2:40.5), uploaded to **YouTube**, visibility **Public**, link opens logged out.
+- [ ] **Video under 3:00** (the voiced Draft 5 is 2:55.0), uploaded to **YouTube**, visibility **Public**, link opens logged out.
 - [ ] Video shows the project **working on the device it was built for** (the browser stage and phones) end to end.
 - [ ] Video has **no third-party trademarks** (no PayPal/Venmo logos or SDK buttons; `/donate` never appears) and **no copyrighted music** (silence, or a YouTube Audio Library track with its license screenshot saved).
 - [ ] **English**: all submission text in English; non-English UI in the video is subtitled (burned captions + SRT).
@@ -50,7 +50,7 @@ Quoted from the [official rules](https://paypalaihackathon.devpost.com/rules) (f
 - [ ] A live-model run of `pnpm --filter @neighborline/agents eval --mode live` committed to EVAL.md, if a key arrives; otherwise §9b's "Honest status" paragraph stays.
 
 **Consistency** (a careful judge cross-checks)
-- [ ] Test counts in README, DEVPOST_FIELDS and badges equal a fresh `pnpm test` (1144 on Oct 29) and `playwright test --list` (38). CI green on `main`. The video's code card is baked into Draft 4 from the run that read **1093** (before the sandbox stand-in tests); re-render only if a new cut is made anyway.
+- [ ] Test counts in README, DEVPOST_FIELDS and badges equal a fresh `pnpm test` (1144 on Oct 29) and `playwright test --list` (38). CI green on `main`. The voiced Draft 5 (Oct 29) re-renders the code card from the 1144-test run.
 - [ ] The stopwatch value (`0:22.4`), the split (`0:19.2` / `0:03.1`) and "about 22 s / about 3 s" agree across video, thumbnail, gallery and text.
 - [ ] Every "not built / not live" statement is still true: phone line built but no number; SMS/WhatsApp not built; hosted or not; sandbox run or not.
 - [ ] `/trust` "Sandbox reality" matches README "Sandbox reality" and §9c.

@@ -1,15 +1,16 @@
 # YouTube upload: paste-ready
 
 The rules require the video to be **under 3 minutes** and **publicly visible on YouTube**, with no third-party
-trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft4-vo.mp4` from
-`node docs/submission/video/build.mjs --with-vo`, or the final cut that replaces it), not the caption-only
-`neighborline-draft4.mp4`. Times below are from `video/edl.json` (Draft 4, 2:40.5); re-check them if the cut changes.
+trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft5-vo.mp4` from
+`HOSTED_URL=neighborline.onrender.com node docs/submission/video/build.mjs --with-vo`), not the caption-only
+`neighborline-draft5-vo-silent.mp4`. Times below are from `video/edl.json` (Draft 5, voiced, 2:55.0); re-check them if
+the cut changes.
 
 ## File, thumbnail, captions
 
 | Field | Value |
 |---|---|
-| Video file | `/home/claude/video-out/neighborline-draft4-vo.mp4` (2:40.5, 1920×1080, 30 fps) |
+| Video file | `/home/claude/video-out/neighborline-draft5-vo.mp4` (2:55.0, 1920×1080, 30 fps, AAC 48 kHz stereo, −14 LUFS) |
 | Custom thumbnail (16:9, ≤ 2 MB) | `/home/claude/video-out/thumbnail.png` (1280×720, 288 KB) |
 | Subtitles / CC | Upload [`video/captions.srt`](video/captions.srt) as **English** (Subtitles → Add language → English → Upload file → *With timing*). The cut also has burned-in captions; the SRT makes them searchable and lets viewers resize them |
 | Video language | English |
@@ -36,12 +37,12 @@ Neighborline is a mutual-aid hotline for neighborhood groups, built for the PayP
 
 Chapters
 0:00 Mrs. Lan's voice note becomes Venmo cash
-0:44 Why: a hotline, not a dashboard
-0:57 Unclaimed payout, rescued in Spanish
-1:21 Impersonator blocked, and who can move money
-1:45 Under the hood: schema repair, idempotent batches, verified webhooks
-2:05 An AI agent can pay only with two humans' signatures (MCP)
-2:17 Where the money went, and how to try it
+0:51 Why: a hotline, not a dashboard
+1:07 Unclaimed payout, rescued in Spanish
+1:32 Impersonator blocked, and who can move money
+1:57 Under the hood: schema repair, idempotent batches, verified webhooks
+2:19 An AI agent can pay only with two humans' signatures (MCP)
+2:31 Where the money went, and how to try it
 
 What you are seeing
 • Everything runs on the real engine (web app, separate approval service, database). PayPal is our local stand-in that mirrors PayPal's documented sandbox API ("Simulated PayPal sandbox" on screen). {AFTER THE SANDBOX RUN: "PayPal calls go to PayPal's sandbox; Rosa's claim is simulated."}
@@ -65,8 +66,9 @@ PayPal and Venmo are trademarks of PayPal, Inc. This is an independent hackathon
 ```
 
 Notes:
-- **Chapters**: YouTube needs the first at `0:00`, at least three, each at least 10 s long. The script's shots at
-  0:05, 0:14 and 0:31 (and the 9-second impersonator shot at 1:21) are folded into their neighbors for that reason.
+- **Chapters**: YouTube needs the first at `0:00`, at least three, each at least 10 s long. The cut's shots at
+  0:10, 0:19 and 0:36 are folded into their neighbors for that reason; the impersonator shot (1:32, 9.8 s) opens the
+  chapter that runs on through `/trust` and the rail.
 - If `{HOSTED_URL}` doesn't exist at upload time, replace the first ▶ line with
   `▶ Run it locally with zero credentials: corepack enable && pnpm i && pnpm dev` and edit the description later
   (the end card already says "Live demo link in the description").

@@ -294,7 +294,7 @@ prize checkboxes, tick these:
 |---|---|---|
 | Main prizes (1st–3rd) | Yes (automatic) | |
 | **Most Impactful** | **Yes** (our strongest) | Cash to elders and immigrants after a disaster, in their language, without a volunteer's personal Venmo or an AI deciding who deserves help. |
-| **Best Demo Delivery** | **Yes** | The video opens on her voice note and shows the full loop to a verified SUCCESS webhook in 27 seconds, at real pace. |
+| **Best Demo Delivery** | **Yes** | The video opens on her voice note and shows the full loop to a verified SUCCESS webhook 33 seconds in (a 22.5-second stopwatch), at real pace. |
 | **Best Use of PayPal + AI** | **Yes** | AI listens, translates and reads back; code sets the amount; two passkey signatures release a PayPal Payouts batch; PayPal webhooks and Transaction Search close the loop. |
 | **Best Use of Agentic Commerce** | **Yes** | `neighborline-payouts-mcp` lets AI agents pay people through PayPal Payouts only with a token two humans' approval produced. |
 | Most Creative | Yes (free to enter) | A hotline, not a dashboard: the neighbor's phone is the interface. |
