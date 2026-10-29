@@ -6,7 +6,7 @@ name: Voiceover
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write # pushes the WAVs to the vo-lines branch (artifact downloads are blocked on the build machine)
 jobs:
   tts:
     # ubuntu-latest moved to Ubuntu 26 on 2026-10-19; pinned like ci.yml.
@@ -21,8 +21,12 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: node docs/submission/video/tts-jobs.mjs docs/submission/video/vo-jobs.json vo
-      - uses: actions/upload-artifact@v4
-        with:
-          name: voiceover-lines
-          path: vo/*.wav
-          retention-days: 7
+      - name: Push the lines to the vo-lines branch
+        run: |
+          cd vo
+          git init -q -b vo-lines
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add *.wav
+          git commit -q -m "voiceover lines from ${GITHUB_SHA::7} (docs/submission/video/vo-jobs.json)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" vo-lines
