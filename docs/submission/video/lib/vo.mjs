@@ -30,17 +30,29 @@ async function tts({ text, voice, instructions }, out) {
   writeFileSync(out, Buffer.from(await res.arrayBuffer()));
 }
 
-/** Generates (or reuses) every line; returns { durations: {V1: s, …}, files: [{id, file, start}] }. */
-export async function generateVo(T) {
-  if (!process.env.OPENAI_API_KEY) throw new Error('--with-vo needs OPENAI_API_KEY');
-  const files = [];
-  const durations = {};
+/** Every TTS line for this timeline, with the cache file name the build looks for (also used by --vo-jobs). */
+export function voJobs(T) {
   const open = T.shots.find((s) => s.kind === 'voicenote');
   const lan = { ...LAN_VOICE, text: open.voice.vi, start: open.start + open.voice.start, window: +(open.dur - open.voice.start - 0.2).toFixed(2) };
-  const jobs = [...T.vo.map((v) => ({ id: v.id, start: v.start, window: v.window, text: v.text, ...NARRATOR })), lan];
-  for (const j of jobs) {
+  return [...T.vo.map((v) => ({ id: v.id, start: v.start, window: v.window, text: v.text, ...NARRATOR })), lan].map((j) => {
     const key = createHash('sha256').update(JSON.stringify([MODEL, j.voice, j.instructions, j.text])).digest('hex').slice(0, 12);
-    const file = join(DIRS.vo, `${j.id}-${key}.wav`);
+    return { ...j, model: MODEL, fileName: `${j.id}-${key}.wav` };
+  });
+}
+
+/**
+ * Generates (or reuses) every line; returns { durations: {V1: s, …}, files: [{id, file, start}] }. Lines already in
+ * DIRS.vo (e.g. rendered by .github/workflows/voiceover.yml and downloaded) are never re-requested, so the key is only
+ * needed for lines that are missing.
+ */
+export async function generateVo(T) {
+  const files = [];
+  const durations = {};
+  const jobs = voJobs(T);
+  const missing = jobs.filter((j) => !existsSync(join(DIRS.vo, j.fileName)));
+  if (missing.length && !process.env.OPENAI_API_KEY) throw new Error(`--with-vo needs OPENAI_API_KEY for ${missing.length} line(s) not in ${DIRS.vo}: ${missing.map((j) => j.fileName).join(', ')}`);
+  for (const j of jobs) {
+    const file = join(DIRS.vo, j.fileName);
     if (!existsSync(file)) {
       log(`TTS ${j.id} (${j.text.split(/\s+/).length} words)`);
       await tts(j, file);

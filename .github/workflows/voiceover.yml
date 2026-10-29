@@ -1,0 +1,28 @@
+# Renders the demo video's voiceover lines with OpenAI TTS and uploads them as an artifact.
+# Why here: the machine that builds the video cannot reach api.openai.com. The lines (text, voice, instructions)
+# are in docs/submission/video/vo-jobs.json, written by `node docs/submission/video/build.mjs --vo-jobs …`.
+# Needs the repository secret OPENAI_API_KEY (a project key with a spend limit). Manual runs only.
+name: Voiceover
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tts:
+    # ubuntu-latest moved to Ubuntu 26 on 2026-10-19; pinned like ci.yml.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Render the voiceover lines
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node docs/submission/video/tts-jobs.mjs docs/submission/video/vo-jobs.json vo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voiceover-lines
+          path: vo/*.wav
+          retention-days: 7

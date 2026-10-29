@@ -66,6 +66,15 @@ const T = loadTimeline({ tests: testTotal });
 log(`mode ${T.mode} · {T}=${T.vars.T} ("${T.vars.T_words}") · blocked ${T.vars.BLOCK_T}`);
 for (const w of T.warnings) log(`VO fit: ${w}`);
 let vo = null;
+// --vo-jobs <file>: write the TTS lines (text, voice, instructions, cache file name) and stop. CI renders them
+// (.github/workflows/voiceover.yml) where api.openai.com is reachable; download them into $VIDEO_OUT/vo, then --with-vo.
+const jobsAt = process.argv.indexOf('--vo-jobs');
+if (jobsAt > 0) {
+  const jobs = (await import('./lib/vo.mjs')).voJobs(T);
+  writeFileSync(process.argv[jobsAt + 1], `${JSON.stringify(jobs, null, 2)}\n`);
+  log(`wrote ${jobs.length} VO jobs to ${process.argv[jobsAt + 1]}`);
+  process.exit(0);
+}
 if (WITH_VO) vo = await (await import('./lib/vo.mjs')).generateVo(T);
 
 // 5. Cards and overlays.
