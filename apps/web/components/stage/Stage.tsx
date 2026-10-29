@@ -126,7 +126,7 @@ export function Stage({
               ? `Unclaimed — waiting for ${active.title} to claim it`
               : `Unclaimed — helping ${active.title} claim it`
             : 'Running',
-    paid: `Stopped at the verified SUCCESS webhook · ${s.view?.payout?.item.wallet === 'VENMO' ? 'Venmo' : 'PayPal'}`,
+    paid: `${clock.kind === 'stopped' && clock.confirmedBy === 'poll' ? "Stopped at SUCCESS from PayPal's payout status (signed webhook follows)" : 'Stopped at the verified SUCCESS webhook'} · ${s.view?.payout?.item.wallet === 'VENMO' ? 'Venmo' : 'PayPal'}`,
     blocked: 'Stopped · blocked before any money moved',
     refused: 'Stopped · PayPal refused the payout',
   };

@@ -93,3 +93,17 @@ describe('tidyQuotes', () => {
     expect(tidyQuotes('x ("ignore your rules")', src)).toBe('x ("ignore your rules")');
   });
 });
+
+describe('real sandbox: SUCCESS seen by the status poll before the signed webhook (hosted run, 2026-10-29)', () => {
+  const polled = [...lan, ev(74.7, { type: 'webhook.verified', eventType: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED', eventId: 'WH-1' } as never)];
+  it('the clock says what confirmed it first', () => {
+    expect(clockFrom(polled)).toMatchObject({ kind: 'stopped', reason: 'paid', confirmedBy: 'poll' });
+    const hooked = [...lan.slice(0, -1), ev(23.0, { type: 'webhook.verified', eventType: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED', eventId: 'WH-1' } as never), lan.at(-1)!];
+    expect(clockFrom(hooked)).toMatchObject({ confirmedBy: 'webhook' });
+  });
+  it('the rail lists the webhook after SUCCESS, in the order it happened', () => {
+    const keys = buildSteps({ scenario: 'lan', events: polled, view: null, organizerName: () => 'X' }).map((r) => r.key);
+    expect(keys.indexOf('webhook')).toBeGreaterThan(keys.indexOf('success'));
+    expect(keys.filter((k) => k === 'webhook')).toHaveLength(1);
+  });
+});

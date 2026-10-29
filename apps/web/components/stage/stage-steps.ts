@@ -214,7 +214,18 @@ export function buildSteps(input: {
     }
   }
 
-  const rows = plan.map((k) => steps.get(k)!);
+  // Real sandbox: SUCCESS can come from the approver's status poll before PayPal's signed webhook arrives.
+  // Show the rows in the order they happened instead of implying the webhook came first.
+  const order = [...plan];
+  const hook = steps.get('webhook');
+  const paidRow = steps.get('success');
+  if (hook?.atMs !== undefined && paidRow?.atMs !== undefined && hook.atMs > paidRow.atMs && order.includes('webhook') && !order.includes('webhook2')) {
+    order.splice(order.indexOf('webhook'), 1);
+    order.splice(order.indexOf('success') + 1, 0, 'webhook');
+    steps.set('webhook', { ...hook, detail: `${hook.detail ?? ''} · arrived after PayPal's payout status already said SUCCESS` });
+    steps.set('success', { ...paidRow, detail: paidRow.detail ?? "Seen first by the approver's read-only status check" });
+  }
+  const rows = order.map((k) => steps.get(k)!);
   // The first pending row after the last completed one is "active".
   const lastDone = rows.map((r) => r.state !== 'pending').lastIndexOf(true);
   if (events.length && lastDone >= 0 && lastDone < rows.length - 1 && rows[lastDone + 1]!.state === 'pending') {
@@ -223,7 +234,12 @@ export function buildSteps(input: {
   return rows;
 }
 
-export type ClockState = { kind: 'idle' } | { kind: 'running'; startAt: number } | { kind: 'stopped'; ms: number; reason: 'paid' | 'blocked' | 'refused' };
+export type ClockState =
+  | { kind: 'idle' }
+  | { kind: 'running'; startAt: number }
+  /** `confirmedBy` (paid only): what told us first. In the real sandbox the approver's status poll can see SUCCESS
+   *  before PayPal's signed webhook arrives; the caption must not claim a webhook it has not seen yet. */
+  | { kind: 'stopped'; ms: number; reason: 'paid' | 'blocked' | 'refused'; confirmedBy?: 'webhook' | 'poll' };
 
 /** PayPal's account-level refusal of this run's batch, unless a later re-send got through. */
 export function railRefusal(events: TimedEvent[]): TimedEvent | null {
@@ -239,7 +255,10 @@ export function clockFrom(events: TimedEvent[]): ClockState {
   const start = events.find((e) => e.event.type === 'request.created');
   if (!start) return { kind: 'idle' };
   const paid = events.find((e) => e.event.type === 'payout.item_updated' && e.event.status === 'SUCCESS');
-  if (paid) return { kind: 'stopped', ms: paid.at - start.at, reason: 'paid' };
+  if (paid) {
+    const hook = events.find((e) => e.event.type === 'webhook.verified' && e.at <= paid.at);
+    return { kind: 'stopped', ms: paid.at - start.at, reason: 'paid', confirmedBy: hook ? 'webhook' : 'poll' };
+  }
   const flagged = events.find((e) => e.event.type === 'request.flagged' && e.event.flags.some((f) => f.severity === 'block'));
   if (flagged) return { kind: 'stopped', ms: flagged.at - start.at, reason: 'blocked' };
   // PayPal refused the batch: nothing is in flight, so the clock stops instead of running forever (QA-2 P2-3).
