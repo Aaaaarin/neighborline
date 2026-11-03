@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@neighborline/fake-paypal": "workspace:*",
-    "@types/node": "^22.9.0",
+    "@types/node": "^26.6.5",
     "typescript": "^5.6.3",
     "vitest": "^4.1.12"
   }
