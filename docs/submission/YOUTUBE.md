@@ -1,16 +1,16 @@
 # YouTube upload: paste-ready
 
 The rules require the video to be **under 3 minutes** and **publicly visible on YouTube**, with no third-party
-trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft5-vo.mp4` from
+trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft6-vo.mp4` from
 `HOSTED_URL=neighborline.onrender.com node docs/submission/video/build.mjs --with-vo`), not the caption-only
-`neighborline-draft5-vo-silent.mp4`. Times below are from `video/edl.json` (Draft 5, voiced, 2:55.0); re-check them if
+`neighborline-draft6-vo-silent.mp4`. Times below are from `video/edl.json` (Draft 6, 2:56.5); re-check them if
 the cut changes.
 
 ## File, thumbnail, captions
 
 | Field | Value |
 |---|---|
-| Video file | `/home/claude/video-out/neighborline-draft5-vo.mp4` (2:55.0, 1920×1080, 30 fps, AAC 48 kHz stereo, −14 LUFS) |
+| Video file | `/home/claude/video-out/neighborline-draft6-vo.mp4` (2:56.5, 1920×1080, 30 fps, AAC 48 kHz stereo, −14 LUFS) |
 | Custom thumbnail (16:9, ≤ 2 MB) | `/home/claude/video-out/thumbnail.png` (1280×720, 288 KB) |
 | Subtitles / CC | Upload [`video/captions.srt`](video/captions.srt) as **English** (Subtitles → Add language → English → Upload file → *With timing*). The cut also has burned-in captions; the SRT makes them searchable and lets viewers resize them |
 | Video language | English |
@@ -27,7 +27,7 @@ Neighborline: a voice note in any language becomes PayPal or Venmo cash, approve
 ## Description
 
 ```
-Mrs. Lan doesn't read English, and her power has been out for two days. She leaves a voice note in Vietnamese. Twenty-two seconds later, $150 is in her Venmo and a message comes back in Vietnamese.
+Two days after an ice storm, the Eastside is still dark. Mrs. Lan is 71, her heat is off, and the relief form is six pages, in English. So she just says it: a voice note in Vietnamese. Twenty-two seconds later, $150 is in her Venmo and a message comes back in Vietnamese.
 
 Neighborline is a mutual-aid hotline for neighborhood groups, built for the PayPal AI Hackathon. A neighbor asks for help in any of 10 languages; AI transcribes it, translates it and reads it back in their language; code computes the amount from the group's own written rules; two organizers approve with passkeys on their phones; and a separate approval service pays through PayPal Payouts to PayPal or Venmo. The AI never decides who deserves help and never touches the money.
 
@@ -36,16 +36,18 @@ Neighborline is a mutual-aid hotline for neighborhood groups, built for the PayP
 ▶ How it was tested and what is simulated: https://github.com/Aaaaarin/neighborline#sandbox-reality
 
 Chapters
-0:00 Mrs. Lan's voice note becomes Venmo cash
-0:51 Why: a hotline, not a dashboard
-1:07 Unclaimed payout, rescued in Spanish
-1:32 Impersonator blocked, and who can move money
-1:57 Under the hood: schema repair, idempotent batches, verified webhooks
+0:00 The Eastside, two days without power
+0:12 Help exists, behind a six-page English form
+0:33 Mrs. Lan's voice note becomes Venmo cash
+1:18 Unclaimed payout, rescued in Spanish
+1:43 Impersonator blocked, and who can move money
+2:08 Under the hood: idempotent batches, verified webhooks
 2:19 An AI agent can pay only with two humans' signatures (MCP)
-2:31 Where the money went, and how to try it
+2:31 Where the money went, and one warm window
 
 What you are seeing
-• Everything runs on the real engine (web app, separate approval service, database). PayPal is our local stand-in that mirrors PayPal's documented sandbox API ("Simulated PayPal sandbox" on screen). {AFTER THE SANDBOX RUN: "PayPal calls go to PayPal's sandbox; Rosa's claim is simulated."}
+• The opening and closing street, the relief form and the comment thread are drawings made for this video (the form is "a typical relief application", not a real one). The 300-requests figure is sourced below.
+• Everything in the demo runs on the real engine (web app, separate approval service, database). PayPal is our local stand-in that mirrors PayPal's documented sandbox API ("Simulated PayPal sandbox" on screen). {AFTER THE SANDBOX RUN: "PayPal calls go to PayPal's sandbox; Rosa's claim is simulated."}
 • No real money moves. All people, handles and the group are fictional.
 • The organizers' taps come on cue. Approval 2 is a real click and a real WebAuthn passkey ceremony on a virtual authenticator in Chrome; Dana signs with a labelled demo key.
 • Rosa's segment is shown at 2× speed, and her claim is played by the PayPal stand-in.
@@ -59,16 +61,17 @@ Sources for the numbers
 • About 900 active US mutual-aid groups mapped by 2021: Mutual Aid Hub, via Spotlight on Poverty — https://spotlightonpoverty.org/spotlight-exclusives/mutual-aid-hub-helping-community-members-help-each-other
 
 Credits
-Built with Claude Code (Anthropic). AI in the product: Anthropic Claude and OpenAI (speech-to-text, text-to-speech). Fonts: Literata, Be Vietnam Pro, Atkinson Hyperlegible Mono (SIL Open Font License). {MUSIC: "No music." or "Music: <track> by <artist>, YouTube Audio Library (no attribution required)"}
+Built with Claude Code (Anthropic). AI in the product: Anthropic Claude and OpenAI (speech-to-text, text-to-speech). Fonts: Literata, Be Vietnam Pro, Atkinson Hyperlegible Mono (SIL Open Font License). Sound: no music; the wind and the soft chord are synthesised by the build script (ffmpeg).
 PayPal and Venmo are trademarks of PayPal, Inc. This is an independent hackathon project, not affiliated with or endorsed by PayPal.
 
 #PayPal #MutualAid #AI
 ```
 
 Notes:
-- **Chapters**: YouTube needs the first at `0:00`, at least three, each at least 10 s long. The cut's shots at
-  0:10, 0:19 and 0:36 are folded into their neighbors for that reason; the impersonator shot (1:32, 9.8 s) opens the
-  chapter that runs on through `/trust` and the rail.
+- **Chapters**: YouTube needs the first at `0:00`, at least three, each at least 10 s long. The one-line beat
+  (0:26), the phone shots (0:42.8, 0:47.2, 1:02.7) and the close (2:40.3) are folded into their neighbors for that
+  reason; the impersonator shot (1:42.8, 9.8 s) opens the chapter that runs on through `/trust` and the rail, and the
+  two code cards (2:07.9–2:18.5, 10.6 s) are a chapter of their own.
 - If `{HOSTED_URL}` doesn't exist at upload time, replace the first ▶ line with
   `▶ Run it locally with zero credentials: corepack enable && pnpm i && pnpm dev` and edit the description later
   (the end card already says "Live demo link in the description").
@@ -93,7 +96,7 @@ Neighborline, PayPal, PayPal Payouts, Venmo, mutual aid, disaster relief, AI age
 | Comments | On (judges may ask questions); hold potentially inappropriate comments for review |
 | Allow embedding | On (Devpost embeds the player) |
 | Paid promotion | No |
-| Recording date / location | Oct 17, 2026 / leave empty |
+| Recording date / location | Oct 17, 2026 (takes; the cut is from Nov 11) / leave empty |
 
 ## "Altered or synthetic content" (YouTube Studio → Details → Altered content)
 
@@ -101,7 +104,8 @@ YouTube asks whether the video "makes a real person appear to say or do somethin
 a real event or place", or "generates a realistic-looking scene that didn't actually occur".
 
 **Answer: Yes.** The voices of Mrs. Lan and Rosa are realistic synthetic speech of fictional people, telling a
-realistic story (an ice storm, a request for help) that did not happen. No real person is depicted or imitated, and no
+realistic story (an ice storm, a request for help) that did not happen. The storm street in Draft 6 is a stylised
+drawing, not a realistic-looking scene, but it tells the same fictional story. No real person is depicted or imitated, and no
 real event is altered, but a viewer could mistake her voice note for a real one, which is exactly what the disclosure
 is for. The video also discloses it on screen (corner tag "AI voices") and in the description. Ticking "Yes" adds
 YouTube's "Altered or synthetic content" label to the description panel; that is fine and consistent with our

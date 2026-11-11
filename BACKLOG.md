@@ -12,7 +12,7 @@ and 38 Playwright tests pass on `main`; CI green (typecheck, tests, build, e2e, 
   Blueprint; sandbox spike and hosted runs done
 - ⏳ **Before Nov 28** (the free Postgres expires 30 days after creation; judging is Dec 1–15): add a card on Render,
   then switch the Blueprint path to `render.yaml` (upgrades in place, adds Workflows and the cron job)
-- ⏳ Permission to make the repo public; review the voiced Draft 5; public YouTube upload; Devpost submission
+- ⏳ Permission to make the repo public; review Draft 6 of the video; public YouTube upload; Devpost submission
 - ⏳ Optional: a native speaker to review the vi / es / ht copy and the video's Vietnamese (review packet in
   `docs/submission/review/`); npm org + token for `@neighborline/paypal`; a Twilio number for the hotline
 
@@ -169,6 +169,9 @@ and 38 Playwright tests pass on `main`; CI green (typecheck, tests, build, e2e, 
 - ☐ Red-team QA pass (bugs, UX, copy) on the hosted build
 - ✅ Video: voiceover. Draft 5 (2:55.0) is voiced with the 15 TTS lines rendered in CI, every shot retimed to the
   measured lines, captions cut at the real pauses, the 1144-test code card and the hosted URL on the end card
+- ✅ Video: story. Draft 6 (2:56.5) opens on the storm (a drawn night street with every window dark, the six-page
+  English form, 300 requests in comments), then her voice note and the Draft 5 demo, and closes on the same street with
+  one warm window; wind and a soft pad are synthesised in the build; the title card and code cards 1 and 4 are cut
 - ☐ Video: native-speaker check → public YouTube upload
 - ☐ Devpost: `finalize-docs` fills `{HOSTED_URL}`, `{VIDEO_ID}`, sandbox buyer; thumbnail and gallery are ready
 - ☐ Sponsor prize: APIMatic Context Plugin (Payouts + Transaction Search): decide

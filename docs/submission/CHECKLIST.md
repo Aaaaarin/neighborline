@@ -15,9 +15,9 @@ Quoted from the [official rules](https://paypalaihackathon.devpost.com/rules) (f
 - [ ] No secrets in history: CI's gitleaks job green on `main`, plus `gitleaks detect --log-opts="--all"` locally.
 - [ ] **Functional demo**: the hosted URL loads in a private window on a phone and on a laptop, *or* the run instructions above are in the testing instructions. "Mockups, static prototypes and non-functional demos do not qualify."
 - [ ] Demo **free and unrestricted** through judging (Dec 1–15 window): no login, no paywall; Render plan does not sleep or expire (`render.yaml` uses paid Postgres for this reason).
-- [ ] **Video under 3:00** (the voiced Draft 5 is 2:55.0), uploaded to **YouTube**, visibility **Public**, link opens logged out.
+- [ ] **Video under 3:00** (Draft 6 is 2:56.5), uploaded to **YouTube**, visibility **Public**, link opens logged out.
 - [ ] Video shows the project **working on the device it was built for** (the browser stage and phones) end to end.
-- [ ] Video has **no third-party trademarks** (no PayPal/Venmo logos or SDK buttons; `/donate` never appears) and **no copyrighted music** (silence, or a YouTube Audio Library track with its license screenshot saved).
+- [ ] Video has **no third-party trademarks** (no PayPal/Venmo logos or SDK buttons; `/donate` never appears) and **no copyrighted music** (Draft 6 has no music: its wind and soft chord are synthesised by `video/lib/sound.mjs`; if a track is ever added, a YouTube Audio Library one with its license screenshot saved).
 - [ ] **English**: all submission text in English; non-English UI in the video is subtitled (burned captions + SRT).
 - [ ] **AI tools named and explained**: DEVPOST_FIELDS §9b pasted.
 - [ ] **PayPal integration central and on the free sandbox**: §9c pasted. *(sandbox)* If the real-sandbox spike has run, the sandbox wording is switched; if not, the "look-alike of PayPal's documented shapes" wording is kept. Never claim a real sandbox call that didn't happen.
@@ -50,7 +50,7 @@ Quoted from the [official rules](https://paypalaihackathon.devpost.com/rules) (f
 - [ ] A live-model run of `pnpm --filter @neighborline/agents eval --mode live` committed to EVAL.md, if a key arrives; otherwise §9b's "Honest status" paragraph stays.
 
 **Consistency** (a careful judge cross-checks)
-- [ ] Test counts in README, DEVPOST_FIELDS and badges equal a fresh `pnpm test` (1144 on Oct 29) and `playwright test --list` (38). CI green on `main`. The voiced Draft 5 (Oct 29) re-renders the code card from the 1144-test run.
+- [ ] Test counts in README, DEVPOST_FIELDS and badges equal a fresh `pnpm test` (1144 on Oct 29) and `playwright test --list` (38). CI green on `main`. Draft 6 (Nov 11) no longer shows the test-count code card.
 - [ ] The stopwatch value (`0:22.4`), the split (`0:19.2` / `0:03.1`) and "about 22 s / about 3 s" agree across video, thumbnail, gallery and text.
 - [ ] Every "not built / not live" statement is still true: phone line built but no number; SMS/WhatsApp not built; hosted or not; sandbox run or not.
 - [ ] `/trust` "Sandbox reality" matches README "Sandbox reality" and §9c.

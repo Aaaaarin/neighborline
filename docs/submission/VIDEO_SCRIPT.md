@@ -1,4 +1,4 @@
-# Neighborline: demo video script (Draft 5, voiced, 2:55.0)
+# Neighborline: demo video script (Draft 6, 2:56.5)
 
 **Audience:** PayPal DevRel, product and engineering judges, plus sponsor judges. They watch at about 1.5× and
 decide within the first 60–90 seconds.
@@ -10,8 +10,44 @@ device for which it was built", "must be uploaded to and made publicly visible o
 party trademarks, or copyrighted music or other material" unless the entrant has permission. Judging criterion (§6):
 "Does the video clearly demonstrate the project working end-to-end?"
 
-**The story in one line:** Mrs. Lan's voice is the first thing you hear and her phone is the main character. The video
-opens on her voice note, cuts to her phone and the stopwatch, and closes on her phone after it turns warm.
+**The story in one line:** a street with every window dark, a woman who cannot use the help that exists, her voice,
+her phone, and the same street with one window warm. (Through Draft 5 the video opened on her voice note; Draft 6 puts
+the storm in front of it, so the viewer knows what the voice note is for.)
+
+**What changed in Draft 6** (Nov 11, "sell the story"): three acts. **Act 1, the storm** (0:00–0:32.8) is drawn, not
+filmed (`video/lib/scene.mjs`, the app's fonts and tokens, a cold palette with no warm colour at all): the Eastside at
+5:10 AM, day 2 without power, sleet, a downed line, Mrs. Lan's house and her phone at 23 % (N1); what help looks like
+today, a six-page English form with "This field is required" beside a comment thread counting to 300 requests
+overnight, with its source on screen (N2); and one line on near-black, "What if she could just say it?" (N3, which now
+carries the name and "a hotline, not a dashboard"). **Act 2** is the Draft 5 footage: her voice note (10 s), a shorter
+Shot 2 under a shorter V1, the approvals and the paid phone with the cut to her phone 1.5 s earlier, Rosa, the
+impersonator, `/trust`, the rail, two code cards (batch ID, webhooks) under a shorter V7c, the MCP agent and the
+report. The title card (its content moved to Act 1), code card 1 (schema repair) and code card 4 (test run) are cut,
+with lines V4 and V7b. **Act 3, the payoff** (2:40.3–2:56.5): the same street, sleet thinner, and one window, hers,
+comes on in `--lamp`, the product's only warm colour; the end card (wordmark, demo URL, repo, event) fades in over
+it under a longer V9. **Sound** (`video/lib/sound.mjs`, synthesised with ffmpeg): wind and a low drone under Act 1,
+cut before her voice note; a soft A-major add9 pad from the `SUCCESS` event, the only sound in the tap-and-money
+silence, and again from the lamp to the end. Total 2:56.5. The Draft 6 times:
+
+| Shot | Draft 6 | VO (file placed at) |
+|---|---|---|
+| Act 1 · the street | 0:00–0:12.0 | N1 0:01.0 |
+| Act 1 · the form, the comments | 0:12.0–0:26.0 | N2 0:12.2 |
+| Act 1 · "What if she could just say it?" | 0:26.0–0:32.8 | N3 0:26.1 |
+| 1 Her voice note | 0:32.8–0:42.8 | Mrs. Lan 0:33.0 (9.4 s) |
+| 2 Her phone, the clock running | 0:42.8–0:47.2 | V1 0:43.0 |
+| 3–4 Approvals, paid | 0:47.2–1:02.7 | V2 0:48.1; silence 1:00.5–1:02.1 for the money (pad from `SUCCESS`, 1:00.7) |
+| 5 Push in on her phone | 1:02.7–1:17.8 | V3 1:02.1 ("Paid," over the three phones) |
+| 7 Rosa | 1:17.8–1:42.8 | V5a 1:18.3, V5b 1:28.7, V5c 1:35.6 |
+| 8 Impersonator blocked | 1:42.8–1:52.6 | V6 1:43.05 |
+| 9–10 `/trust`, the rail | 1:52.6–2:07.9 | V7a 1:52.9 |
+| 11 Code cards (batch ID, webhooks) | 2:07.9 / 2:13.5–2:18.5 | V7c 2:08.25 |
+| 12 MCP agent | 2:18.5–2:30.9 | V10 2:18.75 |
+| 13 `/report` | 2:30.9–2:40.3 | V8 2:31.15 |
+| Act 3 · one warm window, the ask | 2:40.3–2:56.5 (lamp 2:41.1, end card 2:45.3) | V9 2:40.8 |
+
+The sections below (hard constraints, shot list, VO table) still describe Draft 4/5 shot by shot; where they disagree
+with this table, `video/timeline.json` and `video/edl.json` are right.
 
 **What changed in Draft 2** (JUDGE-PANEL-2 #5): the first 5 s are her voice note (waveform, her Vietnamese words, the
 English underneath) with the hook line on screen at 0.3 s, not an idle phone; approval 2 is a real tap as Marcus, signed
@@ -59,7 +95,7 @@ timecodes for the shot descriptions, and the Draft 5 times are in this table:
 | Under the hood | 1:30.5–2:05.5: the trust page, the rail and 4 code cards |
 | Best Use of PayPal + AI | 2:05.5–2:17.5: an AI agent through `neighborline-payouts-mcp`, refused without two signatures, paid with them |
 | Impact and ask | 2:17.5–2:40.5 |
-| Total under 3:00 | **2:55.0** (Draft 5; Draft 4 without voice was 2:40.5) |
+| Total under 3:00 | **2:56.5** (Draft 6; Draft 5 was 2:55.0, Draft 4 without voice 2:40.5) |
 | VO ≤ 380 words, every line ≤ ~160 wpm in its slot | **326 words**; the fastest line is V4 at 154 wpm (table in §2) |
 
 ---
@@ -271,7 +307,7 @@ Keep V1 as the default: by 0:14 a judge has heard her, read the promise, and bee
 - [ ] Human take: a quiet small room with soft furnishings, a cardioid USB mic 10–15 cm away with a pop filter. Record 48 kHz/24-bit WAV, one file per line (V1–V9), 3 takes each. Leave 1 s of room tone at the start of the session for noise reduction.
 - [ ] TTS take: see RECORDING_PLAN.md. Generate each line separately so it can be re-timed, and use the same voice and instructions for every line.
 - [ ] Mrs. Lan's and Rosa's voices are synthetic. Disclose this in the corner tag and in the YouTube setting. Have a native speaker check the Vietnamese and Spanish audio and the on-screen translations before publishing.
-- [ ] Mix: VO peaks around −6 dBFS, music bed 20–24 dB under VO, final loudness −14 LUFS integrated, −1 dBTP.
+- [ ] Mix: VO peaks around −6 dBFS, music bed 20–24 dB under VO, final loudness −14 LUFS integrated, −1 dBTP. (Draft 6: no music; the synthesised wind and pad sit 14–15 dB under the narration and are ducked a further ~4 dB while it speaks.)
 
 **Music (optional; silence is better than a risky track)**
 - [ ] **YouTube Audio Library** (YouTube Studio → Audio Library). Filter to "Attribution not required". Download the track, keep a screenshot of its license line, and put the track name in the description. This is the safest source for a YouTube upload, because it will not trigger Content ID.
@@ -282,7 +318,7 @@ Keep V1 as the default: by 0:14 a judge has heard her, read the promise, and bee
 **Content and trademarks**
 - [ ] No PayPal or Venmo logos, no PayPal-blue logo buttons, no Smart Button close-ups. The `/donate` page's SDK buttons render official marks, so keep `/donate` out of the video.
 - [ ] No real people, real handles or real neighborhoods' victims. All names are fictional, and `example.com` emails are fine.
-- [ ] Final duration is under 3:00 (Draft 5: 2:55.0; the voiced lines need 14.5 s more than Draft 4's 2:40.5).
+- [ ] Final duration is under 3:00 (Draft 6: 2:56.5; the build fails above 2:58.5).
 - [ ] Watch the export once at 1.5× and once muted. The story must survive both: the captions carry it when muted.
 
 **YouTube upload**
