@@ -1,8 +1,8 @@
 [
   {
     "id": "N1",
-    "start": 1.2,
-    "window": 1.8,
+    "start": 1,
+    "window": 11,
     "text": "Two days after the ice storm, the Eastside is still dark. Mrs. Lan is seventy-one. Her heat is off, and her phone is at twenty-three percent.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -11,8 +11,8 @@
   },
   {
     "id": "N2",
-    "start": 3,
-    "window": 3,
+    "start": 12.2,
+    "window": 13.7,
     "text": "Help exists: her neighbors raised a fund. But the form is six pages, in English. After the Eaton fire, one LA group took three hundred requests overnight, in comments on Instagram.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -21,8 +21,8 @@
   },
   {
     "id": "N3",
-    "start": 6,
-    "window": 3,
+    "start": 26.1,
+    "window": 6.7,
     "text": "So we built Neighborline: a hotline, not a dashboard. She just says it.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -31,8 +31,8 @@
   },
   {
     "id": "V1",
-    "start": 10.2,
-    "window": 9.65,
+    "start": 43,
+    "window": 4.5,
     "text": "She left a voice note, in Vietnamese. Watch the clock.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -41,7 +41,7 @@
   },
   {
     "id": "V2",
-    "start": 19.9,
+    "start": 48.1,
     "window": 12.5,
     "text": "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers sign.",
     "voice": "coral",
@@ -51,8 +51,8 @@
   },
   {
     "id": "V3",
-    "start": 35.4,
-    "window": 15.8,
+    "start": 62.1,
+    "window": 15.7,
     "text": "Paid, into her Venmo, with a message in Vietnamese. Twenty-two point five seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -61,7 +61,7 @@
   },
   {
     "id": "V5a",
-    "start": 67.7,
+    "start": 78.3,
     "window": 6,
     "text": "Rosa asks for groceries, in Spanish. Same rules, two approvals.",
     "voice": "coral",
@@ -71,7 +71,7 @@
   },
   {
     "id": "V5b",
-    "start": 78.102,
+    "start": 88.702,
     "window": 6.8,
     "text": "Her email has no PayPal account yet: unclaimed. She gets claim help in Spanish.",
     "voice": "coral",
@@ -81,7 +81,7 @@
   },
   {
     "id": "V5c",
-    "start": 85,
+    "start": 95.6,
     "window": 7.2,
     "text": "She claims it. Success. Most payout systems stop at unclaimed; this one follows through.",
     "voice": "coral",
@@ -91,7 +91,7 @@
   },
   {
     "id": "V6",
-    "start": 92.45,
+    "start": 103.05,
     "window": 9.5,
     "text": "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves.",
     "voice": "coral",
@@ -101,7 +101,7 @@
   },
   {
     "id": "V7a",
-    "start": 102.3,
+    "start": 112.9,
     "window": 14.8,
     "text": "Under the hood: the agents that talk to neighbors have no PayPal tools. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers.",
     "voice": "coral",
@@ -111,8 +111,8 @@
   },
   {
     "id": "V7c",
-    "start": 123.85,
-    "window": 15.25,
+    "start": 128.25,
+    "window": 10.15,
     "text": "The batch ID comes from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled with PayPal.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -121,7 +121,7 @@
   },
   {
     "id": "V10",
-    "start": 139.45,
+    "start": 138.75,
     "window": 12.05,
     "text": "For agent builders: the same guard ships as an MCP server. An AI agent asking to pay is refused without two humans' signatures. With them, it pays.",
     "voice": "coral",
@@ -131,7 +131,7 @@
   },
   {
     "id": "V8",
-    "start": 151.85,
+    "start": 151.15,
     "window": 9.05,
     "text": "Donors give with PayPal or Venmo. The public report never names a neighbor, and every number comes from the ledger.",
     "voice": "coral",
@@ -141,8 +141,8 @@
   },
   {
     "id": "V9",
-    "start": 161.5,
-    "window": 11.4,
+    "start": 160.8,
+    "window": 14.9,
     "text": "That night, one window on the Eastside is warm again. Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
@@ -154,7 +154,7 @@
     "voice": "sage",
     "instructions": "An older Vietnamese woman, tired and cold but polite, speaking natural Northern-accented Vietnamese, slowly, as if leaving a voice message on a phone.",
     "text": "Xin chào, tôi là bà Lan, ở khu Eastside. Sau trận bão băng, nhà tôi bị mất điện hai ngày nay rồi.",
-    "start": 0.2,
+    "start": 33,
     "window": 9.6,
     "model": "gpt-4o-mini-tts",
     "fileName": "lan_voice-9cee34be4f01.wav"
