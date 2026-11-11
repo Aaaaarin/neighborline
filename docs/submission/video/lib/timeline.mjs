@@ -111,9 +111,14 @@ export function loadTimeline(opts = {}) {
       const end = x.until ? anchor(x.until) : x.duration ? start + x.duration : secs(x.end);
       return { ...x, start, end, text: fill(x.text) };
     });
+  // The sound bed (lib/sound.mjs): wind and pads in video seconds.
+  const sound = tl.sound
+    ? { wind: tl.sound.wind ? { ...tl.sound.wind, start: secs(tl.sound.wind.start), end: secs(tl.sound.wind.end) } : null, pads: timed(tl.sound.pads) }
+    : null;
   return {
     tl,
     mode,
+    sound,
     vars,
     takes,
     shots,
@@ -130,7 +135,7 @@ export function loadTimeline(opts = {}) {
   };
 }
 
-export const compOf = (shot) => (shot.comp ?? (shot.kind === 'end' ? 'A' : shot.kind === 'pan' || shot.kind === 'stageEnd' ? 'framed' : 'card'));
+export const compOf = (shot) => (shot.comp ?? (shot.kind === 'scene' ? 'scene' : shot.kind === 'end' ? 'A' : shot.kind === 'pan' || shot.kind === 'stageEnd' ? 'framed' : 'card'));
 
 // ---------- captions ----------
 

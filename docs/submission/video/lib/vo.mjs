@@ -80,18 +80,29 @@ export async function generateVo(T) {
 }
 
 /**
- * Mixes the VO onto the captioned video: lines placed by start time, phone-speaker EQ on Lan, loudness −14 LUFS.
- * Mrs. Lan's line is never sped up; if it runs past the cold open, lengthen shot s00 and shift V1 in timeline.json.
+ * The lines as ffmpeg inputs + filter chains, each placed at its start with adelay (phone-speaker EQ on Mrs. Lan),
+ * summed into [label]. `first` is the index of the first line's input. Shared with lib/sound.mjs.
  */
-export function mixVo(videoIn, files, out) {
-  const args = ['-i', videoIn];
+export function voChains(files, first = 1) {
+  const args = [];
   const chains = [];
   files.forEach((f, i) => {
     args.push('-i', f.file);
     const ms = Math.round(f.start * 1000);
     const eq = f.id === 'lan_voice' ? 'highpass=f=250,lowpass=f=3800,acompressor=threshold=-18dB:ratio=3,volume=0.8,' : '';
-    chains.push(`[${i + 1}:a]${eq}aresample=48000,aformat=channel_layouts=stereo,adelay=${ms}|${ms}[a${i}]`);
+    chains.push(`[${i + first}:a]${eq}aresample=48000,aformat=channel_layouts=stereo,adelay=${ms}|${ms}[a${i}]`);
   });
-  chains.push(`${files.map((_, i) => `[a${i}]`).join('')}amix=inputs=${files.length}:normalize=0,apad,loudnorm=I=-14:TP=-1:LRA=11[a]`);
+  chains.push(`${files.map((_, i) => `[a${i}]`).join('')}amix=inputs=${files.length}:normalize=0[vosum]`);
+  return { args, chains, label: 'vosum' };
+}
+
+/**
+ * Mixes the VO onto the captioned video: lines placed by start time, phone-speaker EQ on Lan, loudness −14 LUFS.
+ * Mrs. Lan's line is never sped up; if it runs past the cold open, lengthen shot s00 and shift V1 in timeline.json.
+ */
+export function mixVo(videoIn, files, out) {
+  const { args: voArgs, chains, label } = voChains(files, 1);
+  const args = ['-i', videoIn, ...voArgs];
+  chains.push(`[${label}]apad,loudnorm=I=-14:TP=-1:LRA=11[a]`);
   ffmpeg([...args, '-filter_complex', chains.join(';'), '-map', '0:v', '-map', '[a]', '-shortest', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', out]);
 }

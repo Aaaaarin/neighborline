@@ -5,16 +5,17 @@
 //
 // Draft 4 (default): real screen captures + burned-in captions of the VO lines + title cards, no audio.
 // See README.md in this folder for the pipeline, outputs and where the voiceover drops in.
-import { copyFileSync, existsSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { DIRS, HERE, OUT, REPO, exists, ffmpeg, log, probeDuration, secs, tc } from './lib/common.mjs';
 import { toAss } from './lib/captions.mjs';
-import { renderCodeCards, renderCorner, renderEnd, renderHandles, renderLowerThird, renderPill, renderTitle, withRenderer } from './lib/cards.mjs';
+import { renderCodeCards, renderCorner, renderEnd, renderHandles, renderLowerThird, renderPill, withRenderer } from './lib/cards.mjs';
 import { qa } from './lib/qa.mjs';
 import { recordStills, recordTake } from './lib/record.mjs';
 import { LAYOUT, cardSegment, clipSegment, endSegment, panSegment, stageEndSegment, takeSegment } from './lib/segments.mjs';
 import { voiceNoteSegment } from './lib/voicenote.mjs';
+import { sceneSegment } from './lib/scene.mjs';
 import { startServers } from './lib/servers.mjs';
 import { renderThumbnails } from './lib/thumbnail.mjs';
 import { buildCues, describeShots, loadTimeline, toSrt } from './lib/timeline.mjs';
@@ -81,7 +82,6 @@ if (WITH_VO) vo = await (await import('./lib/vo.mjs')).generateVo(T);
 const ltFiles = [];
 let tests;
 await withRenderer(async (render, page) => {
-  await renderTitle(render);
   await renderEnd(render, { ...T.endCard, hostedUrl: process.env.HOSTED_URL ? T.endCard.hostedUrl : null });
   await renderCorner(render, T.corner.text);
   for (const p of T.pills) await renderPill(render, p.id, p.text);
@@ -114,7 +114,8 @@ for (const s of T.shots) {
   if (s.kind === 'voicenote') {
     const lan = vo?.files.find((f) => f.id === 'lan_voice');
     await voiceNoteSegment(s, file, lan ? { voiceFile: lan.file, voiceSeconds: vo.durations.lan_voice } : {});
-  } else if (s.kind === 'take') takeSegment(s, T.takes[s.take], file);
+  } else if (s.kind === 'scene') await sceneSegment(s, file, { endCard: { ...T.endCard, live: Boolean(process.env.HOSTED_URL) } });
+  else if (s.kind === 'take') takeSegment(s, T.takes[s.take], file);
   else if (s.kind === 'clip') clipSegment(s, T.takes[s.take], file);
   else if (s.kind === 'card' || s.kind === 'code') cardSegment(s, join(DIRS.cards, `${s.card}.png`), file);
   else if (s.kind === 'pan') {
@@ -149,7 +150,11 @@ const ov = [
   // The corner tag, minus any `except` windows.
   ...T.corner.except
     .reduce((wins, [a, b]) => wins.flatMap(([s, e]) => (b <= s || a >= e ? [[s, e]] : [[s, a], [b, e]].filter(([x, y]) => y - x > 0.2))), [[T.corner.start, T.corner.end]])
-    .map(([start, end]) => ({ file: join(DIRS.cards, 'corner.png'), start, end })),
+    // …and split at the cuts into and out of the drawn night scenes, which take the dark tag.
+    .flatMap(([a, b]) => {
+      const cuts = [a, ...T.shots.map((s) => s.start).filter((t, i) => t > a && t < b && (T.shots[i].kind === 'scene') !== (T.shots[i - 1]?.kind === 'scene')), b];
+      return cuts.slice(0, -1).map((start, i) => ({ file: join(DIRS.cards, T.shotAt(start + 0.01).kind === 'scene' ? 'corner-dark.png' : 'corner.png'), start, end: cuts[i + 1] }));
+    }),
   ...ltFiles,
   ...T.pills.map((p) => ({ ...p, file: join(DIRS.cards, `${p.id}.png`) })),
   ...T.overlays.map((o) => ({ ...o, file: join(DIRS.cards, `${o.card}.png`) })),
@@ -172,9 +177,11 @@ inputs.push('-f', 'lavfi', '-t', String(total), '-i', 'anullsrc=r=48000:cl=stere
 const draft = join(OUT, WITH_VO ? T.tl.output.file.replace(/\.mp4$/, '-vo-silent.mp4') : T.tl.output.file);
 ffmpeg([...inputs, '-filter_complex', fc.join(';'), '-map', '[v]', '-map', `${ov.length + 1}:a`, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-r', '30', '-c:a', 'aac', '-b:a', '128k', '-shortest', '-movflags', '+faststart', draft]);
 let final = draft;
+let mix = null;
 if (WITH_VO) {
   final = join(OUT, T.tl.output.file.replace(/\.mp4$/, '-vo.mp4'));
-  (await import('./lib/vo.mjs')).mixVo(draft, vo.files, final);
+  if (T.sound) mix = (await import('./lib/sound.mjs')).mixWithBed(draft, vo.files, T.sound, final);
+  else (await import('./lib/vo.mjs')).mixVo(draft, vo.files, final);
 }
 const dur = probeDuration(final);
 if (dur > T.tl.output.maxSeconds) throw new Error(`video is ${dur.toFixed(1)} s, over the ${T.tl.output.maxSeconds} s budget`);
@@ -190,11 +197,11 @@ const edl = {
   vo: T.vo.map((v) => ({ ...v, start: tc(v.start), end: tc(v.end), ...(vo ? { measuredSeconds: +vo.durations[v.id].toFixed(2) } : {}) })),
   voTotalWords: T.vo.reduce((a, v) => a + v.words, 0),
   lowerThirds: T.lowerThirds.map((l) => ({ id: l.id, start: tc(l.start), end: tc(l.end), title: l.title, sub: l.sub })),
+  ...(mix ? { sound: mix } : {}),
   warnings: T.warnings,
   tests: { total: tests.total, failed: tests.failed, rows: tests.rows },
 };
 writeFileSync(join(HERE, 'edl.json'), JSON.stringify(edl, null, 2) + '\n');
-copyFileSync(join(DIRS.cards, 'title.png'), join(DIRS.frames, 'card-title.png'));
 qa(final, T);
 log(`done: ${final} (${dur.toFixed(2)} s)`);
 console.log(describeShots(T));

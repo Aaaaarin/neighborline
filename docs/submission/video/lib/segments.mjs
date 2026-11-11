@@ -38,6 +38,8 @@ export const LAYOUT = {
   },
   framed: { frame: { x: 192, y: 64, w: 1536, h: 864 }, lt: { x: 1180, y: 96, w: 520 }, caption: { style: 'C' } },
   card: { lt: { x: 150, bottom: 170, w: 1200 }, caption: { style: 'C' } },
+  // Drawn scenes (lib/scene.mjs) are dark: captions in the dark style, bottom-centre.
+  scene: { lt: { x: 150, bottom: 170, w: 1200 }, caption: { style: 'D' } },
 };
 
 /** filter_complex that composes `layout` from input [0:v] (a take at `dpr`) onto a paper background. */

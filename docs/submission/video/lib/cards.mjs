@@ -218,21 +218,6 @@ export async function renderCodeCards(render, testLog) {
 
 // ---------- title, end card, overlays ----------
 
-export async function renderTitle(render) {
-  await render(
-    'title',
-    `<div style="position:absolute;left:190px;top:200px;width:1500px">
-${wordmark(false, 1.1)}
-<h1 class="serif" style="font-size:72px;font-weight:600;letter-spacing:-0.015em;margin-top:46px;line-height:1.1">A hotline, not a dashboard.</h1>
-<div style="margin-top:64px;display:grid;gap:34px;max-width:1300px">
- <div><p style="font-size:32px;line-height:1.35">300 relief requests overnight, in Instagram comments.</p>
- <p style="font-size:17px;color:var(--ink-3);margin-top:8px">LA Public Press, Jan 2025 · Mutual Aid LA Network after the Eaton fire</p></div>
- <div><p style="font-size:32px;line-height:1.35">Fake Venmo handles, one letter off the real group’s.</p>
- <p style="font-size:17px;color:var(--ink-3);margin-top:8px">Chronicle of Philanthropy, Apr 2026</p></div>
-</div></div>`,
-  );
-}
-
 /**
  * Right-hand end card (transparent), composited over composition A's stopwatch area. Until the app is deployed
  * (HOSTED_URL unset) the first line says the live demo link is in the description, never a placeholder.
@@ -259,6 +244,8 @@ ${wordmark(lit, 1.6)}
 
 export async function renderCorner(render, text) {
   await render('corner', `<div class="pill" style="left:24px;top:20px">${esc(text)}</div>`, { transparent: true });
+  // Over the drawn night scenes: the same tag, dark.
+  await render('corner-dark', `<div class="pill" style="left:24px;top:20px;background:rgba(9,14,23,.72);border-color:#2A3A54;color:#A9B9CC">${esc(text)}</div>`, { transparent: true });
 }
 
 export async function renderPill(render, id, text) {

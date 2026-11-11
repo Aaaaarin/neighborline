@@ -7,13 +7,15 @@ const INK = '&H002E2018';
 const BOX = '&H14F8FAF9'; // --paper-raised, ~92 % opaque
 const FROST_INK = '&H005E4427';
 const FROST_BOX = '&H10EAE2D6';
+const PAPER_INK = '&H00F4EEE9'; // the drawn night scenes: light text on a near-black box
+const NIGHT_BOX = '&H38120B07';
 
 const style = (name, { font = 'Be Vietnam Pro SemiBold', size = 38, colour = INK, box = BOX, align = 2, l = 80, r = 80, v = 40 } = {}) =>
   `Style: ${name},${font},${size},${colour},${colour},${box},${box},0,0,0,0,100,100,0,0,3,11,0,${align},${l},${r},${v},1`;
 
 const styleFor = (comp) => {
   const c = LAYOUT[comp]?.caption ?? { style: 'C' };
-  return c.style === 'R' ? `R${c.marginL}` : 'C';
+  return c.style === 'R' ? `R${c.marginL}` : c.style === 'D' ? 'D' : 'C';
 };
 
 const assTime = (s) => {
@@ -25,6 +27,7 @@ export function toAss(T, cues) {
   const rMargins = [...new Set(Object.values(LAYOUT).map((L) => L.caption).filter((c) => c?.style === 'R').map((c) => c.marginL))];
   const styles = [
     style('C', { align: 2, v: 34 }),
+    style('D', { colour: PAPER_INK, box: NIGHT_BOX, align: 2, v: 34 }),
     ...rMargins.map((m) => style(`R${m}`, { align: 1, l: m + 11, r: 90, v: 52 })),
     ...rMargins.map((m) => style(`Q${m}`, { font: 'Be Vietnam Pro', colour: FROST_INK, box: FROST_BOX, align: 1, l: m + 11, r: 90, v: 52 })),
     style('QC', { font: 'Be Vietnam Pro', colour: FROST_INK, box: FROST_BOX, align: 2, v: 34 }),
@@ -38,7 +41,7 @@ export function toAss(T, cues) {
     for (let i = 0; i < bounds.length - 1; i++) {
       const comp = compOf(T.shotAt(bounds[i] + 0.001));
       let st = styleFor(comp);
-      if (c.kind === 'quote') st = st === 'C' ? 'QC' : `Q${st.slice(1)}`;
+      if (c.kind === 'quote') st = st === 'C' || st === 'D' ? 'QC' : `Q${st.slice(1)}`;
       const text = (c.kind === 'quote' ? [`{\\fs24}${c.who}{\\fs38}`, ...c.lines] : c.lines).join('\\N');
       events.push(`Dialogue: 0,${assTime(bounds[i])},${assTime(bounds[i + 1])},${st},,0,0,0,,${text}`);
     }
