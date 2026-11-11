@@ -376,7 +376,7 @@ function sceneVf(shot) {
   const fades = [];
   if (shot.fadeIn) fades.push(`fade=t=in:st=0:d=${shot.fadeIn}`);
   if (shot.fadeOut) fades.push(`fade=t=out:st=${(shot.dur - shot.fadeOut).toFixed(3)}:d=${shot.fadeOut}`);
-  return [...fades, 'noise=alls=7:allf=t', 'format=yuv420p'].join(',');
+  return [...fades, 'noise=alls=3:allf=t', 'format=yuv420p'].join(',');
 }
 export const sceneKey = (shot, ctx) => createHash('sha256').update(readFileSync(sceneHtml(shot, ctx))).update(`${Math.round(shot.dur * 30)}|${sceneVf(shot)}`).digest('hex');
 
