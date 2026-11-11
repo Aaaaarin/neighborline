@@ -1,13 +1,43 @@
 [
   {
-    "id": "V1",
-    "start": 10.2,
-    "window": 9.65,
-    "text": "Mrs. Lan doesn't read English, and her power's been out two days. She just left a voice note. Watch the clock.",
+    "id": "N1",
+    "start": 1.2,
+    "window": 1.8,
+    "text": "Two days after the ice storm, the Eastside is still dark. Mrs. Lan is seventy-one. Her heat is off, and her phone is at twenty-three percent.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
     "model": "gpt-4o-mini-tts",
-    "fileName": "V1-d25520c60ef9.wav"
+    "fileName": "N1-a92cbbc570c5.wav"
+  },
+  {
+    "id": "N2",
+    "start": 3,
+    "window": 3,
+    "text": "Help exists: her neighbors raised a fund. But the form is six pages, in English. After the Eaton fire, one LA group took three hundred requests overnight, in comments on Instagram.",
+    "voice": "coral",
+    "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
+    "model": "gpt-4o-mini-tts",
+    "fileName": "N2-9934538b2062.wav"
+  },
+  {
+    "id": "N3",
+    "start": 6,
+    "window": 3,
+    "text": "So we built Neighborline: a hotline, not a dashboard. She just says it.",
+    "voice": "coral",
+    "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
+    "model": "gpt-4o-mini-tts",
+    "fileName": "N3-e05b2527c9d7.wav"
+  },
+  {
+    "id": "V1",
+    "start": 10.2,
+    "window": 9.65,
+    "text": "She left a voice note, in Vietnamese. Watch the clock.",
+    "voice": "coral",
+    "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
+    "model": "gpt-4o-mini-tts",
+    "fileName": "V1-c342bfdf8429.wav"
   },
   {
     "id": "V2",
@@ -28,16 +58,6 @@
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
     "model": "gpt-4o-mini-tts",
     "fileName": "V3-0b57688abc38.wav"
-  },
-  {
-    "id": "V4",
-    "start": 51.7,
-    "window": 15.4,
-    "text": "This is Neighborline: a hotline, not a dashboard. After the Eaton fire, one LA mutual-aid network took three hundred requests overnight, in Instagram comments. Most still run on a volunteer's personal Venmo.",
-    "voice": "coral",
-    "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
-    "model": "gpt-4o-mini-tts",
-    "fileName": "V4-c534ec52a093.wav"
   },
   {
     "id": "V5a",
@@ -90,24 +110,14 @@
     "fileName": "V7a-2d95ca97587c.wav"
   },
   {
-    "id": "V7b",
-    "start": 117.55,
-    "window": 5.95,
-    "text": "AI output is schema-checked, repaired once, or the neighbor is asked again.",
-    "voice": "coral",
-    "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
-    "model": "gpt-4o-mini-tts",
-    "fileName": "V7b-b0e2f404d43d.wav"
-  },
-  {
     "id": "V7c",
     "start": 123.85,
     "window": 15.25,
-    "text": "The batch ID is derived from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled against PayPal Transaction Search. The test count is from a real run.",
+    "text": "The batch ID comes from the signed approval, so a double tap can't pay twice. Webhooks are signature-verified, and every payout is reconciled with PayPal.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
     "model": "gpt-4o-mini-tts",
-    "fileName": "V7c-0eba5d6441f2.wav"
+    "fileName": "V7c-9cbfe4daa6bd.wav"
   },
   {
     "id": "V10",
@@ -133,11 +143,11 @@
     "id": "V9",
     "start": 161.5,
     "window": 11.4,
-    "text": "Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language.",
+    "text": "That night, one window on the Eastside is warm again. Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language.",
     "voice": "coral",
     "instructions": "Warm, calm, unhurried narrator. Plain American English. Like a neighbor explaining something at a kitchen table. No announcer energy. Slight pause at commas and periods.",
     "model": "gpt-4o-mini-tts",
-    "fileName": "V9-5b256c65e49a.wav"
+    "fileName": "V9-6d040ae979d0.wav"
   },
   {
     "id": "lan_voice",
