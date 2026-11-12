@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Neighborline demo video: one command from the running product to an MP4.
 //
-//   node docs/submission/video/build.mjs [--record] [--with-vo] [--rebuild-web] [--fresh-tests] [--no-thumbnail]
+//   node docs/submission/video/build.mjs [--record] [--with-vo] [--rebuild-web] [--fresh-tests] [--no-thumbnail] [--no-burn]
 //
 // Draft 4 (default): real screen captures + burned-in captions of the VO lines + title cards, no audio.
 // See README.md in this folder for the pipeline, outputs and where the voiceover drops in.
@@ -182,7 +182,10 @@ ov.forEach((o, i) => {
   prev = `m${i}`;
 });
 const escPath = (p) => p.replace(/:/g, '\\:').replace(/'/g, "\\'");
-fc.push(`[${prev}]ass=filename='${escPath(assFile)}':fontsdir='${escPath(DIRS.fonts)}',format=yuv420p[v]`);
+// --no-burn, or output.burnCaptions: false in timeline.json: no captions in the picture (captions.srt is still written, for YouTube CC).
+const BURN = !flag('--no-burn') && T.tl.output.burnCaptions !== false;
+fc.push(BURN ? `[${prev}]ass=filename='${escPath(assFile)}':fontsdir='${escPath(DIRS.fonts)}',format=yuv420p[v]` : `[${prev}]format=yuv420p[v]`);
+log(BURN ? 'captions burned in' : 'captions not burned in (captions.srt only)');
 inputs.push('-f', 'lavfi', '-t', String(total), '-i', 'anullsrc=r=48000:cl=stereo');
 const outName = HUMAN ? T.tl.output.humanVoFile : T.tl.output.file;
 const draft = join(OUT, HUMAN ? outName.replace(/\.mp4$/, '-silent.mp4') : WITH_VO ? outName.replace(/\.mp4$/, '-vo-silent.mp4') : outName);

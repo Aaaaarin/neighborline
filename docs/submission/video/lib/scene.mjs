@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CHROME_ARGS, DIRS, HERE, log, playwright, readJson } from './common.mjs';
 import { TOKENS, fontCss, wordmark } from './cards.mjs';
+import { HOW_CSS, howBody } from './scene-how.mjs';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -267,6 +268,12 @@ body{background:#090E17;color:#E6ECF2}
 .thread .fade{position:absolute;left:0;right:0;bottom:0;height:90px;background:linear-gradient(rgba(16,24,38,0),#101826);z-index:2}
 .src{position:absolute;left:1000px;top:874px;font-size:18px;color:#8296B0}
 .ill{position:absolute;left:150px;top:874px;font-size:18px;color:#6F829B}
+.big{position:absolute;left:150px;top:78px;font-family:'Literata Variable',serif;font-weight:520;font-size:44px;letter-spacing:-0.012em;color:#E9EEF4}
+.down{position:absolute;inset:0;transform:translateY(64px)}
+.venmo{position:absolute;left:236px;top:560px;width:600px;box-sizing:border-box;padding:26px 30px;background:#101826;border:1.5px solid #6B7F9B;border-radius:14px;box-shadow:0 30px 70px rgba(0,0,0,.6);display:grid;gap:6px}
+.venmo .l{font-family:'Atkinson Hyperlegible Mono Variable',monospace;font-size:17px;letter-spacing:.14em;text-transform:uppercase;color:#93A7C0}
+.venmo b{font-size:31px;font-weight:600;color:#EEF2F6}
+.venmo .h{font-family:'Atkinson Hyperlegible Mono Variable',monospace;font-size:21px;color:#B9C6D6}
 .dim{position:absolute;left:150px;top:140px;width:770px;height:716px;border-radius:10px;background:#090E17;pointer-events:none}`;
 
 function helpBody(shot) {
@@ -274,6 +281,8 @@ function helpBody(shot) {
   const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff), seed / 0x7fffffff);
   const rows = Array.from({ length: 320 }, () => ({ a: ['#33455F', '#2B3B52', '#3D5270', '#263449', '#465B7A'][Math.floor(rnd() * 5)], n: 70 + Math.round(rnd() * 90), w1: 260 + Math.round(rnd() * 330), w2: rnd() < 0.72 ? 120 + Math.round(rnd() * 380) : 0 }));
   return `<div class="bg"></div>
+<div class="big" id="big">Mutual aid today: forms, comment threads, a personal Venmo</div>
+<div class="down">
 <div class="head" style="left:150px" id="h1">The relief fund’s form</div><div class="head" style="left:1000px;opacity:0" id="h2">Where people actually ask · comments</div>
 <div class="form" id="form">
  <div class="bar">Emergency Relief Application<span id="lang">English ▾</span></div>
@@ -295,6 +304,8 @@ function helpBody(shot) {
  <div class="fade"></div>
 </div>
 <div class="src" id="src" style="opacity:0">LA Public Press, Jan 2025 · Mutual Aid LA Network after the Eaton fire</div>
+<div class="venmo" id="venmo" style="opacity:0"><span class="l">Payouts today</span><b>One volunteer’s personal Venmo</b><span class="h">@dana-eastside · no second check</span></div>
+</div>
 <script>
 const B = __BEATS__, DUR = __DUR__, ROWS = ${JSON.stringify(rows)};
 const ease = (x) => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3);
@@ -304,7 +315,9 @@ window.setT = (t) => {
   const s = 1 + 0.018 * (t / DUR);
   document.body.style.transform = 'scale(' + s.toFixed(5) + ')';
   const fi = ease(t / 0.7);
-  $('form').style.opacity = fi.toFixed(3); $('h1').style.opacity = fi.toFixed(3);
+  $('form').style.opacity = fi.toFixed(3); $('h1').style.opacity = fi.toFixed(3); $('big').style.opacity = fi.toFixed(3);
+  const vm = ease((t - B.venmo) / 0.6);
+  $('venmo').style.opacity = vm.toFixed(3); $('venmo').style.transform = 'translateY(' + ((1 - vm) * 14).toFixed(1) + 'px)';
   const er = ease((t - B.error) / 0.3);
   $('e1').style.opacity = er.toFixed(3);
   $('b1').style.borderColor = er > 0 ? '#A3261E' : '#9AA6B4';
@@ -347,8 +360,9 @@ window.setT = (t) => { const e = ease((t - B.line) / 1.0) * (1 - ease((t - (DUR 
 
 const SCENES = {
   street: { css: STREET_CSS, body: () => streetBody({}), beats: { kicker: 0.8, title: 3.2, lan: 7.6, battery: 9.4 } },
-  help: { css: HELP_CSS, body: helpBody, beats: { error: 3.2, six: 5.4, english: 6.5, thread: 7.4, count: 13.5 } },
+  help: { css: HELP_CSS, body: helpBody, beats: { error: 3.2, six: 5.4, english: 6.5, thread: 7.4, count: 13.5, venmo: 10 } },
   line: { css: LINE_CSS, body: lineBody, beats: { line: 0.35 } },
+  how: { css: HOW_CSS, body: howBody, beats: { s1: 0.5, s2: 4.2, s3: 8.2, s4: 12.2, s5: 14.6, foot: 17.8 } },
   payoff: { css: STREET_CSS, body: (shot, ctx) => streetBody({ payoff: true, endCard: ctx.endCard }), beats: { lamp: 0.5, card: 4.2 } },
 };
 
