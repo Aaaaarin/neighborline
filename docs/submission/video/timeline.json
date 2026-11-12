@@ -1,13 +1,15 @@
 {
   "$comment": "Single source of truth for the current cut (Draft 6: a drawn storm cold open and a warm-window close around the Draft 5 footage; every shot and VO window is fitted to the measured TTS lines in $VIDEO_OUT/vo). Scene shots (kind scene) are drawn by lib/scene.mjs; their beats are seconds into the shot. sound is the synthesised bed (lib/sound.mjs). Times are video timecodes (m:ss.s) from VIDEO_SCRIPT.md. Source points for stage takes are 'P+x' = seconds after the Play click in that take (takes/<id>.markers.json); for the MCP clip, seconds into takes/mcp-demo.mp4. Anchors {take, event, offset} resolve to the video time at which that stage event is on screen. {T} / {T_words} / {BLOCK_T} / {TESTS} are filled from the recorded stopwatch and the real test run. build.mjs validates every VO line against its window at its target wpm and prints the fit.",
-  "output": { "width": 1920, "height": 1080, "fps": 30, "maxSeconds": 178.5, "file": "neighborline-draft6.mp4" },
+  "output": { "width": 1920, "height": 1080, "fps": 30, "maxSeconds": 178.5, "file": "neighborline-draft6.mp4", "humanVoFile": "neighborline-final.mp4" },
   "paypalMode": "fake",
   "corner": {
     "from": "0:00",
     "to": "2:40.3",
     "except": [["2:18.5", "2:30.9"]],
     "$except": "Off during the MCP clip: its own header carries the label (Real MCP over stdio · fake PayPal · scripted agent, no LLM) and the tag would cover its title.",
-    "text": { "fake": "Simulated PayPal sandbox · fictional people · AI voices", "sandbox": "PayPal sandbox · test money · fictional people · AI voices" }
+    "text": { "fake": "Simulated PayPal sandbox · fictional people · AI voices", "sandbox": "PayPal sandbox · test money · fictional people · AI voices" },
+    "$textHumanVo": "Used instead of text under --vo-file / --vo-dir: the narrator is a person, only Mrs. Lan's voice note is AI.",
+    "textHumanVo": { "fake": "Simulated PayPal sandbox · fictional people · Mrs. Lan’s voice is AI", "sandbox": "PayPal sandbox · test money · fictional people · Mrs. Lan’s voice is AI" }
   },
   "sound": {
     "$comment": "Synthesised with ffmpeg (lib/sound.mjs), nothing downloaded. Wind + a low drone under Act 1, cut at the one-line beat; a soft A-major add9 pad from the SUCCESS event, and again from the lamp in the close. Levels are dB below the measured VO loudness; the bed is also ducked under the VO.",

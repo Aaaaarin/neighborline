@@ -21,7 +21,10 @@ import { renderThumbnails } from './lib/thumbnail.mjs';
 import { buildCues, describeShots, loadTimeline, toSrt } from './lib/timeline.mjs';
 
 const flag = (f) => process.argv.includes(f);
-const WITH_VO = flag('--with-vo');
+const arg = (f) => (process.argv.includes(f) ? process.argv[process.argv.indexOf(f) + 1] : null);
+// --vo-file <recording> / --vo-dir <dir of ID.ext>: a human narrator (lib/human-vo.mjs). Implies --with-vo.
+const HUMAN = arg('--vo-file') || arg('--vo-dir') ? { file: arg('--vo-file'), dir: arg('--vo-dir'), map: arg('--vo-map'), maxTempo: Number(arg('--vo-max-tempo') ?? 1.08) } : null;
+const WITH_VO = flag('--with-vo') || Boolean(HUMAN);
 // 1.5× is the sweet spot: sharp crops, and the 2880×1620 screencast still runs ~15 fps (2× drops to ~8 fps).
 const TAKE_DPR = Number(process.env.VIDEO_DPR ?? 1.5);
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers';
@@ -63,7 +66,7 @@ const testTotal = (() => {
   const { rows } = testSummary(testLog);
   return rows.reduce((a, r) => a + Number(/^(\d+)/.exec(r.tests ?? '0')[1]), 0);
 })();
-const T = loadTimeline({ tests: testTotal });
+const T = loadTimeline({ tests: testTotal, humanVo: Boolean(HUMAN) });
 log(`mode ${T.mode} · {T}=${T.vars.T} ("${T.vars.T_words}") · blocked ${T.vars.BLOCK_T}`);
 for (const w of T.warnings) log(`VO fit: ${w}`);
 let vo = null;
@@ -76,7 +79,14 @@ if (jobsAt > 0) {
   log(`wrote ${jobs.length} VO jobs to ${process.argv[jobsAt + 1]}`);
   process.exit(0);
 }
-if (WITH_VO) vo = await (await import('./lib/vo.mjs')).generateVo(T);
+if (HUMAN) {
+  // Split, clean and fit the recording before anything is rendered; --vo-check stops here (seconds, not minutes).
+  vo = await (await import('./lib/human-vo.mjs')).humanVo(T, { ...HUMAN, total: T.shots.at(-1).end }).catch((e) => {
+    console.error(`\nHuman VO: ${e.message}\n`);
+    process.exit(1);
+  });
+  if (flag('--vo-check')) process.exit(0);
+} else if (WITH_VO) vo = await (await import('./lib/vo.mjs')).generateVo(T);
 
 // 5. Cards and overlays.
 const ltFiles = [];
@@ -174,12 +184,13 @@ ov.forEach((o, i) => {
 const escPath = (p) => p.replace(/:/g, '\\:').replace(/'/g, "\\'");
 fc.push(`[${prev}]ass=filename='${escPath(assFile)}':fontsdir='${escPath(DIRS.fonts)}',format=yuv420p[v]`);
 inputs.push('-f', 'lavfi', '-t', String(total), '-i', 'anullsrc=r=48000:cl=stereo');
-const draft = join(OUT, WITH_VO ? T.tl.output.file.replace(/\.mp4$/, '-vo-silent.mp4') : T.tl.output.file);
+const outName = HUMAN ? T.tl.output.humanVoFile : T.tl.output.file;
+const draft = join(OUT, HUMAN ? outName.replace(/\.mp4$/, '-silent.mp4') : WITH_VO ? outName.replace(/\.mp4$/, '-vo-silent.mp4') : outName);
 ffmpeg([...inputs, '-filter_complex', fc.join(';'), '-map', '[v]', '-map', `${ov.length + 1}:a`, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-r', '30', '-c:a', 'aac', '-b:a', '128k', '-shortest', '-movflags', '+faststart', draft]);
 let final = draft;
 let mix = null;
 if (WITH_VO) {
-  final = join(OUT, T.tl.output.file.replace(/\.mp4$/, '-vo.mp4'));
+  final = join(OUT, HUMAN ? outName : outName.replace(/\.mp4$/, '-vo.mp4'));
   if (T.sound) mix = (await import('./lib/sound.mjs')).mixWithBed(draft, vo.files, T.sound, final);
   else (await import('./lib/vo.mjs')).mixVo(draft, vo.files, final);
 }
@@ -197,6 +208,7 @@ const edl = {
   vo: T.vo.map((v) => ({ ...v, start: tc(v.start), end: tc(v.end), ...(vo ? { measuredSeconds: +vo.durations[v.id].toFixed(2) } : {}) })),
   voTotalWords: T.vo.reduce((a, v) => a + v.words, 0),
   lowerThirds: T.lowerThirds.map((l) => ({ id: l.id, start: tc(l.start), end: tc(l.end), title: l.title, sub: l.sub })),
+  ...(vo?.fit ? { narrator: 'human', corner: T.corner.text, voFit: vo.fit } : {}),
   ...(mix ? { sound: mix } : {}),
   warnings: T.warnings,
   tests: { total: tests.total, failed: tests.failed, rows: tests.rows },

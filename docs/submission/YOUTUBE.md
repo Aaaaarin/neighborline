@@ -54,6 +54,7 @@ What you are seeing
 • The AI agent in the MCP segment is scripted (no model call) against the real MCP server.
 • The donor report uses seeded demo data.
 • Voices are synthetic: Mrs. Lan, Rosa and the narrator are AI text-to-speech (OpenAI gpt-4o-mini-tts). They are not real people.
+{FINAL CUT WITH A HUMAN NARRATOR (`build.mjs --vo-file`, neighborline-final.mp4): replace the line above with "• Mrs. Lan's voice note is AI text-to-speech (OpenAI gpt-4o-mini-tts) of a fictional person. The narrator is a member of the team."}
 
 Sources for the numbers
 • 300 requests overnight after the Eaton fire: LA Public Press, Jan 2025 — https://lapublicpress.org/2025/01/altadena-pasadena-mutual-aid-la-fires-eaton/
@@ -107,7 +108,7 @@ a real event or place", or "generates a realistic-looking scene that didn't actu
 realistic story (an ice storm, a request for help) that did not happen. The storm street in Draft 6 is a stylised
 drawing, not a realistic-looking scene, but it tells the same fictional story. No real person is depicted or imitated, and no
 real event is altered, but a viewer could mistake her voice note for a real one, which is exactly what the disclosure
-is for. The video also discloses it on screen (corner tag "AI voices") and in the description. Ticking "Yes" adds
+is for. The video also discloses it on screen (corner tag "AI voices"; in the human-narrated final cut, "Mrs. Lan’s voice is AI") and in the description. Ticking "Yes" adds
 YouTube's "Altered or synthetic content" label to the description panel; that is fine and consistent with our
 "say what is simulated" story.
 

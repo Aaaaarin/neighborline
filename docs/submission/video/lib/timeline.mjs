@@ -127,7 +127,7 @@ export function loadTimeline(opts = {}) {
     pills: timed(tl.pills),
     overlays: timed(tl.overlays),
     lowerThirds,
-    corner: { start: secs(tl.corner.from), end: secs(tl.corner.to), except: (tl.corner.except ?? []).map(([a, b]) => [secs(a), secs(b)]), text: tl.corner.text[mode] },
+    corner: { start: secs(tl.corner.from), end: secs(tl.corner.to), except: (tl.corner.except ?? []).map(([a, b]) => [secs(a), secs(b)]), text: ((opts.humanVo && tl.corner.textHumanVo) || tl.corner.text)[mode] },
     endCard: Object.fromEntries(Object.entries(tl.endCard).map(([k, v]) => [k, fill(v)])),
     warnings,
     shotAt,

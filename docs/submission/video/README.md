@@ -8,6 +8,7 @@ node docs/submission/video/build.mjs            # captions, no VO (records takes
 node docs/submission/video/build.mjs --record   # re-record every take and still (UI copy changed)
 node docs/submission/video/build.mjs --with-vo  # + OpenAI gpt-4o-mini-tts narration (key only for lines not in $VIDEO_OUT/vo)
 node docs/submission/video/build.mjs --vo-jobs docs/submission/video/vo-jobs.json  # TTS jobs for CI (voiceover.yml)
+node docs/submission/video/build.mjs --with-vo --vo-file narration.m4a  # your own narration → neighborline-final.mp4 (see below)
 ```
 
 Other flags: `--rebuild-web` (fresh `next build` into `apps/web/.next-video`), `--fresh-tests` (re-run `pnpm test`
@@ -80,6 +81,50 @@ holds the last frame (Shot 8 uses 0.4 s of that, on the finished blocked stage).
 that. A second run of the workflow rendered it whole. Transcribe new lines (any local speech-to-text will do) or
 listen to them before fitting. The workflow re-renders every line and force-pushes `vo-lines`, so that branch no longer
 matches the cached files for unchanged lines; `$VIDEO_OUT/vo` is what the cut uses.
+
+## Recording the narration yourself (`--vo-file`): the final cut
+
+Read the 15 narrator lines in timeline order (`N1 N2 N3 V1 V2 V3 V5a V5b V5c V6 V7a V7c V10 V8 V9`, texts in
+`vo-jobs.json`) into one phone recording, with **2 s or more of silence between lines** and no pause longer than about
+a second inside a line. Any of m4a, mp3, wav, ogg, webm. Then:
+
+```bash
+HOSTED_URL=neighborline.onrender.com VIDEO_OUT=/home/claude/video-out \
+  node docs/submission/video/build.mjs --with-vo --vo-file /path/to/narration.m4a
+```
+
+→ `$VIDEO_OUT/neighborline-final.mp4` (the Draft 6 files are not touched). About 10 minutes with the scenes and takes
+cached (9 min 25 s measured on 2 cores; the split and fit take the first 10 seconds); no API key (Mrs. Lan's voice note stays the cached AI file). Add `--vo-check` first to see the split and the fit
+table in 10 seconds without rendering anything.
+
+What `lib/human-vo.mjs` does:
+
+1. **Clean**: 48 kHz mono, high-pass at 80 Hz, light FFT denoise at the measured room level, light compression.
+2. **Split** at the silences. The threshold is set from the file itself (12 dB over its noise floor), the least gap is
+   1.2 s. More segments than lines: it joins across the shortest silences if they are clearly the shortest. Fewer, or
+   unclear: it stops and prints every segment (start, end, seconds, silence after, longest pause inside). Answer with
+   `--vo-map`, 15 entries in line order: `3+4` joins two segments (a false start, a long breath), `6a,6b` cuts segment
+   6 in two at its longest pause (two lines read without a break), a number left out is skipped (a cough, a retake).
+3. **Trim and level**: 80 ms pads, one loudness for every line (−29 LUFS, what the TTS lines measure, so the bed and
+   Mrs. Lan sit as in Draft 6; `VO_HUMAN_LUFS`).
+4. **Fit**, printed as a table (speech seconds, window, fitted seconds, start, status). A line over its window is sped
+   up without changing pitch, by at most 8 % (`--vo-max-tempo 1.08`). If it is still long it may use the gap after it,
+   and then pushes the next line later, by at most 1.2 s. Lines never overlap each other or Mrs. Lan. If that cannot be
+   done the build stops before rendering and names the lines to read again.
+5. **Re-reading single lines**: put them in a folder as `<ID>.<ext>` (`V2.m4a`) and add `--vo-dir <folder>`; they
+   replace those lines of the `--vo-file`. `--vo-dir` alone works too, with one file for each of the 15 lines.
+6. The build rewrites the committed `captions.srt` (upload this one as the YouTube CC) and `edl.json`; commit both
+   with the final cut.
+7. Captions are cut at the pauses of the real voice, as for TTS. The corner tag reads `timeline.json →
+   corner.textHumanVo` ("… · Mrs. Lan’s voice is AI"), and `edl.json` gets `narrator: "human"` and `voFit`.
+
+Tested on Nov 12 with a synthetic recording (the 15 Draft 6 lines, 2.5 s apart, pink noise added, AAC): 15 segments,
+every line within its window (V6 sped up 1.9 %), 176.5 s, no two voices closer than 0.34 s, mix −14.0 LUFS / −1.2 dBTP (`neighborline-final-TEST.mp4`). With one silence removed it stopped with the table of 14 segments, and `--vo-map` with `6a,6b` got it through. Limits: the split cannot tell what
+was said, so listen to the result once: a retake left in, or two lines swapped, passes the fit check. `6a/6b` cuts at
+the longest pause, which is not always the line break; check the lengths in the table. A long line that moves later is
+also later against the picture (the anchored lines `V3` and `V5b` are timed to events on screen). Loud, changing
+background noise (traffic, a fan starting) can hide the silences; the build warns when the voice is under 20 dB over
+the room.
 
 ## Sound
 

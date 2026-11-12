@@ -58,11 +58,12 @@ export function pausesIn(file) {
  * DIRS.vo (e.g. rendered by .github/workflows/voiceover.yml and downloaded) are never re-requested, so the key is only
  * needed for lines that are missing.
  */
-export async function generateVo(T) {
+export async function generateVo(T, { only } = {}) {
   const files = [];
   const durations = {};
   const pauses = {};
-  const jobs = voJobs(T);
+  // `only`: just these ids (lib/human-vo.mjs asks for Mrs. Lan's voice note alone).
+  const jobs = voJobs(T).filter((j) => !only || only.includes(j.id));
   const missing = jobs.filter((j) => !existsSync(join(DIRS.vo, j.fileName)));
   if (missing.length && !process.env.OPENAI_API_KEY) throw new Error(`--with-vo needs OPENAI_API_KEY for ${missing.length} line(s) not in ${DIRS.vo}: ${missing.map((j) => j.fileName).join(', ')}`);
   for (const j of jobs) {
