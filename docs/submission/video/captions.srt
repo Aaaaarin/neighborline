@@ -1,169 +1,180 @@
 1
-00:00:01,000 --> 00:00:05,705
+00:00:00,200 --> 00:00:05,043
+Neighborline is a hotline for
+neighborhood mutual-aid groups:
+
+2
+00:00:05,043 --> 00:00:11,276
+the volunteers who get cash to neighbors
+after a storm, a fire or a lost paycheck.
+
+3
+00:00:11,276 --> 00:00:13,985
+Today that runs on English web forms,
+
+4
+00:00:13,985 --> 00:00:18,195
+comment threads and one
+volunteer's personal Venmo.
+
+5
+00:00:18,195 --> 00:00:22,203
+It's slow, it shuts out people
+who can't fill in the form,
+
+6
+00:00:22,203 --> 00:00:24,100
+and it's easy to impersonate.
+
+7
+00:00:24,250 --> 00:00:28,352
+So a neighbor just leaves a
+voice note, in any language.
+
+8
+00:00:28,352 --> 00:00:32,085
+AI transcribes it,
+translates it and reads it back.
+
+9
+00:00:32,085 --> 00:00:35,585
+The group's written rules,
+as code, set the amount.
+
+10
+00:00:35,585 --> 00:00:41,474
+Two organizers approve with passkeys, and
+PayPal Payouts sends the money to PayPal
+
+11
+00:00:41,474 --> 00:00:46,800
+or Venmo. The AI never decides who
+gets help, and never touches the money.
+
+12
+00:00:46,900 --> 00:00:51,605
 Two days after the ice storm,
 the Eastside is still dark.
 
-2
-00:00:05,705 --> 00:00:12,000
+13
+00:00:51,605 --> 00:00:57,800
 Mrs. Lan is seventy-one. Her heat is off,
 and her phone is at twenty-three percent.
 
-3
-00:00:12,200 --> 00:00:19,611
-Help exists: her neighbors raised a fund.
-But the form is six pages, in English.
-
-4
-00:00:19,611 --> 00:00:24,206
-After the Eaton fire, one LA group
-took three hundred requests overnight,
-
-5
-00:00:24,206 --> 00:00:25,900
-in comments on Instagram.
-
-6
-00:00:26,100 --> 00:00:31,523
-So we built Neighborline:
-a hotline, not a dashboard.
-
-7
-00:00:31,523 --> 00:00:32,800
-She just says it.
-
-8
-00:00:33,000 --> 00:00:42,400
+14
+00:00:58,000 --> 00:01:07,400
 [Mrs. Lan, in Vietnamese] “Hello, I’m Mrs. Lan, from the
 Eastside. After the ice storm,
 my house has been without
 power for two days now.”
 
-9
-00:00:43,000 --> 00:00:47,500
+15
+00:01:08,000 --> 00:01:12,500
 She left a voice note,
 in Vietnamese. Watch the clock.
 
-10
-00:00:48,100 --> 00:00:52,809
+16
+00:01:13,100 --> 00:01:17,809
 She heard it read back in
 Vietnamese and said yes.
 
-11
-00:00:52,809 --> 00:00:59,003
+17
+00:01:17,809 --> 00:01:24,003
 The group's own rules, not the AI, set
 the amount: a hundred and fifty dollars.
 
-12
-00:00:59,003 --> 00:01:00,600
+18
+00:01:24,003 --> 00:01:25,600
 Two organizers sign.
 
-13
-00:01:02,100 --> 00:01:07,481
+19
+00:01:27,100 --> 00:01:32,481
 Paid, into her Venmo,
 with a message in Vietnamese.
 
-14
-00:01:07,481 --> 00:01:13,443
+20
+00:01:32,481 --> 00:01:38,443
 Twenty-two point five seconds to the
 SUCCESS webhook, on our PayPal stand-in.
 
-15
-00:01:13,443 --> 00:01:17,800
+21
+00:01:38,443 --> 00:01:42,800
 The approvals came on cue;
 real neighbors take longer.
 
-16
-00:01:18,300 --> 00:01:24,300
+22
+00:01:43,100 --> 00:01:49,000
 Rosa asks for groceries, in Spanish.
 Same rules, two approvals.
 
-17
-00:01:28,702 --> 00:01:32,805
+23
+00:01:51,002 --> 00:01:55,105
 Her email has no PayPal
 account yet: unclaimed.
 
-18
-00:01:32,805 --> 00:01:35,502
+24
+00:01:55,105 --> 00:01:57,802
 She gets claim help in Spanish.
 
-19
-00:01:35,600 --> 00:01:41,236
+25
+00:01:57,900 --> 00:02:03,536
 She claims it. Success. Most
 payout systems stop at unclaimed;
 
-20
-00:01:41,236 --> 00:01:42,800
+26
+00:02:03,536 --> 00:02:05,100
 this one follows through.
 
-21
-00:01:43,050 --> 00:01:48,007
+27
+00:02:05,350 --> 00:02:10,307
 Someone posing as the organizers,
 with a Venmo handle one letter off?
 
-22
-00:01:48,007 --> 00:01:52,550
+28
+00:02:10,307 --> 00:02:14,850
 Approve is disabled on
 every phone. No money moves.
 
-23
-00:01:52,900 --> 00:01:58,188
+29
+00:02:15,200 --> 00:02:20,488
 Under the hood: the agents that talk
 to neighbors have no PayPal tools.
 
-24
-00:01:58,188 --> 00:02:02,456
+30
+00:02:20,488 --> 00:02:24,756
 One separate approval service
 holds the Payouts credentials,
 
-25
-00:02:02,456 --> 00:02:07,700
+31
+00:02:24,756 --> 00:02:30,000
 and it pays only on a record signed with
 the passkeys of two different organizers.
 
-26
-00:02:08,250 --> 00:02:13,536
-The batch ID comes from the signed
-approval, so a double tap can't pay twice.
-
-27
-00:02:13,536 --> 00:02:18,400
-Webhooks are signature-verified, and
-every payout is reconciled with PayPal.
-
-28
-00:02:18,750 --> 00:02:23,858
+32
+00:02:30,450 --> 00:02:35,558
 For agent builders: the same
 guard ships as an MCP server.
 
-29
-00:02:23,858 --> 00:02:28,944
+33
+00:02:35,558 --> 00:02:40,644
 An AI agent asking to pay is refused
 without two humans' signatures.
 
-30
-00:02:28,944 --> 00:02:30,800
+34
+00:02:40,644 --> 00:02:42,500
 With them, it pays.
 
-31
-00:02:31,150 --> 00:02:37,524
-Donors give with PayPal or Venmo.
-The public report never names a neighbor,
-
-32
-00:02:37,524 --> 00:02:40,200
-and every number comes from the ledger.
-
-33
-00:02:40,800 --> 00:02:45,501
+35
+00:02:42,900 --> 00:02:47,601
 That night, one window on
 the Eastside is warm again.
 
-34
-00:02:45,501 --> 00:02:51,491
+36
+00:02:47,601 --> 00:02:53,591
 Neighborline is open source. Try the
 hotline yourself; the link is below.
 
-35
-00:02:51,491 --> 00:02:55,700
+37
+00:02:53,591 --> 00:02:57,800
 Because the morning after a storm,
 help should sound like your own language.

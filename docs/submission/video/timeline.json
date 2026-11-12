@@ -1,30 +1,30 @@
 {
-  "$comment": "Single source of truth for the current cut (Draft 6: a drawn storm cold open and a warm-window close around the Draft 5 footage; every shot and VO window is fitted to the measured TTS lines in $VIDEO_OUT/vo). Scene shots (kind scene) are drawn by lib/scene.mjs; their beats are seconds into the shot. sound is the synthesised bed (lib/sound.mjs). Times are video timecodes (m:ss.s) from VIDEO_SCRIPT.md. Source points for stage takes are 'P+x' = seconds after the Play click in that take (takes/<id>.markers.json); for the MCP clip, seconds into takes/mcp-demo.mp4. Anchors {take, event, offset} resolve to the video time at which that stage event is on screen. {T} / {T_words} / {BLOCK_T} / {TESTS} are filled from the recorded stopwatch and the real test run. build.mjs validates every VO line against its window at its target wpm and prints the fit.",
+  "$comment": "Single source of truth for the current cut (Draft 7: two drawn explainer scenes first (what it is and the problem, then how it works), then the storm street, the Draft 5 demo footage without the code cards and /report, and the warm-window close; output.burnCaptions false = no captions in the picture, captions.srt only; every shot and VO window is fitted to the measured TTS lines in $VIDEO_OUT/vo). Scene shots (kind scene) are drawn by lib/scene.mjs; their beats are seconds into the shot. sound is the synthesised bed (lib/sound.mjs). Times are video timecodes (m:ss.s) from VIDEO_SCRIPT.md. Source points for stage takes are 'P+x' = seconds after the Play click in that take (takes/<id>.markers.json); for the MCP clip, seconds into takes/mcp-demo.mp4. Anchors {take, event, offset} resolve to the video time at which that stage event is on screen. {T} / {T_words} / {BLOCK_T} / {TESTS} are filled from the recorded stopwatch and the real test run. build.mjs validates every VO line against its window at its target wpm and prints the fit.",
   "output": { "width": 1920, "height": 1080, "fps": 30, "maxSeconds": 178.9, "burnCaptions": false, "file": "neighborline-draft7.mp4", "humanVoFile": "neighborline-final.mp4" },
   "paypalMode": "fake",
   "corner": {
     "from": "0:00",
-    "to": "2:42.5",
-    "except": [["2:30.1", "2:42.5"]],
+    "to": "2:42.6",
+    "except": [["2:30.2", "2:42.6"]],
     "$except": "Off during the MCP clip: its own header carries the label (Real MCP over stdio · fake PayPal · scripted agent, no LLM) and the tag would cover its title.",
     "text": { "fake": "Simulated PayPal sandbox · fictional people · AI voices", "sandbox": "PayPal sandbox · test money · fictional people · AI voices" },
     "$textHumanVo": "Used instead of text under --vo-file / --vo-dir: the narrator is a person, only Mrs. Lan's voice note is AI.",
     "textHumanVo": { "fake": "Simulated PayPal sandbox · fictional people · Mrs. Lan’s voice is AI", "sandbox": "PayPal sandbox · test money · fictional people · Mrs. Lan’s voice is AI" }
   },
   "sound": {
-    "$comment": "Synthesised with ffmpeg (lib/sound.mjs), nothing downloaded. Wind + a low drone under Act 1, cut at the one-line beat; a soft A-major add9 pad from the SUCCESS event, and again from the lamp in the close. Levels are dB below the measured VO loudness; the bed is also ducked under the VO.",
-    "wind": { "start": "0:42.6", "end": "0:55.3", "fadeIn": 1, "fadeOut": 0.7, "belowVo": 14 },
+    "$comment": "Synthesised with ffmpeg (lib/sound.mjs), nothing downloaded. Wind + a low drone under the storm street only (Scene A); a soft A-major add9 pad from the SUCCESS event, and again from the lamp in the close. Levels are dB below the measured VO loudness; the bed is also ducked under the VO.",
+    "wind": { "start": "0:46.5", "end": "0:58.1", "fadeIn": 0.9, "fadeOut": 0.7, "belowVo": 14 },
     "pads": [
       { "id": "paid", "anchor": { "take": "lan", "event": "success", "offset": 0 }, "duration": 5.5, "attack": 1.4, "release": 3, "belowVo": 15 },
-      { "id": "close", "start": "2:43.1", "end": "2:58.7", "attack": 2.2, "release": 4, "belowVo": 15 }
+      { "id": "close", "start": "2:43.2", "end": "2:58.4", "attack": 2.2, "release": 4, "belowVo": 15 }
     ]
   },
   "shots": [
-    { "id": "sB", "script": "Explainer 1 · Mutual aid today: forms, comment threads, a personal Venmo", "start": "0:00", "end": "0:21", "kind": "scene", "scene": "help", "fadeIn": 0.5, "beats": { "error": 7.5, "six": 9.5, "english": 10.6, "thread": 12.2, "count": 16.5, "venmo": 14.6 } },
-    { "id": "sE", "script": "Explainer 2 · How it works: five steps, and what the AI never does", "start": "0:21", "end": "0:43", "kind": "scene", "scene": "how", "beats": { "s1": 0.5, "s2": 4.2, "s3": 8.2, "s4": 12.2, "s5": 14.6, "foot": 17.8 } },
-    { "id": "sA", "script": "Scenario · The street, two days in: every window dark", "start": "0:43", "end": "0:55", "kind": "scene", "scene": "street", "fadeIn": 0.7, "beats": { "kicker": 0.5, "title": 1.5, "lan": 5.6, "battery": 9.2 } },
+    { "id": "sB", "script": "Explainer 1 · Mutual aid today: forms, comment threads, a personal Venmo", "start": "0:00", "end": "0:24.2", "kind": "scene", "scene": "help", "fadeIn": 0.4, "beats": { "error": 5.5, "six": 8.6, "english": 12.3, "thread": 14, "count": 17.4, "venmo": 15.6 } },
+    { "id": "sE", "script": "Explainer 2 · How it works: five steps, and what the AI never does", "start": "0:24.2", "end": "0:46.8", "kind": "scene", "scene": "how", "beats": { "s1": 0.6, "s2": 4.1, "s3": 7.9, "s4": 11.4, "s5": 14.2, "foot": 18.2 } },
+    { "id": "sA", "script": "Scenario · The street, two days in: every window dark", "start": "0:46.8", "end": "0:57.8", "kind": "scene", "scene": "street", "fadeIn": 0.5, "beats": { "kicker": 0.3, "title": 1, "lan": 4.7, "battery": 8.3 } },
     {
-      "id": "s00", "script": "Shot 1 · Her voice note", "start": "0:55", "end": "1:05", "kind": "voicenote",
+      "id": "s00", "script": "Shot 1 · Her voice note", "start": "0:57.8", "end": "1:07.8", "kind": "voicenote",
       "voice": {
         "vi": "Xin chào, tôi là bà Lan, ở khu Eastside. Sau trận bão băng, nhà tôi bị mất điện hai ngày nay rồi.",
         "en": ["Hello, I’m Mrs. Lan, from the Eastside.", "After the ice storm, my house has been without power for two days now."],
@@ -34,58 +34,58 @@
       },
       "hook": { "at": 0.3, "lines": ["Leave a voice note in any language.", "Two neighbors approve. Cash lands in PayPal or Venmo."] }
     },
-    { "id": "s02", "script": "Shot 2 · On her phone, the clock is running", "start": "1:05", "end": "1:09.4", "kind": "take", "take": "lan", "src": "P+4.8", "comp": "A" },
+    { "id": "s02", "script": "Shot 2 · On her phone, the clock is running", "start": "1:07.8", "end": "1:12.2", "kind": "take", "take": "lan", "src": "P+4.8", "comp": "A" },
     {
-      "id": "s03", "script": "Shots 3–4 · Two phones buzz, approve, approve (passkey), paid", "start": "1:09.4", "end": "1:24.9", "kind": "take", "take": "lan", "src": "P+9.2", "comp": "B",
+      "id": "s03", "script": "Shots 3–4 · Two phones buzz, approve, approve (passkey), paid", "start": "1:12.2", "end": "1:27.7", "kind": "take", "take": "lan", "src": "P+9.2", "comp": "B",
       "insets": [{ "name": "passkey", "src": { "x": 912, "y": 686, "w": 344, "h": 124 }, "at": { "x": 1310, "y": 380 }, "k": 1.6, "from": 12.2, "to": 15.5 }]
     },
-    { "id": "s05", "script": "Shot 5 · Push in on her phone", "start": "1:24.9", "end": "1:40", "kind": "take", "take": "lan", "src": "P+24.7", "comp": "A", "push": { "to": 1.04, "focus": "phone" } },
-    { "id": "s07a", "script": "Shot 7 · Rosa (A)", "start": "1:40", "end": "1:47", "kind": "take", "take": "rosa", "src": "P+0", "comp": "A" },
-    { "id": "s07b", "script": "Shot 7 · Rosa (B: the same two-phone pattern)", "start": "1:47", "end": "1:51.4", "kind": "take", "take": "rosa", "src": "P+7", "comp": "B" },
-    { "id": "s07c", "script": "Shot 7 · Rosa (A: unclaimed → claim help → success)", "start": "1:51.4", "end": "2:05", "kind": "take", "take": "rosa", "src": "P+11.4", "comp": "A" },
-    { "id": "s08", "script": "Shot 8 · Impersonator blocked", "start": "2:05", "end": "2:14.8", "kind": "take", "take": "blocked", "src": "P+1.64", "comp": "C", "$end": "Runs ~0.4 s past the end of the take; segments.mjs holds its last (finished, static) frame so V6 ends on this shot." },
-    { "id": "s09", "script": "Shot 9 · /trust: who can do what", "start": "2:14.8", "end": "2:25.1", "kind": "pan", "still": "trust", "anchor": "Know your agent", "panCss": 150 },
-    { "id": "s10", "script": "Shot 10 · The rail, full screen", "start": "2:25.1", "end": "2:30.1", "kind": "stageEnd", "push": { "to": 1.55, "focus": "rail" } },
-    { "id": "s14", "script": "Shot 12 · An AI agent through the MCP server: refused, then paid", "start": "2:30.1", "end": "2:42.5", "kind": "clip", "take": "mcp", "src": "P+0.9" },
-    { "id": "s13", "script": "Act 3 · The same street, one warm window; then the ask", "start": "2:42.5", "end": "2:58.7", "kind": "scene", "scene": "payoff", "fadeIn": 0.5, "beats": { "lamp": 0.8, "card": 5 } }
+    { "id": "s05", "script": "Shot 5 · Push in on her phone", "start": "1:27.7", "end": "1:42.8", "kind": "take", "take": "lan", "src": "P+24.7", "comp": "A", "push": { "to": 1.04, "focus": "phone" } },
+    { "id": "s07a", "script": "Shot 7 · Rosa (A)", "start": "1:42.8", "end": "1:47.4", "kind": "take", "take": "rosa", "src": "P+0", "comp": "A" },
+    { "id": "s07b", "script": "Shot 7 · Rosa (B: the same two-phone pattern)", "start": "1:47.4", "end": "1:51.5", "kind": "take", "take": "rosa", "src": "P+7.3", "comp": "B" },
+    { "id": "s07c", "script": "Shot 7 · Rosa (A: unclaimed → claim help → success)", "start": "1:51.5", "end": "2:05.1", "kind": "take", "take": "rosa", "src": "P+11.4", "comp": "A" },
+    { "id": "s08", "script": "Shot 8 · Impersonator blocked", "start": "2:05.1", "end": "2:14.9", "kind": "take", "take": "blocked", "src": "P+1.64", "comp": "C", "$end": "Runs ~0.4 s past the end of the take; segments.mjs holds its last (finished, static) frame so V6 ends on this shot." },
+    { "id": "s09", "script": "Shot 9 · /trust: who can do what", "start": "2:14.9", "end": "2:25.2", "kind": "pan", "still": "trust", "anchor": "Know your agent", "panCss": 150 },
+    { "id": "s10", "script": "Shot 10 · The rail, full screen", "start": "2:25.2", "end": "2:30.2", "kind": "stageEnd", "push": { "to": 1.55, "focus": "rail" } },
+    { "id": "s14", "script": "Shot 12 · An AI agent through the MCP server: refused, then paid", "start": "2:30.2", "end": "2:42.6", "kind": "clip", "take": "mcp", "src": "P+0.9" },
+    { "id": "s13", "script": "Act 3 · The same street, one warm window; then the ask", "start": "2:42.6", "end": "2:58.4", "kind": "scene", "scene": "payoff", "fadeIn": 0.5, "beats": { "lamp": 0.6, "card": 4.8 } }
   ],
   "vo": [
-    { "id": "E1", "start": "0:00.6", "end": "0:20.8", "wpm": 155, "text": "Neighborline is a hotline for neighborhood mutual-aid groups: the volunteers who get cash to neighbors after a storm, a fire or a lost paycheck. Today that runs on English web forms, comment threads and one volunteer's personal Venmo. It's slow, it shuts out people who can't fill in the form, and it's easy to impersonate." },
-    { "id": "E2", "start": "0:21.3", "end": "0:42.8", "wpm": 160, "text": "So a neighbor just leaves a voice note, in any language. AI transcribes it, translates it and reads it back. The group's written rules, as code, set the amount. Two organizers approve with passkeys, and PayPal Payouts sends the money to PayPal or Venmo. The AI never decides who gets help, and never touches the money." },
-    { "id": "N1", "start": "0:44", "end": "0:55", "wpm": 150, "text": "Two days after the ice storm, the Eastside is still dark. Mrs. Lan is seventy-one. Her heat is off, and her phone is at twenty-three percent." },
-    { "id": "V1", "start": "1:05.2", "end": "1:09.7", "wpm": 150, "text": "She left a voice note, in Vietnamese. Watch the clock." },
-    { "id": "V2", "start": "1:10.3", "end": "1:22.8", "wpm": 155, "text": "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers sign." },
+    { "id": "E1", "start": "0:00.2", "end": "0:24.1", "wpm": 140, "text": "Neighborline is a hotline for neighborhood mutual-aid groups: the volunteers who get cash to neighbors after a storm, a fire or a lost paycheck. Today that runs on English web forms, comment threads and one volunteer's personal Venmo. It's slow, it shuts out people who can't fill in the form, and it's easy to impersonate." },
+    { "id": "E2", "start": "0:24.25", "end": "0:46.8", "wpm": 155, "text": "So a neighbor just leaves a voice note, in any language. AI transcribes it, translates it and reads it back. The group's written rules, as code, set the amount. Two organizers approve with passkeys, and PayPal Payouts sends the money to PayPal or Venmo. The AI never decides who gets help, and never touches the money." },
+    { "id": "N1", "start": "0:46.9", "end": "0:57.8", "wpm": 150, "text": "Two days after the ice storm, the Eastside is still dark. Mrs. Lan is seventy-one. Her heat is off, and her phone is at twenty-three percent." },
+    { "id": "V1", "start": "1:08", "end": "1:12.5", "wpm": 150, "text": "She left a voice note, in Vietnamese. Watch the clock." },
+    { "id": "V2", "start": "1:13.1", "end": "1:25.6", "wpm": 155, "text": "She heard it read back in Vietnamese and said yes. The group's own rules, not the AI, set the amount: a hundred and fifty dollars. Two organizers sign." },
     {
-      "id": "V3", "start": "1:24.3", "end": "1:40", "note": "Starts 0.6 s before the cut to her phone, 1.4 s after SUCCESS is on screen: \"Paid,\" over the three paid phones, the cut in the pause after it.", "wpm": 150,
+      "id": "V3", "start": "1:27.1", "end": "1:42.8", "note": "Starts 0.6 s before the cut to her phone, 1.4 s after SUCCESS is on screen: \"Paid,\" over the three paid phones, the cut in the pause after it.", "wpm": 150,
       "text": { "sandbox": "Paid, into her Venmo, with a message in Vietnamese. {T_words} seconds to PayPal's SUCCESS webhook. The approvals came on cue; real neighbors take longer.",
                 "fake": "Paid, into her Venmo, with a message in Vietnamese. {T_words} seconds to the SUCCESS webhook, on our PayPal stand-in. The approvals came on cue; real neighbors take longer." }
     },
-    { "id": "V5a", "start": "1:40.5", "end": "1:46.5", "wpm": 150, "text": "Rosa asks for groceries, in Spanish. Same rules, two approvals." },
-    { "id": "V5b", "start": "1:50.9", "end": "1:57.7", "wpm": 150, "anchor": { "take": "rosa", "event": "unclaimed", "offset": -1.5 }, "note": "Starts 1.5 s before UNCLAIMED lands, so the word \"unclaimed\" is spoken just after it is on screen.", "text": "Her email has no PayPal account yet: unclaimed. She gets claim help in Spanish." },
-    { "id": "V5c", "start": "1:57.8", "end": "2:05", "note": "\"Success.\" is spoken ~0.7 s after SUCCEEDED is on screen.", "wpm": 150, "text": "She claims it. Success. Most payout systems stop at unclaimed; this one follows through." },
-    { "id": "V6", "start": "2:05.25", "end": "2:14.75", "wpm": 150, "text": "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves." },
-    { "id": "V7a", "start": "2:15.1", "end": "2:29.9", "wpm": 155, "note": "Runs over /trust and into the rail push (Shot 10).", "text": "Under the hood: the agents that talk to neighbors have no PayPal tools. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers." },
-    { "id": "V10", "start": "2:30.35", "end": "2:42.4", "wpm": 150, "text": "For agent builders: the same guard ships as an MCP server. An AI agent asking to pay is refused without two humans' signatures. With them, it pays." },
-    { "id": "V9", "start": "2:43", "end": "2:57.9", "wpm": 150, "text": "That night, one window on the Eastside is warm again. Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language." }
+    { "id": "V5a", "start": "1:43.1", "end": "1:49", "wpm": 150, "text": "Rosa asks for groceries, in Spanish. Same rules, two approvals." },
+    { "id": "V5b", "start": "1:51", "end": "1:57.8", "wpm": 150, "anchor": { "take": "rosa", "event": "unclaimed", "offset": -1.5 }, "note": "Starts 1.5 s before UNCLAIMED lands, so the word \"unclaimed\" is spoken just after it is on screen.", "text": "Her email has no PayPal account yet: unclaimed. She gets claim help in Spanish." },
+    { "id": "V5c", "start": "1:57.9", "end": "2:05.1", "note": "\"Success.\" is spoken ~0.7 s after SUCCEEDED is on screen.", "wpm": 150, "text": "She claims it. Success. Most payout systems stop at unclaimed; this one follows through." },
+    { "id": "V6", "start": "2:05.35", "end": "2:14.85", "wpm": 150, "text": "Someone posing as the organizers, with a Venmo handle one letter off? Approve is disabled on every phone. No money moves." },
+    { "id": "V7a", "start": "2:15.2", "end": "2:30", "wpm": 155, "note": "Runs over /trust and into the rail push (Shot 10).", "text": "Under the hood: the agents that talk to neighbors have no PayPal tools. One separate approval service holds the Payouts credentials, and it pays only on a record signed with the passkeys of two different organizers." },
+    { "id": "V10", "start": "2:30.45", "end": "2:42.5", "wpm": 150, "text": "For agent builders: the same guard ships as an MCP server. An AI agent asking to pay is refused without two humans' signatures. With them, it pays." },
+    { "id": "V9", "start": "2:42.9", "end": "2:57.8", "wpm": 150, "text": "That night, one window on the Eastside is warm again. Neighborline is open source. Try the hotline yourself; the link is below. Because the morning after a storm, help should sound like your own language." }
   ],
   "quotes": [
-    { "id": "lan-words", "start": "0:55.2", "end": "1:04.6", "who": "Mrs. Lan, in Vietnamese", "burn": false, "text": "“Hello, I’m Mrs. Lan, from the Eastside. After the ice storm, my house has been without power for two days now.”" }
+    { "id": "lan-words", "start": "0:58", "end": "1:07.4", "who": "Mrs. Lan, in Vietnamese", "burn": false, "text": "“Hello, I’m Mrs. Lan, from the Eastside. After the ice storm, my house has been without power for two days now.”" }
   ],
   "lowerThirds": [
-    { "id": "lt-eastside", "start": "1:05.2", "end": "1:09.2", "title": "Eastside, the morning after an ice storm", "sub": "The clock starts when her voice note arrives" },
-    { "id": "lt-rules", "start": "1:12.8", "end": "1:18.8", "title": "Amount computed by code from the group’s written rules", "sub": "Policy v1 · Utility outage · up to $150" },
+    { "id": "lt-eastside", "start": "1:08", "end": "1:12", "title": "Eastside, the morning after an ice storm", "sub": "The clock starts when her voice note arrives" },
+    { "id": "lt-rules", "start": "1:15.6", "end": "1:21.6", "title": "Amount computed by code from the group’s written rules", "sub": "Policy v1 · Utility outage · up to $150" },
     { "id": "lt-approval2", "anchor": { "take": "lan", "event": "approval2", "offset": 0.2 }, "duration": 3.7, "title": "Approval 2 of 2 · signed with a passkey", "sub": "We tapped as Marcus, on cue · a virtual WebAuthn authenticator in Chrome · Dana: labelled demo key" },
-    { "id": "lt-success", "start": "1:25.5", "end": "1:39.4", "title": "Voice note → PayPal SUCCESS: {T}", "sub": { "fake": "Approvals on cue in this demo · simulated PayPal sandbox", "sandbox": "Approvals on cue in this demo · PayPal sandbox" } },
+    { "id": "lt-success", "start": "1:28.3", "end": "1:42.2", "title": "Voice note → PayPal SUCCESS: {T}", "sub": { "fake": "Approvals on cue in this demo · simulated PayPal sandbox", "sandbox": "Approvals on cue in this demo · PayPal sandbox" } },
     { "id": "lt-unclaimed", "anchor": { "take": "rosa", "event": "unclaimed", "offset": 0.1 }, "until": { "take": "rosa", "event": "success", "offset": 0 }, "title": "PayPal webhook", "sub": "PAYMENT.PAYOUTS-ITEM.UNCLAIMED", "mono": true },
     { "id": "lt-succeeded", "anchor": { "take": "rosa", "event": "success", "offset": 0 }, "duration": 5.5, "title": "PayPal webhook", "sub": "PAYMENT.PAYOUTS-ITEM.SUCCEEDED · her claim is simulated", "mono": true },
-    { "id": "lt-blocked", "start": "2:05.4", "end": "2:14.8", "$start": "The cut lands on the flagged card (request.flagged is at P+1.33, on screen ~P+1.6; the shot starts at P+1.64, on the first frame that shows it).", "title": "Blocked before any money moved · {BLOCK_T}", "sub": "Lookalike handle · Approve disabled on every phone" },
-    { "id": "lt-mcp", "anchor": { "take": "mcp", "event": "refused", "offset": 0.3 }, "end": "2:39.4", "title": "neighborline-payouts-mcp · open source, in @neighborline/paypal", "sub": "No approval token: refused · two organizers sign: paid, SUCCESS, reconciled", "place": "bottom" }
+    { "id": "lt-blocked", "start": "2:05.5", "end": "2:14.9", "$start": "The cut lands on the flagged card (request.flagged is at P+1.33, on screen ~P+1.6; the shot starts at P+1.64, on the first frame that shows it).", "title": "Blocked before any money moved · {BLOCK_T}", "sub": "Lookalike handle · Approve disabled on every phone" },
+    { "id": "lt-mcp", "anchor": { "take": "mcp", "event": "refused", "offset": 0.3 }, "end": "2:39.5", "title": "neighborline-payouts-mcp · open source, in @neighborline/paypal", "sub": "No approval token: refused · two organizers sign: paid, SUCCESS, reconciled", "place": "bottom" }
   ],
   "pills": [
-    { "id": "pill-2x", "start": "1:40", "end": "2:05", "text": "Shown at 2× speed" }
+    { "id": "pill-2x", "start": "1:42.8", "end": "2:05.1", "text": "Shown at 2× speed" }
   ],
   "overlays": [
-    { "id": "ov-handles", "start": "2:05.7", "end": "2:14.8", "card": "ov-handles" }
+    { "id": "ov-handles", "start": "2:05.8", "end": "2:14.9", "card": "ov-handles" }
   ],
   "endCard": {
     "hostedUrl": "{HOSTED_URL}/demo",
