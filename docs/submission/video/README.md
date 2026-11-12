@@ -1,4 +1,4 @@
-# Demo video pipeline (Draft 6: the storm, the demo, one warm window)
+# Demo video pipeline (Draft 7: what it is, how it works, the storm, the demo, one warm window)
 
 This folder turns `../VIDEO_SCRIPT.md` into a reviewable MP4 with one command. It follows `../RECORDING_PLAN.md`
 and records the real product, so the cut never drifts from the app the judges will open.
@@ -11,7 +11,9 @@ node docs/submission/video/build.mjs --vo-jobs docs/submission/video/vo-jobs.jso
 node docs/submission/video/build.mjs --with-vo --vo-file narration.m4a  # your own narration → neighborline-final.mp4 (see below)
 ```
 
-Other flags: `--rebuild-web` (fresh `next build` into `apps/web/.next-video`), `--fresh-tests` (re-run `pnpm test`
+Other flags: `--no-burn` (no captions in the picture; `captions.srt` is still written. Draft 7 also sets
+`output.burnCaptions: false` in `timeline.json`, so every build of it, the human-narration one included, is clean),
+`--rebuild-web` (fresh `next build` into `apps/web/.next-video`), `--fresh-tests` (re-run `pnpm test`
 for code card 4), `--no-thumbnail`. Env: `VIDEO_OUT` (default `/home/claude/video-out`), `HOSTED_URL` (fills the end
 card with `<HOSTED_URL>/demo`; until it is set the card says "Live demo link in the description"), `VIDEO_TAP_AT`
 (when the recorder taps Approve as Marcus, seconds after Play, default 20.3), `VIDEO_WEB_PORT` /
@@ -84,7 +86,7 @@ matches the cached files for unchanged lines; `$VIDEO_OUT/vo` is what the cut us
 
 ## Recording the narration yourself (`--vo-file`): the final cut
 
-Read the 15 narrator lines in timeline order (`N1 N2 N3 V1 V2 V3 V5a V5b V5c V6 V7a V7c V10 V8 V9`, texts in
+Read the 13 narrator lines in timeline order (`E1 E2 N1 V1 V2 V3 V5a V5b V5c V6 V7a V10 V9`, texts in
 `vo-jobs.json`) into one phone recording, with **2 s or more of silence between lines** and no pause longer than about
 a second inside a line. Any of m4a, mp3, wav, ogg, webm. Then:
 
@@ -93,7 +95,7 @@ HOSTED_URL=neighborline.onrender.com VIDEO_OUT=/home/claude/video-out \
   node docs/submission/video/build.mjs --with-vo --vo-file /path/to/narration.m4a
 ```
 
-→ `$VIDEO_OUT/neighborline-final.mp4` (the Draft 6 files are not touched). About 10 minutes with the scenes and takes
+→ `$VIDEO_OUT/neighborline-final.mp4` (the Draft 7 files are not touched). About 10 minutes with the scenes and takes
 cached (9 min 25 s measured on 2 cores; the split and fit take the first 10 seconds); no API key (Mrs. Lan's voice note stays the cached AI file). Add `--vo-check` first to see the split and the fit
 table in 10 seconds without rendering anything.
 
@@ -103,7 +105,7 @@ What `lib/human-vo.mjs` does:
 2. **Split** at the silences. The threshold is set from the file itself (12 dB over its noise floor), the least gap is
    1.2 s. More segments than lines: it joins across the shortest silences if they are clearly the shortest. Fewer, or
    unclear: it stops and prints every segment (start, end, seconds, silence after, longest pause inside). Answer with
-   `--vo-map`, 15 entries in line order: `3+4` joins two segments (a false start, a long breath), `6a,6b` cuts segment
+   `--vo-map`, 13 entries in line order: `3+4` joins two segments (a false start, a long breath), `6a,6b` cuts segment
    6 in two at its longest pause (two lines read without a break), a number left out is skipped (a cough, a retake).
 3. **Trim and level**: 80 ms pads, one loudness for every line (−29 LUFS, what the TTS lines measure, so the bed and
    Mrs. Lan sit as in Draft 6; `VO_HUMAN_LUFS`).
@@ -112,7 +114,7 @@ What `lib/human-vo.mjs` does:
    and then pushes the next line later, by at most 1.2 s. Lines never overlap each other or Mrs. Lan. If that cannot be
    done the build stops before rendering and names the lines to read again.
 5. **Re-reading single lines**: put them in a folder as `<ID>.<ext>` (`V2.m4a`) and add `--vo-dir <folder>`; they
-   replace those lines of the `--vo-file`. `--vo-dir` alone works too, with one file for each of the 15 lines.
+   replace those lines of the `--vo-file`. `--vo-dir` alone works too, with one file for each of the 13 lines.
 6. The build rewrites the committed `captions.srt` (upload this one as the YouTube CC) and `edl.json`; commit both
    with the final cut.
 7. Captions are cut at the pauses of the real voice, as for TTS. The corner tag reads `timeline.json →
@@ -157,6 +159,17 @@ sending $150 to your Venmo now."); Rosa's claim help is gender-neutral Spanish. 
 must not be reused. The thumbnail's stopwatch also fits the 1500×1000 card now (its last digit was clipped).
 Draft 4 (`neighborline-draft4.mp4`, 160.5 s) is cut from the re-recorded takes: stopwatch 0:22.5 (people 0:18.9 ·
 system 0:03.5), blocked 0:01.5, and a fresh `pnpm test` on code card 4 (1093 tests).
+
+## Draft 7 (Nov 12): explain first
+
+`neighborline-draft7-vo.mp4`, 178.4 s, no burned captions. Feedback on Draft 6 was that a viewer did not know what the
+product was until a minute in. Draft 7 opens with two drawn explainer scenes: `sB` (the Draft 6 form and comment
+thread, with a headline and a "personal Venmo" card, line `E1`: what Neighborline is and what is wrong today) and `sE`
+(`lib/scene-how.mjs`, five steps appearing with line `E2`, and "AI never decides who gets help, and never touches the
+money."). Then the storm street (`sA`, `N1` unchanged) as the scenario, and the demo as in Draft 6. Cut to pay for it:
+the one-line beat (`sC`, `N3`), `N2`, both code cards (`V7c`) and the `/report` shot (`V8`). Rosa's first shot ends
+2.4 s earlier (P+4.6) and her two-phone shot starts at P+7.3. Only `E1` and `E2` are new voice files; the wind runs
+under the street only. 13 narrator lines: `E1 E2 N1 V1 V2 V3 V5a V5b V5c V6 V7a V10 V9`.
 
 ## Draft 6 (Nov 11): the story
 

@@ -1,18 +1,18 @@
 # YouTube upload: paste-ready
 
 The rules require the video to be **under 3 minutes** and **publicly visible on YouTube**, with no third-party
-trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft6-vo.mp4` from
-`HOSTED_URL=neighborline.onrender.com node docs/submission/video/build.mjs --with-vo`), not the caption-only
-`neighborline-draft6-vo-silent.mp4`. Times below are from `video/edl.json` (Draft 6, 2:56.5); re-check them if
+trademarks and no copyrighted music. Upload the **voiced** cut (`neighborline-draft7-vo.mp4` from
+`HOSTED_URL=neighborline.onrender.com node docs/submission/video/build.mjs --with-vo --no-burn`), not the silent
+`neighborline-draft7-vo-silent.mp4`. Times below are from `video/edl.json` (Draft 7, 2:58.4); re-check them if
 the cut changes.
 
 ## File, thumbnail, captions
 
 | Field | Value |
 |---|---|
-| Video file | `/home/claude/video-out/neighborline-draft6-vo.mp4` (2:56.5, 1920×1080, 30 fps, AAC 48 kHz stereo, −14 LUFS) |
+| Video file | `/home/claude/video-out/neighborline-draft7-vo.mp4` (2:58.4, 1920×1080, 30 fps, AAC 48 kHz stereo, −14 LUFS) |
 | Custom thumbnail (16:9, ≤ 2 MB) | `/home/claude/video-out/thumbnail.png` (1280×720, 288 KB) |
-| Subtitles / CC | Upload [`video/captions.srt`](video/captions.srt) as **English** (Subtitles → Add language → English → Upload file → *With timing*). The cut also has burned-in captions; the SRT makes them searchable and lets viewers resize them |
+| Subtitles / CC | Upload [`video/captions.srt`](video/captions.srt) as **English** (Subtitles → Add language → English → Upload file → *With timing*). Draft 7 has **no burned-in captions**, so this file is the only captions the video has: do not skip it |
 | Video language | English |
 | Caption certification | "This content has never aired on television in the U.S." |
 
@@ -36,23 +36,22 @@ Neighborline is a mutual-aid hotline for neighborhood groups, built for the PayP
 ▶ How it was tested and what is simulated: https://github.com/Aaaaarin/neighborline#sandbox-reality
 
 Chapters
-0:00 The Eastside, two days without power
-0:12 Help exists, behind a six-page English form
-0:33 Mrs. Lan's voice note becomes Venmo cash
-1:18 Unclaimed payout, rescued in Spanish
-1:43 Impersonator blocked, and who can move money
-2:08 Under the hood: idempotent batches, verified webhooks
-2:19 An AI agent can pay only with two humans' signatures (MCP)
-2:31 Where the money went, and one warm window
+0:00 What Neighborline is, and the problem with mutual aid today
+0:24 How it works: voice note, rules as code, two approvals, PayPal Payouts
+0:47 The scenario: the Eastside, two days without power
+0:58 Demo: Mrs. Lan's voice note becomes Venmo cash
+1:43 Unclaimed payout, rescued in Spanish
+2:05 Impersonator blocked, and who can move money
+2:30 An AI agent can pay only with two humans' signatures (MCP)
+2:43 One warm window, and where to try it
 
 What you are seeing
-• The opening and closing street, the relief form and the comment thread are drawings made for this video (the form is "a typical relief application", not a real one). The 300-requests figure is sourced below.
+• The relief form, the comment thread, the "How it works" steps and the opening and closing street are drawings made for this video (the form is "a typical relief application", not a real one). The 300-requests figure is sourced below.
 • Everything in the demo runs on the real engine (web app, separate approval service, database). PayPal is our local stand-in that mirrors PayPal's documented sandbox API ("Simulated PayPal sandbox" on screen). {AFTER THE SANDBOX RUN: "PayPal calls go to PayPal's sandbox; Rosa's claim is simulated."}
 • No real money moves. All people, handles and the group are fictional.
 • The organizers' taps come on cue. Approval 2 is a real click and a real WebAuthn passkey ceremony on a virtual authenticator in Chrome; Dana signs with a labelled demo key.
 • Rosa's segment is shown at 2× speed, and her claim is played by the PayPal stand-in.
 • The AI agent in the MCP segment is scripted (no model call) against the real MCP server.
-• The donor report uses seeded demo data.
 • Voices are synthetic: Mrs. Lan, Rosa and the narrator are AI text-to-speech (OpenAI gpt-4o-mini-tts). They are not real people.
 {FINAL CUT WITH A HUMAN NARRATOR (`build.mjs --vo-file`, neighborline-final.mp4): replace the line above with "• Mrs. Lan's voice note is AI text-to-speech (OpenAI gpt-4o-mini-tts) of a fictional person. The narrator is a member of the team."}
 
@@ -69,10 +68,10 @@ PayPal and Venmo are trademarks of PayPal, Inc. This is an independent hackathon
 ```
 
 Notes:
-- **Chapters**: YouTube needs the first at `0:00`, at least three, each at least 10 s long. The one-line beat
-  (0:26), the phone shots (0:42.8, 0:47.2, 1:02.7) and the close (2:40.3) are folded into their neighbors for that
-  reason; the impersonator shot (1:42.8, 9.8 s) opens the chapter that runs on through `/trust` and the rail, and the
-  two code cards (2:07.9–2:18.5, 10.6 s) are a chapter of their own.
+- **Chapters**: YouTube needs the first at `0:00`, at least three, each at least 10 s long. The phone shots
+  (1:07.8, 1:12.2, 1:27.7) are folded into the demo chapter for that reason; the storm street (0:46.8, 11 s) and the
+  close (2:42.6, 15.8 s) are long enough to stand alone, and the impersonator shot (2:05.1, 9.8 s) opens the chapter
+  that runs on through `/trust` and the rail.
 - If `{HOSTED_URL}` doesn't exist at upload time, replace the first ▶ line with
   `▶ Run it locally with zero credentials: corepack enable && pnpm i && pnpm dev` and edit the description later
   (the end card already says "Live demo link in the description").
